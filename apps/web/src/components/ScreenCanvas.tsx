@@ -92,6 +92,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     config, selectedWidgetId, selectedHeaderSlotId, selectWidget, selectHeaderSlot,
     addWidget, moveWidget, removeWidget,
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
+    setDraggingWidget,
   } = useEditorStore();
   const { canvas, grid, header, widgets, theme } = config;
 
@@ -300,18 +301,20 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     e.dataTransfer.setData('application/widget-id', id);
     e.dataTransfer.effectAllowed = 'move';
     draggingWidgetId.current = id;
+    setDraggingWidget(true);
     requestAnimationFrame(() => {
       const el = document.getElementById(`widget-${id}`);
       if (el) el.style.opacity = '0.5';
     });
-  }, [isEditing]);
+  }, [isEditing, setDraggingWidget]);
 
   const handleWidgetDragEnd = useCallback((e: React.DragEvent, id: string) => {
     const el = document.getElementById(`widget-${id}`);
     if (el) el.style.opacity = '1';
     draggingWidgetId.current = null;
+    setDraggingWidget(false);
     if (e.dataTransfer.dropEffect === 'none') removeWidget(id);
-  }, [removeWidget]);
+  }, [removeWidget, setDraggingWidget]);
 
   const handleHeaderElDragStart = useCallback((e: React.DragEvent, slotId: string) => {
     if (!isEditing) { e.preventDefault(); return; }

@@ -34,6 +34,7 @@ interface EditorState {
   selectedWidgetId: string | null;
   selectedHeaderSlotId: string | null;
   isEditorVisible: boolean;  // 编辑器是否可见
+  isDraggingWidget: boolean; // 是否正在拖拽已有组件（用于左侧栏删除提示）
   showGrid: boolean;
   snapToGrid: boolean;
 
@@ -59,6 +60,7 @@ interface EditorState {
   toggleEditor: () => void;
   showEditor: () => void;
   hideEditor: () => void;
+  setDraggingWidget: (v: boolean) => void;
   toggleGrid: () => void;
   toggleSnap: () => void;
 
@@ -246,6 +248,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   selectedWidgetId: null,
   selectedHeaderSlotId: null,
   isEditorVisible: false,  // 默认隐藏编辑器 → 展示态
+  isDraggingWidget: false,
   showGrid: true,
   snapToGrid: true,
 
@@ -522,6 +525,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   toggleEditor: () => set((s) => ({ isEditorVisible: !s.isEditorVisible })),
   showEditor: () => set({ isEditorVisible: true }),
   hideEditor: () => set({ isEditorVisible: false }),
+  setDraggingWidget: (v: boolean) => set({ isDraggingWidget: v }),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
 

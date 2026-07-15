@@ -2,6 +2,7 @@ import { useEditorStore } from '../store/editorStore';
 import { WidgetPalette } from './WidgetPalette';
 import { PropertyInspector } from './PropertyInspector';
 import { useState, useEffect, useCallback } from 'react';
+import { Trash2 } from 'lucide-react';
 
 /**
  * 编辑器浮层
@@ -10,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
  * 支持将画布组件拖入组件池区域来删除。
  */
 export function EditorOverlay() {
-  const { isEditorVisible, hideEditor, removeWidget } = useEditorStore();
+  const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, setDraggingWidget } = useEditorStore();
   const [activeTab, setActiveTab] = useState<'palette' | 'inspector'>('palette');
   const [dragOverDelete, setDragOverDelete] = useState(false);
 
@@ -48,9 +49,10 @@ export function EditorOverlay() {
         e.preventDefault();
         e.stopPropagation();
         removeWidget(widgetId);
+        setDraggingWidget(false);
       }
     },
-    [removeWidget],
+    [removeWidget, setDraggingWidget],
   );
 
   if (!isEditorVisible) return null;
@@ -59,7 +61,7 @@ export function EditorOverlay() {
     <div className="absolute inset-y-0 left-0 z-50 flex animate-slideIn">
       {/* 编辑器主体 */}
       <div
-        className={`w-[272px] bg-surface-panel border-r border-[rgba(255,255,255,0.06)] flex flex-col shadow-2xl shadow-black/50 transition-colors duration-200 ${
+        className={`relative w-[272px] bg-surface-panel border-r border-[rgba(255,255,255,0.06)] flex flex-col shadow-2xl shadow-black/50 transition-colors duration-200 ${
           dragOverDelete ? 'ring-2 ring-negative/50 bg-negative/5' : ''
         }`}
         onDragOver={handleDeleteDragOver}
@@ -89,9 +91,9 @@ export function EditorOverlay() {
               activeTab === 'palette'
                 ? 'text-accent-cool border-b border-accent-cool'
                 : 'text-textSecondary/50 hover:text-textSecondary/70'
-            } ${dragOverDelete ? 'text-negative' : ''}`}
+            }`}
           >
-            {dragOverDelete ? '释放以删除' : '组件池'}
+            组件池
           </button>
           <button
             onClick={() => setActiveTab('inspector')}
@@ -119,6 +121,34 @@ export function EditorOverlay() {
         <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.04)] flex-shrink-0">
           <ToolbarActions />
         </div>
+
+        {/* ─── 拖拽删除提示覆盖层 ─── */}
+        {isDraggingWidget && (
+          <div className={`absolute inset-0 z-20 pointer-events-none flex items-center justify-center transition-all duration-200 ${
+            dragOverDelete
+              ? 'bg-negative/15 backdrop-blur-sm'
+              : 'bg-negative/5 backdrop-blur-[3px]'
+          }`}>
+            <div className={`absolute inset-0 pointer-events-none transition-all duration-200 ${
+              dragOverDelete
+                ? 'ring-2 ring-negative/60'
+                : 'ring-2 ring-negative/30'
+            }`} />
+            <div className="flex flex-col items-center gap-1.5 z-10">
+              <Trash2 size={dragOverDelete ? 28 : 22} className={`transition-all duration-200 ${
+                dragOverDelete ? 'text-negative' : 'text-negative/60'
+              }`} strokeWidth={1.5} />
+              <span className={`font-bold tracking-wide transition-all duration-200 ${
+                dragOverDelete ? 'text-negative text-sm' : 'text-negative/80 text-xs'
+              }`}>
+                {dragOverDelete ? '释放以删除组件' : '拖拽组件到此处删除'}
+              </span>
+              {!dragOverDelete && (
+                <span className="text-[10px] text-negative/40">Drop here to remove</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
