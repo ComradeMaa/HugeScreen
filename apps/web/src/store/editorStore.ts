@@ -86,7 +86,7 @@ function createDefaultWidgets(slots: ScreenSlot[]): WidgetConfig[] {
     options: slot.defaultOptions ?? {},
     animation: { enabled: true },
     style: {
-      title: { show: true, text: slot.label, accent: true },
+      title: { primary: { text: slot.label } },
     },
   }));
 }
@@ -269,7 +269,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       options: def?.defaultConfig ?? {},
       animation: { enabled: true },
       style: {
-        title: { show: true, text: def?.name ?? type, accent: true },
+        title: { primary: { text: def?.name ?? type } },
       },
     };
     set((s) => {

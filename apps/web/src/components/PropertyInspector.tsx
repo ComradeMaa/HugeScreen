@@ -123,6 +123,32 @@ export function PropertyInspector() {
           </label>
         </FieldGroup>
 
+        {/* ═══ 标题配置 ═══ */}
+        <FieldGroup label="标题">
+          <TitleRow
+            label="一级标题"
+            value={widget.style.title?.primary?.text ?? ''}
+            onChange={(text) => updateWidget(widget.id, {
+              style: { ...widget.style, title: { ...widget.style.title, primary: text ? { text } : undefined } },
+            })}
+            onRemove={() => updateWidget(widget.id, {
+              style: { ...widget.style, title: { ...widget.style.title, primary: undefined } },
+            })}
+            hasSecondary={!!widget.style.title?.secondary}
+          />
+          <TitleRow
+            label="二级标题"
+            value={widget.style.title?.secondary?.text ?? ''}
+            onChange={(text) => updateWidget(widget.id, {
+              style: { ...widget.style, title: { ...widget.style.title, secondary: text ? { text } : undefined } },
+            })}
+            onRemove={() => updateWidget(widget.id, {
+              style: { ...widget.style, title: { ...widget.style.title, secondary: undefined } },
+            })}
+            hasPrimary={!!widget.style.title?.primary}
+          />
+        </FieldGroup>
+
         <FieldGroup label="信息">
           <div className="text-xs text-textSecondary/60">
             <div className="flex justify-between py-1">
@@ -171,6 +197,60 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
         {label}
       </div>
       <div className="bg-surface-base/50 rounded p-2 space-y-2">{children}</div>
+    </div>
+  );
+}
+
+/** 标题行：有值时显示输入框+删除按钮，无值时显示添加按钮 */
+function TitleRow({
+  label, value, onChange, onRemove, hasPrimary, hasSecondary,
+}: {
+  label: string;
+  value: string;
+  onChange: (text: string) => void;
+  onRemove: () => void;
+  hasPrimary?: boolean;
+  hasSecondary?: boolean;
+}) {
+  if (value || (hasPrimary !== undefined && hasSecondary !== undefined)) {
+    // 已有标题 → 显示编辑
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] text-textSecondary/50 w-12 flex-shrink-0">{label}</span>
+        {value ? (
+          <>
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={label}
+              className="flex-1 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors min-w-0"
+            />
+            <button
+              onClick={onRemove}
+              className="text-[10px] text-textSecondary/30 hover:text-negative transition-colors flex-shrink-0 px-1"
+              title={`删除${label}`}
+            >
+              ×
+            </button>
+          </>
+        ) : (
+          <span className="flex-1 text-[10px] text-textSecondary/30 italic">未设置</span>
+        )}
+      </div>
+    );
+  }
+
+  // 无标题 → 显示添加按钮
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] text-textSecondary/50 w-12 flex-shrink-0">{label}</span>
+      <button
+        onClick={() => onChange(label === '一级标题' ? '主标题' : '副标题')}
+        className="text-[10px] text-accent-cool/50 hover:text-accent-cool transition-colors"
+      >
+        + 添加
+      </button>
     </div>
   );
 }

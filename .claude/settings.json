@@ -36,7 +36,9 @@
       "Bash(start \"\" \"http://localhost:3000/screen\")",
       "Bash(start \"\" \"http://localhost:3005/screen\")",
       "Bash(taskkill /F /IM node.exe)",
-      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")"
+      "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(git commit -m 'feat: 固定顶栏重构 + 区块吸附系统完善 *)",
+      "Bash(/d/Python/HugeScreen/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc --noEmit -p /d/Python/HugeScreen/packages/widgets/tsconfig.json)"
     ]
   }
 }

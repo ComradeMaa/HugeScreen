@@ -442,7 +442,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             key={widget.id}
             id={`widget-${widget.id}`}
             draggable={isEditing}
-            className={`absolute overflow-hidden transition-shadow duration-300
+            className={`absolute overflow-hidden flex flex-col transition-shadow duration-300
               ${isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
               ${isCenter && !isEditing ? 'z-10' : 'z-0'}
             `}
@@ -463,19 +463,16 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               <div className="absolute inset-0 ring-1 ring-accent-cool pointer-events-none z-20" />
             )}
 
-            {(isEditing || isCenter) && widget.style.title?.show && (
-              <div className="absolute top-0 left-0 right-0 z-10 flex items-center px-4 py-2">
-                <div className="w-0.5 h-3 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: theme.colors.primary }} />
-                <span className={`font-medium tracking-wide truncate ${isCenter && !isEditing ? 'text-sm text-white' : 'text-[11px] text-textSecondary'}`}>
-                  {widget.style.title.text || widget.displayName}
-                </span>
-                {isCenter && !isEditing && (
-                  <div className="flex-1 ml-3 h-px bg-gradient-to-r from-accent-cool/30 to-transparent" />
-                )}
-              </div>
-            )}
+            {/* ═══ 标准化标题区块 ═══ */}
+            <WidgetTitleBar
+              primary={widget.style.title?.primary}
+              secondary={widget.style.title?.secondary}
+              isCenter={isCenter}
+              isEditing={isEditing}
+              accentColor={theme.colors.primary}
+            />
 
-            <div className="w-full h-full">
+            <div className="flex-1 min-h-0 w-full">
               {Comp ? (
                 <Suspense fallback={<div className="flex items-center justify-center h-full text-textSecondary/20 text-xs">...</div>}>
                   <Comp {...(def?.defaultConfig ?? {})} {...(widget.options as object)} />
@@ -520,6 +517,76 @@ function GridOverlay({ grid, canvasWidth, canvasHeight }: { grid: { cols: number
       {lines.cols.map(x => <line key={`c-${x}`} x1={x} y1={0} x2={x} y2={canvasHeight} stroke="rgba(255,255,255,0.06)" strokeWidth={0.5} strokeDasharray="4 4" />)}
       {lines.rows.map(y => <line key={`r-${y}`} x1={0} y1={y} x2={canvasWidth} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={0.5} strokeDasharray="4 4" />)}
     </svg>
+  );
+}
+
+// ═══════════════════════════════════════════
+// 标准化标题区块
+// ═══════════════════════════════════════════
+
+interface WidgetTitleBarProps {
+  primary?: { text: string };
+  secondary?: { text: string };
+  isCenter: boolean;
+  isEditing: boolean;
+  accentColor: string;
+}
+
+function WidgetTitleBar({ primary, secondary, isCenter, isEditing, accentColor }: WidgetTitleBarProps) {
+  const hasPrimary = !!primary?.text;
+  const hasSecondary = !!secondary?.text;
+  const hasAny = hasPrimary || hasSecondary;
+
+  // 没有任何标题 → 不占用空间
+  if (!hasAny) return null;
+
+  const both = hasPrimary && hasSecondary;
+
+  return (
+    <div
+      className="flex items-center flex-shrink-0 z-10"
+      style={{
+        height: both ? 44 : hasPrimary ? 32 : 24,
+        paddingLeft: 16,
+        paddingRight: 16,
+      }}
+    >
+      {/* 左侧强调色条 */}
+      <div
+        className="rounded-full flex-shrink-0"
+        style={{
+          width: 2,
+          height: both ? 24 : hasPrimary ? 16 : 12,
+          backgroundColor: accentColor,
+          marginRight: 8,
+        }}
+      />
+
+      {/* 标题文字 */}
+      <div className="flex flex-col justify-center min-w-0 flex-1">
+        {hasPrimary && (
+          <span
+            className="text-white font-semibold tracking-wide truncate leading-tight"
+            style={{ fontSize: both ? 12 : 13 }}
+          >
+            {primary!.text}
+          </span>
+        )}
+        {hasSecondary && (
+          <span
+            className="text-textSecondary/60 tracking-wide truncate leading-tight"
+            style={{ fontSize: both ? 10 : 11, marginTop: both ? 1 : 0 }}
+          >
+            {secondary!.text}
+          </span>
+        )}
+      </div>
+
+      {/* 中心组件展示态：装饰渐变线 */}
+      {isCenter && !isEditing && (
+        <div className="flex-1 ml-3 h-px bg-gradient-to-r from-accent-cool/30 to-transparent flex-shrink-0" />
+      )}
+    </div>
   );
 }
 

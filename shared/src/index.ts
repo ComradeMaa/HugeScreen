@@ -125,13 +125,13 @@ export interface WidgetStyle {
   borderRadius?: number;
   backgroundColor?: string;
   opacity?: number;
-  title?: WidgetTitle;
+  title?: WidgetTitleConfig;
 }
 
-export interface WidgetTitle {
-  show: boolean;
-  text: string;
-  accent?: boolean;
+/** 一级/二级标题配置。存在即显示，不存在即不占空间 */
+export interface WidgetTitleConfig {
+  primary?: { text: string };
+  secondary?: { text: string };
 }
 
 // ─── 主题 ───
