@@ -98,6 +98,11 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const draggingWidgetId = useRef<string | null>(null);
+  // 自定义拖拽副本（替代浏览器默认半透明鬼影）
+  const dragCloneEl = useRef<HTMLElement | null>(null);
+  const dragCloneOffset = useRef({ x: 0, y: 0 });
+  const dragCleanup = useRef<(() => void) | null>(null);
+  const dragDidMove = useRef(false); // 区分真实拖拽和点击
 
   type Preview = BlockSlot & { blocked?: boolean };
   const [dropPreview, setDropPreview] = useState<Preview | null>(null);
@@ -302,18 +307,68 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     e.dataTransfer.effectAllowed = 'move';
     draggingWidgetId.current = id;
     setDraggingWidget(true);
+
+    const sourceEl = e.currentTarget as HTMLElement;
+    const rect = sourceEl.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    // ★ 关键：先克隆再隐藏原组件，避免 clone 继承 visibility:hidden
+    const clone = sourceEl.cloneNode(true) as HTMLElement;
+    clone.style.position = 'fixed';
+    clone.style.left = (e.clientX - offsetX) + 'px';
+    clone.style.top = (e.clientY - offsetY) + 'px';
+    clone.style.width = rect.width + 'px';
+    clone.style.height = rect.height + 'px';
+    clone.style.margin = '0';
+    clone.style.pointerEvents = 'none';
+    clone.style.zIndex = '10000';
+    clone.style.opacity = '0.92';
+    document.body.appendChild(clone);
+    dragCloneEl.current = clone;
+    dragCloneOffset.current = { x: offsetX, y: offsetY };
+    dragDidMove.current = false;
+
+    // 用微小可见元素替换默认鬼影（必须在视口内，否则部分浏览器拒绝拖拽）
+    const ghost = document.createElement('div');
+    ghost.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 0, 0);
+
+    // 下一帧再隐藏原组件 — 同步 visibility:hidden 在 dragStart 中会扼杀拖拽
     requestAnimationFrame(() => {
-      const el = document.getElementById(`widget-${id}`);
-      if (el) el.style.opacity = '0.5';
+      ghost.remove();
+      sourceEl.style.visibility = 'hidden';
     });
+
+    // 全局 dragover 跟踪鼠标，实时更新副本位置（capture 阶段确保不被 stopPropagation 拦截）
+    const onDocDragOver = (de: DragEvent) => {
+      if (!dragCloneEl.current) return;
+      dragCloneEl.current.style.left = (de.clientX - dragCloneOffset.current.x) + 'px';
+      dragCloneEl.current.style.top = (de.clientY - dragCloneOffset.current.y) + 'px';
+      dragDidMove.current = true;
+    };
+    document.addEventListener('dragover', onDocDragOver, true);
+    dragCleanup.current = () => document.removeEventListener('dragover', onDocDragOver, true);
   }, [isEditing, setDraggingWidget]);
 
   const handleWidgetDragEnd = useCallback((e: React.DragEvent, id: string) => {
-    const el = document.getElementById(`widget-${id}`);
-    if (el) el.style.opacity = '1';
+    // 清理自定义拖拽副本
+    if (dragCloneEl.current) {
+      dragCloneEl.current.remove();
+      dragCloneEl.current = null;
+    }
+    if (dragCleanup.current) {
+      dragCleanup.current();
+      dragCleanup.current = null;
+    }
     draggingWidgetId.current = null;
     setDraggingWidget(false);
-    if (e.dataTransfer.dropEffect === 'none') removeWidget(id);
+    // 组件未被删除（拖到合法新位置或取消）→ 恢复可见性
+    const el = document.getElementById(`widget-${id}`);
+    if (el) el.style.visibility = 'visible';
+    // 仅当确实发生了拖拽移动（而非单纯点击）且未被任何目标接收时，才删除
+    if (dragDidMove.current && e.dataTransfer.dropEffect === 'none') removeWidget(id);
   }, [removeWidget, setDraggingWidget]);
 
   const handleHeaderElDragStart = useCallback((e: React.DragEvent, slotId: string) => {
