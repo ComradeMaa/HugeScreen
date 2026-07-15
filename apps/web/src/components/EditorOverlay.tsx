@@ -11,7 +11,7 @@ import { Trash2 } from 'lucide-react';
  * 支持将画布组件拖入组件池区域来删除。
  */
 export function EditorOverlay() {
-  const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, setDraggingWidget } = useEditorStore();
+  const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, removeHeaderElement, setDraggingWidget } = useEditorStore();
   const [activeTab, setActiveTab] = useState<'palette' | 'inspector'>('palette');
   const [dragOverDelete, setDragOverDelete] = useState(false);
 
@@ -27,9 +27,10 @@ export function EditorOverlay() {
     }
   }, [isEditorVisible, handleKey]);
 
-  // ─── 接收拖入的画布组件 → 删除 ───
+  // ─── 接收拖入的画布组件 / 顶栏元素 → 删除 ───
   const handleDeleteDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/widget-id')) {
+    if (e.dataTransfer.types.includes('application/widget-id') ||
+        e.dataTransfer.types.includes('application/header-element-id')) {
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
@@ -45,14 +46,20 @@ export function EditorOverlay() {
     (e: React.DragEvent) => {
       setDragOverDelete(false);
       const widgetId = e.dataTransfer.getData('application/widget-id');
+      const headerSlotId = e.dataTransfer.getData('application/header-element-id');
       if (widgetId) {
         e.preventDefault();
         e.stopPropagation();
         removeWidget(widgetId);
         setDraggingWidget(false);
+      } else if (headerSlotId) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeHeaderElement(headerSlotId);
+        setDraggingWidget(false);
       }
     },
-    [removeWidget, setDraggingWidget],
+    [removeWidget, removeHeaderElement, setDraggingWidget],
   );
 
   if (!isEditorVisible) return null;

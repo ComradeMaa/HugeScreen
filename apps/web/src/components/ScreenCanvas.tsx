@@ -102,6 +102,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const dragCloneEl = useRef<HTMLElement | null>(null);
   const dragCloneOffset = useRef({ x: 0, y: 0 });
   const dragCleanup = useRef<(() => void) | null>(null);
+  const dragSourceEl = useRef<HTMLElement | null>(null);
   const dragDidMove = useRef(false); // 区分真实拖拽和点击
 
   type Preview = BlockSlot & { blocked?: boolean };
@@ -173,7 +174,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         e.dataTransfer.types.includes('application/header-element-id')) {
       e.preventDefault();
       e.stopPropagation();
-      e.dataTransfer.dropEffect = 'copy';
+      // palette 拖入 → copy；已有顶栏换位 → move（必须与 effectAllowed 匹配，否则浏览器重置为 none）
+      e.dataTransfer.dropEffect = e.dataTransfer.types.includes('application/header-element-type')
+        ? 'copy' : 'move';
       const { x } = clientToDesign(e.clientX, e.clientY);
       let acc = headerPx.left;
       for (let i = 0; i < header.slots.length; i++) {
@@ -300,15 +303,36 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     }
   }, [clientToDesign, grid, canvas.width, canvas.height, widgets, addWidget, moveWidget, headerBottom]);
 
+  // ─── 共享清理函数 ───
+  function doDragCleanup() {
+    if (dragCloneEl.current) {
+      dragCloneEl.current.remove();
+      dragCloneEl.current = null;
+    }
+    if (dragCleanup.current) {
+      dragCleanup.current();
+      dragCleanup.current = null;
+    }
+    if (dragSourceEl.current) {
+      dragSourceEl.current.style.visibility = 'visible';
+      dragSourceEl.current = null;
+    }
+  }
+
   // ═══ 拖拽生命周期 ═══
   const handleWidgetDragStart = useCallback((e: React.DragEvent, id: string) => {
     if (!isEditing) { e.preventDefault(); return; }
+
+    // 防御性清理上一次拖拽残留
+    doDragCleanup();
+
     e.dataTransfer.setData('application/widget-id', id);
     e.dataTransfer.effectAllowed = 'move';
     draggingWidgetId.current = id;
     setDraggingWidget(true);
 
     const sourceEl = e.currentTarget as HTMLElement;
+    dragSourceEl.current = sourceEl;
     const rect = sourceEl.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
@@ -334,8 +358,6 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     ghost.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0';
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 0, 0);
-
-    // 下一帧再隐藏原组件 — 同步 visibility:hidden 在 dragStart 中会扼杀拖拽
     requestAnimationFrame(() => {
       ghost.remove();
       sourceEl.style.visibility = 'hidden';
@@ -350,18 +372,23 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     };
     document.addEventListener('dragover', onDocDragOver, true);
     dragCleanup.current = () => document.removeEventListener('dragover', onDocDragOver, true);
+
+    // 原生 dragend 兜底：即使 React 在 drop 时卸载了元素（侧边栏删除），也能保证清理
+    const onNativeDragEnd = () => {
+      document.removeEventListener('dragend', onNativeDragEnd);
+      doDragCleanup();
+      draggingWidgetId.current = null;
+      setDraggingWidget(false);
+      if (dragDidMove.current && !dragCloneEl.current) {
+        // clone 已被 doDragCleanup 移除，说明此 dragend 是原生兜底触发
+        // dropEffect 此时无法可靠读取，不做额外删除（handleDeleteDrop 已处理）
+      }
+    };
+    document.addEventListener('dragend', onNativeDragEnd);
   }, [isEditing, setDraggingWidget]);
 
   const handleWidgetDragEnd = useCallback((e: React.DragEvent, id: string) => {
-    // 清理自定义拖拽副本
-    if (dragCloneEl.current) {
-      dragCloneEl.current.remove();
-      dragCloneEl.current = null;
-    }
-    if (dragCleanup.current) {
-      dragCleanup.current();
-      dragCleanup.current = null;
-    }
+    doDragCleanup();
     draggingWidgetId.current = null;
     setDraggingWidget(false);
     // 组件未被删除（拖到合法新位置或取消）→ 恢复可见性
@@ -371,15 +398,73 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     if (dragDidMove.current && e.dataTransfer.dropEffect === 'none') removeWidget(id);
   }, [removeWidget, setDraggingWidget]);
 
+  // ─── 顶栏元素拖拽（与普通组件共用同一套自定义拖拽副本机制）───
   const handleHeaderElDragStart = useCallback((e: React.DragEvent, slotId: string) => {
     if (!isEditing) { e.preventDefault(); return; }
+
+    // 防御性清理上一次拖拽残留
+    doDragCleanup();
+
     e.dataTransfer.setData('application/header-element-id', slotId);
     e.dataTransfer.effectAllowed = 'move';
-  }, [isEditing]);
+    setDraggingWidget(true);
 
-  const handleHeaderElDragEnd = useCallback((e: React.DragEvent, slotId: string) => {
-    if (e.dataTransfer.dropEffect === 'none') removeHeaderElement(slotId);
-  }, [removeHeaderElement]);
+    const sourceEl = e.currentTarget as HTMLElement;
+    dragSourceEl.current = sourceEl;
+    const rect = sourceEl.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    // 先克隆再隐藏，避免继承 visibility:hidden
+    const clone = sourceEl.cloneNode(true) as HTMLElement;
+    clone.style.position = 'fixed';
+    clone.style.left = (e.clientX - offsetX) + 'px';
+    clone.style.top = (e.clientY - offsetY) + 'px';
+    clone.style.width = rect.width + 'px';
+    clone.style.height = rect.height + 'px';
+    clone.style.margin = '0';
+    clone.style.pointerEvents = 'none';
+    clone.style.zIndex = '10000';
+    clone.style.opacity = '0.92';
+    document.body.appendChild(clone);
+    dragCloneEl.current = clone;
+    dragCloneOffset.current = { x: offsetX, y: offsetY };
+    dragDidMove.current = false;
+
+    const ghost = document.createElement('div');
+    ghost.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 0, 0);
+    // 顶栏不隐藏源元素（无"拿起来"效果），只移除鬼影
+    requestAnimationFrame(() => {
+      ghost.remove();
+    });
+
+    const onDocDragOver = (de: DragEvent) => {
+      if (!dragCloneEl.current) return;
+      dragCloneEl.current.style.left = (de.clientX - dragCloneOffset.current.x) + 'px';
+      dragCloneEl.current.style.top = (de.clientY - dragCloneOffset.current.y) + 'px';
+      dragDidMove.current = true;
+    };
+    document.addEventListener('dragover', onDocDragOver, true);
+    dragCleanup.current = () => document.removeEventListener('dragover', onDocDragOver, true);
+
+    // 原生 dragend 兜底
+    const onNativeDragEnd = () => {
+      document.removeEventListener('dragend', onNativeDragEnd);
+      doDragCleanup();
+      setDraggingWidget(false);
+    };
+    document.addEventListener('dragend', onNativeDragEnd);
+  }, [isEditing, setDraggingWidget]);
+
+  const handleHeaderElDragEnd = useCallback((_e: React.DragEvent, slotId: string) => {
+    doDragCleanup();
+    setDraggingWidget(false);
+    const el = document.getElementById(`header-slot-${slotId}`);
+    if (el) el.style.visibility = 'visible';
+    // 顶栏元素仅通过拖入左侧删除区销毁，拖到其他位置松手自动回到原处
+  }, [setDraggingWidget]);
 
   // ═══════════════════════════════════
   return (
@@ -409,6 +494,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             return (
               <div
                 key={slot.id}
+                id={`header-slot-${slot.id}`}
                 draggable={isEditing && !!slot.elementType}
                 className={`relative overflow-hidden ${isEditing ? 'cursor-pointer' : ''}`}
                 style={{
@@ -419,7 +505,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                 }}
                 onClick={e => { if (isEditing) { e.stopPropagation(); selectHeaderSlot(slot.id); } }}
                 onDragStart={e => { if (slot.elementType) handleHeaderElDragStart(e, slot.id); }}
-                onDragEnd={e => { if (slot.elementType) handleHeaderElDragEnd(e, slot.id); }}
+                onDragEnd={e => handleHeaderElDragEnd(e, slot.id)}
               >
                 {ElComp ? (
                   <ElComp {...(elDef!.defaultConfig ?? {})} {...(slot.options as object)} />
