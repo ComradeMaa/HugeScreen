@@ -1,0 +1,231 @@
+# HugeScreen
+
+组件化可拖拽数据可视化大屏幕 — 可配置的通用数据可视化平台。
+
+## 项目概述
+
+用户通过拖拽方式自由组合数据组件到画布上，组件可缩放、可配置数据源和样式。屏幕中央默认放置 3D 炫酷组件（数据城市），周围环绕 2D 数据组件（统计卡、图表、表格）。整体稳重高级暗色 UI，搭配克制的微动效，支持桌面/平板/手机全设备响应式适配。
+
+## 技术栈
+
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| 构建 | Vite 5 + TypeScript 5 | 快速开发，严格类型 |
+| 框架 | React 18 + React Router 6 | SPA 路由 |
+| 状态 | Zustand | 轻量、不可变、支持时间旅行调试 |
+| 2D 图表 | ECharts 5 | 按需引入，减少包体积 |
+| 3D 渲染 | Three.js + @react-three/fiber + @react-three/drei | React 声明式 3D |
+| 样式 | Tailwind CSS 4 + CSS Modules | 原子化 + 组件隔离 |
+| 拖拽 | @dnd-kit/core | 现代、可访问、多输入支持 |
+| 动效 | Framer Motion + CSS Animations | 2D 过渡和微动效 |
+| 桌面端 | Electron + electron-vite | 桌面应用打包 |
+| 测试 | Vitest + Playwright | 单元 + E2E |
+| 包管理 | pnpm | monorepo workspace |
+
+## 项目结构
+
+```
+HugeScreen/
+├── packages/
+│   ├── core/src/                  # 核心引擎
+│   │   ├── registry/              #   组件注册系统 (plugin pattern)
+│   │   ├── layout/                #   网格布局引擎 + 响应式断点
+│   │   ├── event-bus/             #   组件间事件总线
+│   │   └── types/                 #   核心类型定义
+│   ├── widgets/src/               # 可视化组件库
+│   │   ├── stat-card/             #   数字统计卡 (趋势箭头/迷你图)
+│   │   ├── charts/                #   LineChart, BarChart, PieChart, Radar, Gauge
+│   │   ├── table/                 #   DataTable (虚拟滚动), RankList
+│   │   ├── three-d/               #   3D 组件 (DataCity, Globe, ParticleField)
+│   │   └── decorators/            #   装饰组件 (BorderFrame, Title, DateTime)
+│   ├── editor/src/                # 编辑器
+│   │   ├── canvas/                #   画布 (网格覆盖层 + 放置区)
+│   │   ├── palette/               #   组件库面板 (左侧)
+│   │   ├── inspector/             #   属性配置面板 (右侧, 动态表单)
+│   │   ├── toolbar/               #   顶部工具栏
+│   │   └── context-menu/          #   右键菜单
+│   ├── renderer/src/              # 大屏展示渲染器
+│   │   ├── screen/                #   屏幕容器 (全屏展示态)
+│   │   ├── animation/             #   动效编排引擎
+│   │   └── theme/                 #   主题系统
+│   └── data/src/                  # 数据层
+│       ├── adapters/              #   REST / WebSocket / Static 适配器
+│       ├── cache/                 #   数据缓存 (TTL + LRU)
+│       └── transform/             #   数据转换管道
+├── apps/
+│   ├── web/                       # Web 版入口 (Vite SPA)
+│   └── desktop/                   # Electron 封装
+├── shared/                        # 共享类型、常量、工具函数
+├── pnpm-workspace.yaml
+├── turbo.json
+└── tsconfig.base.json
+```
+
+## 核心数据模型
+
+```typescript
+// 大屏完整配置
+interface ScreenConfig {
+  id: string;
+  name: string;
+  version: '1.0';
+  canvas: { width: number; height: number; scaleMode: 'auto' | 'width' | 'height' | 'none'; backgroundColor: string };
+  grid: { cols: number; rows: number; gap: number; snapToGrid: boolean };
+  responsive: {
+    desktop: LayoutBreakpoint;   // ≥1440px
+    tablet: LayoutBreakpoint;    // 768-1439px
+    mobile: LayoutBreakpoint;    // <768px
+  };
+  widgets: WidgetConfig[];
+  theme: ThemeConfig;
+}
+
+// 断点布局
+interface LayoutBreakpoint {
+  grid: { cols: number; rows: number; gap: number };
+  widgetLayouts: Record<string, WidgetLayout>;
+  hiddenWidgets: string[];
+}
+
+// 组件配置
+interface WidgetConfig {
+  id: string;
+  type: string;
+  displayName: string;
+  category: 'stat' | 'chart' | 'table' | '3d' | 'media' | 'decorator';
+  layout: WidgetLayout;
+  dataSource: DataSourceConfig;
+  options: Record<string, any>;
+  animation: WidgetAnimation;
+  style: WidgetStyle;
+}
+
+// 数据源
+interface DataSourceConfig {
+  type: 'rest' | 'websocket' | 'static';
+  config: {
+    url?: string; method?: 'GET' | 'POST';
+    interval?: number; throttle?: number;
+    headers?: Record<string, string>;
+    jsonPath?: string;
+  };
+  staticData?: any;
+  mapping: Record<string, string>;
+  transform?: TransformStep[];
+}
+```
+
+## 架构
+
+```
+数据源层 (REST / WebSocket / Static)
+       │
+数据管道 (Adapter → Cache → Transform)
+       │
+ ┌─────┼─────────────────┐
+ │     │                 │
+2D组件  3D中心组件      装饰组件
+ECharts Three.js       CSS/Canvas
+ │     │                 │
+ └─────┼─────────────────┘
+       │
+组件注册系统 (Registry)
+       │
+编辑器 / 渲染器 (画布 + 属性面板 + 预览)
+```
+
+### 数据流
+
+- 每个 Widget 实例化时通过 EventBus 订阅自己的数据 channel
+- WebSocket 适配器收到消息 → DataCache → 通知订阅者
+- 更新节流 100ms，断线指数退避重连 (1s→2s→4s→...→max 30s)
+- ECharts `setOption(newOption, { notMerge: false })` 增量更新
+- Three.js 在 rAF 中插值过渡建筑高度
+
+### 3D 降级策略
+
+- Desktop (≥1440px): 完整渲染
+- Laptop (1024-1439px): 缩小，粒子减半
+- Tablet (768-1023px): 简化静态渲染
+- Mobile (<768px): 不渲染，跳过 Three.js 代码块
+
+## 默认布局
+
+**桌面端 (1+2 三列)**
+
+```
+┌──────────┬──────────────────┬──────────┐
+│ StatCard │  ★ 3D 数据城市 ★ │ StatCard │
+│ PieChart │  (Three.js)      │ BarChart │
+│ RankList │                  │ DataTable│
+└──────────┴──────────────────┴──────────┘
+  2 cols         6 cols          2 cols
+```
+
+**手机端 (单列滚动，3D 隐藏)**
+
+```
+┌─────────────┐
+│ StatCard    │
+│ StatCard    │
+│ LineChart   │
+│ RankList    │
+└─────────────┘
+```
+
+## 设计系统
+
+### 配色 (Dark Premium)
+
+```
+底色:      #0a0e1a    最深
+面板:      #161b2a    微亮区分层级
+强调冷:    #7eb8da    链接/选中
+强调暖:    #c9a96e    警示/标记
+涨/跌:     #34d399 / #f87171
+边框:      rgba(255,255,255,0.06)
+文字:      #e0e0e0 / #8892a4 / #ffffff
+```
+
+### 动效分级
+
+| 级别 | 类型 | 默认 |
+|------|------|------|
+| L0 | 静态 | — |
+| L1 | 微动效 (数字滚动/hover) | 全开 |
+| L2 | 环境动效 (粒子/呼吸) | 桌面开 |
+| L3 | 数据动效 (流线/图表过渡) | 可配 |
+
+### 字体
+
+- UI: Inter / PingFang SC
+- 数据: JetBrains Mono (等宽)
+
+## 开发阶段
+
+### 第一期：基础框架
+pnpm monorepo → 核心类型 → 注册系统 → 布局引擎 → 拖拽 → StatCard/LineChart/PieChart
+
+### 第二期：完整编辑器
+三栏布局 → 属性面板(动态表单) → resize handles → 右键菜单 → 撤销重做 → 本地存读
+
+### 第三期：3D + 主题
+R3F 集成 → 数据城市(建筑群+粒子+流线) → Dark Premium 主题 → 装饰组件
+
+### 第四期：数据 + 动效
+REST/WS 适配器 → 数据配置 UI → 转换管道 → 数字滚动 → 图表过渡 → 动效级别控制
+
+### 第五期：响应式 + 桌面端
+断点系统 → 移动端简化 → Electron → 全屏模式 → 性能优化 → 轮播
+
+## 开发命令
+
+```bash
+pnpm dev              # 启动 Web 开发服务器
+pnpm dev:desktop      # 启动 Electron 开发
+pnpm build            # 构建 Web 生产版本
+pnpm build:desktop    # 打包 Electron 应用
+pnpm test             # 运行 Vitest 单元测试
+pnpm test:e2e         # 运行 Playwright E2E 测试
+pnpm lint             # ESLint + Prettier 检查
+```

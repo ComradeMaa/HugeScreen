@@ -1,0 +1,19 @@
+{
+  "name": "hugescreen",
+  "version": "0.1.0",
+  "private": true,
+  "description": "组件化可拖拽数据可视化大屏幕",
+  "scripts": {
+    "dev": "pnpm --filter @hugescreen/web dev",
+    "dev:desktop": "pnpm --filter @hugescreen/desktop dev",
+    "build": "pnpm --filter @hugescreen/web build",
+    "build:desktop": "pnpm --filter @hugescreen/desktop build",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  }
+}

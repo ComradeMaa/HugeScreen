@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install *)",
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npx pnpm *)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm exec *)",
+      "Bash(pnpm --filter @hugescreen/web exec tsc --noEmit)",
+      "Bash(pnpm --filter @hugescreen/web add zundo)",
+      "Bash(pnpm --filter @hugescreen/web dev)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/screen)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(ls -la /c/Users/R9000P/AppData/Local/Temp/claude/d--Python-HugeScreen/b04074f2-6f3e-4744-a29d-380062e2268c/tasks/ 2>&1)",
+      "Read(//c/Users/R9000P/AppData/Local/Temp/claude/d--Python-HugeScreen/b04074f2-6f3e-4744-a29d-380062e2268c/tasks//**)",
+      "Bash(start http://localhost:3002/screen)",
+      "Read(//c/Users/R9000P/AppData/Local/Temp/claude/d--Python-HugeScreen/**)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 30172 //PID 23760 //PID 16868 //PID 31208 //PID 45804)",
+      "Bash(start http://localhost:3000/screen)",
+      "Bash(d:/Python/HugeScreen/node_modules/.bin/tsc --noEmit -p d:/Python/HugeScreen/apps/web/tsconfig.json)",
+      "Bash(/d/Python/HugeScreen/node_modules/.bin/tsc --noEmit -p /d/Python/HugeScreen/apps/web/tsconfig.json)",
+      "Bash(/d/Python/HugeScreen/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc --noEmit -p /d/Python/HugeScreen/apps/web/tsconfig.json)",
+      "Bash(/d/Python/HugeScreen/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc --noEmit -p /d/Python/HugeScreen/packages/core/tsconfig.json)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/screen)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

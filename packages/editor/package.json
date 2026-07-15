@@ -1,0 +1,24 @@
+{
+  "name": "@hugescreen/editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@hugescreen/shared": "workspace:*",
+    "@hugescreen/core": "workspace:*",
+    "@hugescreen/widgets": "workspace:*"
+  },
+  "peerDependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@dnd-kit/utilities": "^3.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "zustand": "^4.5.0"
+  }
+}

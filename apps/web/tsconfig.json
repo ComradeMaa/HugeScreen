@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@hugescreen/shared": ["../../shared/src"],
+      "@hugescreen/core": ["../../packages/core/src"],
+      "@hugescreen/data": ["../../packages/data/src"],
+      "@hugescreen/widgets": ["../../packages/widgets/src"],
+      "@hugescreen/editor": ["../../packages/editor/src"],
+      "@hugescreen/renderer": ["../../packages/renderer/src"]
+    }
+  },
+  "include": ["src"]
+}
