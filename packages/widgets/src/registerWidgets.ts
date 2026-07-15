@@ -3,27 +3,6 @@ import { widgetRegistry } from '@hugescreen/core';
 
 export function registerBuiltinWidgets(): void {
   widgetRegistry.registerAll([
-    // ─── 装饰 ───
-    {
-      type: 'screen-header',
-      name: '顶栏',
-      description: '标题栏 + 实时时钟',
-      icon: 'LayoutDashboard',
-      category: 'decorator',
-      defaultSize: { colSpan: 8, rowSpan: 1 },
-      minSize: { colSpan: 4, rowSpan: 1 },
-      maxSize: { colSpan: 8, rowSpan: 1 },
-      component: lazy(() => import('./decorators/ScreenHeader').then(m => ({ default: m.ScreenHeader }))),
-      configSchema: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', title: '标题' },
-          subtitle: { type: 'string', title: '副标题' },
-        },
-      },
-      defaultConfig: { title: '数据监控中心' },
-    },
-
     // ─── 统计卡 ───
     {
       type: 'stat-card',

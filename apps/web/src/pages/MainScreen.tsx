@@ -19,6 +19,7 @@ export function MainScreen() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [globalDragOver, setGlobalDragOver] = useState(false);
+  const [scale, setScale] = useState(1);
 
   // 启动时加载本地配置
   useEffect(() => {
@@ -28,28 +29,32 @@ export function MainScreen() {
     }
   }, [loadConfig]);
 
+  // 缩放比：编辑模式需扣除左侧面板宽度
+  const EDITOR_PANEL_WIDTH = 280;
+  useEffect(() => {
+    const calc = () => {
+      if (!containerRef.current) return;
+      const cw = containerRef.current.clientWidth;
+      const ch = containerRef.current.clientHeight;
+      const availW = isEditorVisible ? cw - EDITOR_PANEL_WIDTH : cw;
+      setScale(Math.min(availW / config.canvas.width, ch / config.canvas.height));
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, [config.canvas, isEditorVisible]);
+
   // 快捷键
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      // Ctrl+E 切换编辑器
       if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
         e.preventDefault();
-        if (isEditorVisible) {
-          hideEditor();
-        } else {
-          showEditor();
-        }
+        isEditorVisible ? hideEditor() : showEditor();
       }
-      // ESC 关闭编辑器
-      if (e.key === 'Escape' && isEditorVisible) {
-        hideEditor();
-      }
-      // Delete 键删除选中组件
+      if (e.key === 'Escape' && isEditorVisible) hideEditor();
       if (e.key === 'Delete' && isEditorVisible) {
         const { selectedWidgetId, removeWidget: rm } = useEditorStore.getState();
-        if (selectedWidgetId) {
-          rm(selectedWidgetId);
-        }
+        if (selectedWidgetId) rm(selectedWidgetId);
       }
     },
     [isEditorVisible, showEditor, hideEditor],
@@ -60,7 +65,7 @@ export function MainScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // ─── 全局拖拽悬停指示（画布组件拖出时） ───
+  // ─── 全局拖拽 ───
   const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/widget-id')) {
       e.preventDefault();
@@ -69,31 +74,31 @@ export function MainScreen() {
   }, []);
 
   const handleGlobalDragLeave = useCallback((e: React.DragEvent) => {
-    // 仅当真正离开容器时清除
-    if (e.currentTarget === e.target) {
-      setGlobalDragOver(false);
-    }
+    if (e.currentTarget === e.target) setGlobalDragOver(false);
   }, []);
 
   const handleGlobalDrop = useCallback(
     (e: React.DragEvent) => {
       setGlobalDragOver(false);
       const widgetId = e.dataTransfer.getData('application/widget-id');
-      if (widgetId) {
-        e.preventDefault();
-        removeWidget(widgetId);
-      }
+      if (widgetId) { e.preventDefault(); removeWidget(widgetId); }
     },
     [removeWidget],
   );
 
-  // 计算缩放比适配屏幕
-  const calcScale = useCallback(() => {
-    if (!containerRef.current) return 1;
-    const cw = containerRef.current.clientWidth;
-    const ch = containerRef.current.clientHeight;
-    return Math.min(cw / config.canvas.width, ch / config.canvas.height);
-  }, [config.canvas]);
+  // 展示态 left：精确居中 = (视口宽 - 画布缩放后宽) / 2
+  const displayLeft = Math.max(0, ((containerRef.current?.clientWidth ?? window.innerWidth) - config.canvas.width * scale) / 2);
+
+  const canvasStyle: React.CSSProperties = {
+    width: config.canvas.width,
+    height: config.canvas.height,
+    position: 'absolute',
+    top: 0,
+    left: isEditorVisible ? 280 : displayLeft,
+    transform: `scale(${scale})`,
+    transformOrigin: 'top left',
+    transition: 'left 300ms ease, transform 300ms ease',
+  };
 
   return (
     <div
@@ -103,19 +108,8 @@ export function MainScreen() {
       onDragLeave={isEditorVisible ? handleGlobalDragLeave : undefined}
       onDrop={isEditorVisible ? handleGlobalDrop : undefined}
     >
-      {/* 展示画布（始终显示） */}
-      <div
-        className="absolute"
-        style={{
-          width: config.canvas.width,
-          height: config.canvas.height,
-          transform: `scale(${calcScale()})`,
-          transformOrigin: 'top left',
-          left: isEditorVisible ? '280px' : '50%',
-          marginLeft: isEditorVisible ? undefined : `-${config.canvas.width / 2}px`,
-          transition: 'left 300ms ease, margin-left 300ms ease',
-        }}
-      >
+      {/* 展示画布 */}
+      <div style={canvasStyle}>
         <ScreenCanvas isEditing={isEditorVisible} />
       </div>
 

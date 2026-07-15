@@ -1,13 +1,16 @@
 import { widgetRegistry } from '@hugescreen/core';
 import type { WidgetDefinition } from '@hugescreen/core';
 import type { WidgetCategory } from '@hugescreen/shared';
+import { headerElementRegistry } from '@hugescreen/widgets';
+import type { HeaderElementDefinition } from '@hugescreen/widgets';
 import {
   TrendingUp,
   LineChart,
   BarChart3,
   BarChart4,
   PieChart,
-  LayoutDashboard,
+  Type,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -17,7 +20,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   BarChart3,
   BarChartHorizontal: BarChart4,
   PieChart,
-  LayoutDashboard,
+  Type,
+  Clock,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -42,8 +46,9 @@ const CATEGORY_LABELS: Record<WidgetCategory, string> = {
 export function WidgetPalette() {
   const grouped = widgetRegistry.getGroupedByCategory();
   const allWidgets = widgetRegistry.getAll();
+  const headerElements = headerElementRegistry.getAll();
 
-  if (allWidgets.length === 0) {
+  if (allWidgets.length === 0 && headerElements.length === 0) {
     return (
       <div className="p-4 text-center text-xs text-textSecondary/50 py-12">
         暂无可用的数据组件
@@ -53,6 +58,21 @@ export function WidgetPalette() {
 
   return (
     <div className="p-3 space-y-4">
+      {/* ─── 顶栏组件 ─── */}
+      {headerElements.length > 0 && (
+        <div>
+          <div className="text-[10px] font-semibold text-accent-warm/50 uppercase tracking-wider mb-2 px-1">
+            顶栏
+          </div>
+          <div className="space-y-1">
+            {headerElements.map((el) => (
+              <HeaderPaletteItem key={el.type} element={el} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 普通组件 ─── */}
       {Array.from(grouped.entries()).map(([category, widgets]) => (
         <div key={category}>
           <div className="text-[10px] font-semibold text-textSecondary/40 uppercase tracking-wider mb-2 px-1">
@@ -101,6 +121,41 @@ function PaletteItem({ widget }: { widget: WidgetDefinition }) {
       {/* 默认尺寸标签 */}
       <div className="text-[9px] text-textSecondary/20 font-mono flex-shrink-0 bg-surface-base/50 px-1 py-0.5 rounded">
         {widget.defaultSize.colSpan}×{widget.defaultSize.rowSpan}
+      </div>
+    </div>
+  );
+}
+
+/** 顶栏组件项 — 拖入顶栏槽位 */
+function HeaderPaletteItem({ element }: { element: HeaderElementDefinition }) {
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/header-element-type', element.type);
+    e.dataTransfer.effectAllowed = 'copy';
+  };
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      className="flex items-center gap-2.5 px-2.5 py-2 rounded-md cursor-grab active:cursor-grabbing
+        hover:bg-surface-hover transition-colors group border border-transparent hover:border-[rgba(255,255,255,0.04)]"
+    >
+      <div className="w-9 h-9 rounded-md bg-surface-base flex items-center justify-center
+        text-accent-warm/70 group-hover:text-accent-warm group-hover:bg-surface-hover transition-all flex-shrink-0">
+        <WidgetIcon name={element.icon} />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-medium text-textSecondary group-hover:text-text truncate">
+          {element.name}
+        </div>
+        <div className="text-[10px] text-textSecondary/40 truncate mt-0.5">
+          仅顶栏可用
+        </div>
+      </div>
+
+      <div className="text-[9px] text-textSecondary/20 font-mono flex-shrink-0 bg-surface-base/50 px-1 py-0.5 rounded">
+        {element.defaultColSpan}列
       </div>
     </div>
   );

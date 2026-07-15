@@ -1,13 +1,94 @@
 import { useEditorStore } from '../store/editorStore';
+import { headerElementRegistry } from '@hugescreen/widgets';
 
 /**
  * 属性配置面板
- * 选中组件时显示其可编辑属性：名称、数据源、样式、动效等。
- * 基于组件的 JSON Schema 动态生成表单，当前为占位实现。
+ * 选中普通组件 → 显示组件属性
+ * 选中顶栏槽位 → 显示顶栏元素属性
  */
 export function PropertyInspector() {
-  const { config, selectedWidgetId, updateWidget } = useEditorStore();
+  const {
+    config, selectedWidgetId, selectedHeaderSlotId,
+    updateWidget, setHeaderSlot,
+  } = useEditorStore();
 
+  // ─── 顶栏槽位编辑 ───
+  const headerSlot = selectedHeaderSlotId
+    ? config.header.slots.find((s) => s.id === selectedHeaderSlotId)
+    : undefined;
+
+  if (headerSlot && headerSlot.elementType) {
+    const elDef = headerElementRegistry.get(headerSlot.elementType);
+    return (
+      <div className="p-3">
+        <h2 className="text-sm font-semibold text-textSecondary uppercase tracking-wider px-2 mb-3">
+          顶栏属性
+        </h2>
+        <div className="space-y-4">
+          <FieldGroup label="信息">
+            <div className="text-xs text-textSecondary/60">
+              <div className="flex justify-between py-1">
+                <span>类型</span>
+                <span className="font-mono">{headerSlot.elementType}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span>名称</span>
+                <span className="font-mono">{elDef?.name ?? '-'}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span>宽度</span>
+                <span className="font-mono">{headerSlot.colSpan} 列</span>
+              </div>
+            </div>
+          </FieldGroup>
+
+          {/* 动态配置项 */}
+          {elDef?.defaultConfig && Object.keys(elDef.defaultConfig).length > 0 && (
+            <FieldGroup label="配置">
+              {Object.entries(elDef.defaultConfig).map(([key, defaultValue]) => {
+                const currentValue = (headerSlot.options as Record<string, unknown>)[key] ?? defaultValue;
+                const label = key === 'text' ? '标题文字' : key === 'showSeconds' ? '显示秒' : key;
+                const isBool = typeof defaultValue === 'boolean';
+
+                return (
+                  <label key={key} className="flex items-center justify-between">
+                    <span className="text-[11px] text-textSecondary/70">{label}</span>
+                    {isBool ? (
+                      <input
+                        type="checkbox"
+                        checked={!!currentValue}
+                        onChange={(e) =>
+                          setHeaderSlot(headerSlot.id, headerSlot.elementType, {
+                            ...headerSlot.options,
+                            [key]: e.target.checked,
+                          })
+                        }
+                        className="rounded"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={String(currentValue ?? '')}
+                        onChange={(e) =>
+                          setHeaderSlot(headerSlot.id, headerSlot.elementType, {
+                            ...headerSlot.options,
+                            [key]: e.target.value,
+                          })
+                        }
+                        className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 w-32 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors text-right"
+                      />
+                    )}
+                  </label>
+                );
+              })}
+            </FieldGroup>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 普通组件编辑 ───
   const widget = config.widgets.find((w) => w.id === selectedWidgetId);
 
   if (!widget) {
@@ -17,7 +98,7 @@ export function PropertyInspector() {
           属性
         </h2>
         <p className="text-xs text-textSecondary opacity-60 text-center py-8">
-          选择一个组件以编辑其属性
+          选择一个组件或顶栏槽位以编辑其属性
         </p>
       </div>
     );
@@ -30,7 +111,6 @@ export function PropertyInspector() {
       </h2>
 
       <div className="space-y-4">
-        {/* 组件名称 */}
         <FieldGroup label="基本">
           <label className="flex flex-col gap-1">
             <span className="text-[11px] text-textSecondary/70">组件名称</span>
@@ -43,7 +123,6 @@ export function PropertyInspector() {
           </label>
         </FieldGroup>
 
-        {/* 组件类型 */}
         <FieldGroup label="信息">
           <div className="text-xs text-textSecondary/60">
             <div className="flex justify-between py-1">
@@ -65,7 +144,6 @@ export function PropertyInspector() {
           </div>
         </FieldGroup>
 
-        {/* 动效 */}
         <FieldGroup label="动效">
           <label className="flex items-center justify-between">
             <span className="text-[11px] text-textSecondary/70">启用动效</span>

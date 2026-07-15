@@ -1,3 +1,16 @@
+// ─── 顶栏配置 ───
+
+export interface HeaderSlotConfig {
+  id: string;
+  colSpan: number; // 在顶栏中的列宽占比（总和 = grid.cols）
+  elementType: string | null; // null = 空槽位
+  options: Record<string, unknown>;
+}
+
+export interface HeaderConfig {
+  slots: HeaderSlotConfig[];
+}
+
 // ─── 大屏完整配置 ───
 
 export interface ScreenConfig {
@@ -6,6 +19,7 @@ export interface ScreenConfig {
   version: '1.0';
   canvas: CanvasConfig;
   grid: GridConfig;
+  header: HeaderConfig;
   responsive: ResponsiveConfig;
   widgets: WidgetConfig[];
   theme: ThemeConfig;

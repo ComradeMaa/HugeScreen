@@ -26,17 +26,6 @@ export interface ScreenSlot {
  *  2 cols        4 cols             2 cols
  */
 export const DEFAULT_SLOTS: ScreenSlot[] = [
-  // ─── 顶栏：标题+时间 ───
-  {
-    id: 'slot-header',
-    label: '数据监控中心',
-    layout: { col: 0, row: 0, colSpan: 8, rowSpan: 1 },
-    defaultType: 'screen-header',
-    category: 'decorator',
-    defaultData: { title: '数据监控中心' },
-    defaultOptions: {},
-  },
-
   // ─── 核心区域（中间大字） ───
   {
     id: 'slot-center',
