@@ -14,11 +14,9 @@ export function MainScreen() {
     showEditor,
     hideEditor,
     loadConfig,
-    removeWidget,
   } = useEditorStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [globalDragOver, setGlobalDragOver] = useState(false);
   const [scale, setScale] = useState(1);
 
   // 启动时加载本地配置
@@ -65,27 +63,6 @@ export function MainScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // ─── 全局拖拽 ───
-  const handleGlobalDragOver = useCallback((e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/widget-id')) {
-      e.preventDefault();
-      setGlobalDragOver(true);
-    }
-  }, []);
-
-  const handleGlobalDragLeave = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget === e.target) setGlobalDragOver(false);
-  }, []);
-
-  const handleGlobalDrop = useCallback(
-    (e: React.DragEvent) => {
-      setGlobalDragOver(false);
-      const widgetId = e.dataTransfer.getData('application/widget-id');
-      if (widgetId) { e.preventDefault(); removeWidget(widgetId); }
-    },
-    [removeWidget],
-  );
-
   // 展示态 left：精确居中 = (视口宽 - 画布缩放后宽) / 2
   const displayLeft = Math.max(0, ((containerRef.current?.clientWidth ?? window.innerWidth) - config.canvas.width * scale) / 2);
 
@@ -104,9 +81,6 @@ export function MainScreen() {
     <div
       ref={containerRef}
       className="w-full h-full bg-surface-base overflow-hidden relative"
-      onDragOver={isEditorVisible ? handleGlobalDragOver : undefined}
-      onDragLeave={isEditorVisible ? handleGlobalDragLeave : undefined}
-      onDrop={isEditorVisible ? handleGlobalDrop : undefined}
     >
       {/* 展示画布 */}
       <div style={canvasStyle}>
@@ -125,22 +99,11 @@ export function MainScreen() {
         </div>
       )}
 
-      {/* 全局拖出画布 → 删除提示 */}
-      {isEditorVisible && globalDragOver && (
-        <div className="absolute inset-0 z-[60] pointer-events-none flex items-center justify-center">
-          <div className="bg-negative/10 border border-negative/30 rounded-xl px-6 py-4 backdrop-blur-sm">
-            <span className="text-negative/80 text-sm font-medium">释放以删除组件</span>
-          </div>
-        </div>
-      )}
-
-      {/* 编辑态：底部删除区域提示 */}
+      {/* 编辑态：底部提示 */}
       {isEditorVisible && (
-        <div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
-        >
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
           <span className="text-[10px] text-textSecondary/25 tracking-wide">
-            拖拽组件到左侧组件池或画布外以删除 · Delete 键删除选中
+            拖拽组件到左侧组件池以删除 · Delete 键删除选中
           </span>
         </div>
       )}
