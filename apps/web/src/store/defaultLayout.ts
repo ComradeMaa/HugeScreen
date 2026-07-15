@@ -73,7 +73,7 @@ export const DEFAULT_SLOTS: ScreenSlot[] = [
     id: 'slot-left-3',
     label: '地域 TOP5',
     layout: { col: 0, row: 5, colSpan: 2, rowSpan: 2 },
-    defaultType: 'bar-chart-h',
+    defaultType: 'bar-chart',
     category: 'chart',
     defaultData: {
       xLabels: ['北京', '上海', '深圳', '广州', '杭州'],

@@ -544,10 +544,17 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }
       // 清理旧版残留：screen-header 组件、row 0 的组件（现在属于固定顶栏区域）
       if (raw.widgets) {
-        raw.widgets = raw.widgets.filter(
-          (w: { type?: string; layout?: { row?: number } }) =>
-            w.type !== 'screen-header' && (w.layout?.row ?? 1) >= 1,
-        );
+        raw.widgets = raw.widgets
+          .filter(
+            (w: { type?: string; layout?: { row?: number } }) =>
+              w.type !== 'screen-header' && (w.layout?.row ?? 1) >= 1,
+          )
+          // 迁移：bar-chart-h → bar-chart（条形图已合并入柱状图）
+          .map((w: any) =>
+            w.type === 'bar-chart-h'
+              ? { ...w, type: 'bar-chart', options: { ...w.options, direction: 'horizontal' } }
+              : w,
+          );
       }
       set({ config: raw as ScreenConfig });
     } catch { console.error('[EditorStore] Failed to parse config JSON'); }

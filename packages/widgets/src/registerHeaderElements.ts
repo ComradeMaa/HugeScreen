@@ -9,7 +9,14 @@ export function registerHeaderElements(): void {
     icon: 'Type',
     defaultColSpan: 2,
     component: HeaderTitle,
-    defaultConfig: { text: '数据监控中心' },
+    defaultConfig: {
+      text: '数据监控中心',
+      fontSize: '16px',
+      fontWeight: '600',
+      fontStyle: 'normal',
+      color: '#ffffff',
+      textAlign: 'left',
+    },
   });
 
   headerElementRegistry.register({

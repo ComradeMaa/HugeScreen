@@ -46,34 +46,25 @@ export function registerBuiltinWidgets(): void {
       defaultConfig: { smooth: true, showArea: true },
     },
 
-    // ─── 柱状图 ───
+    // ─── 柱状图（含条形图模式）───
     {
       type: 'bar-chart',
       name: '柱状图',
-      description: '竖向对比分类数据',
+      description: '竖向柱状或横向条形',
       icon: 'BarChart3',
       category: 'chart',
       defaultSize: { colSpan: 2, rowSpan: 2 },
       minSize: { colSpan: 2, rowSpan: 1 },
       maxSize: { colSpan: 4, rowSpan: 3 },
       component: lazy(() => import('./charts/BarChartWidget').then(m => ({ default: m.BarChartWidget }))),
-      configSchema: { type: 'object', properties: {} },
-      defaultConfig: { direction: 'vertical' },
-    },
-
-    // ─── 条形图 ───
-    {
-      type: 'bar-chart-h',
-      name: '条形图',
-      description: '横向排名对比',
-      icon: 'BarChartHorizontal',
-      category: 'chart',
-      defaultSize: { colSpan: 2, rowSpan: 2 },
-      minSize: { colSpan: 2, rowSpan: 1 },
-      maxSize: { colSpan: 4, rowSpan: 3 },
-      component: lazy(() => import('./charts/BarChartWidget').then(m => ({ default: m.BarChartWidget }))),
-      configSchema: { type: 'object', properties: {} },
-      defaultConfig: { direction: 'horizontal' },
+      configSchema: {
+        type: 'object',
+        properties: {
+          direction: { type: 'string', title: '呈现方式', enum: ['vertical', 'horizontal'] },
+          showLabel: { type: 'boolean', title: '显示数值' },
+        },
+      },
+      defaultConfig: { direction: 'vertical', showLabel: false, labelFontSize: '10px', labelFontWeight: '600', labelColor: '#c9a96e', barWidth: '50%' },
     },
 
     // ─── 饼图 ───

@@ -7,6 +7,16 @@ interface BarChartWidgetProps {
   series?: { name: string; data: number[] }[];
   /** 'vertical' | 'horizontal' */
   direction?: 'vertical' | 'horizontal';
+  /** 是否在矩形尽头显示数值标签 */
+  showLabel?: boolean;
+  /** 数值标签字号 */
+  labelFontSize?: string;
+  /** 数值标签字重 */
+  labelFontWeight?: string;
+  /** 数值标签颜色 */
+  labelColor?: string;
+  /** 柱体粗细百分比（如 '50%'） */
+  barWidth?: string;
 }
 
 const DEFAULT_LABELS = ['类别A', '类别B', '类别C', '类别D', '类别E'];
@@ -19,9 +29,18 @@ export function BarChartWidget({
   xLabels = DEFAULT_LABELS,
   series = [{ name: '数值', data: [182, 234, 165, 298, 210] }],
   direction = 'vertical',
+  showLabel = false,
+  labelFontSize = '10px',
+  labelFontWeight = '600',
+  labelColor = '#c9a96e',
+  barWidth = '50%',
 }: BarChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const isHorizontal = direction === 'horizontal';
+
+  // 柱体粗细：百分比 → 竖向直接用，横向换算为 px
+  const barPct = parseInt(barWidth) || 50;
+  const barWidthPx = Math.round(barPct * 0.24); // 50% → 12px, 30% → 8px, 70% → 16px, 90% → 20px
 
   useEffect(() => {
     const xAxis = isHorizontal
@@ -72,7 +91,7 @@ export function BarChartWidget({
         name: s.name,
         type: 'bar',
         data: s.data,
-        barWidth: isHorizontal ? 12 : '50%',
+        barWidth: isHorizontal ? barWidthPx : barWidth,
         itemStyle: {
           borderRadius: isHorizontal ? [0, 3, 3, 0] : [3, 3, 0, 0],
           color: {
@@ -84,6 +103,13 @@ export function BarChartWidget({
             ],
           },
         },
+        label: {
+          show: showLabel,
+          position: isHorizontal ? 'right' : 'top',
+          color: labelColor,
+          fontSize: parseInt(labelFontSize) || 10,
+          fontWeight: parseInt(labelFontWeight) || 600,
+        },
         emphasis: {
           itemStyle: {
             color: '#c9a96e',
@@ -91,7 +117,7 @@ export function BarChartWidget({
         },
       })),
     }, true);
-  }, [xLabels, series, isHorizontal]);
+  }, [xLabels, series, isHorizontal, setOption, showLabel]);
 
   return <div ref={chartRef} className="w-full h-full" />;
 }
