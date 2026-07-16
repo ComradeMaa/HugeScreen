@@ -509,21 +509,39 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       const from = slots[fromIdx];
       const to = slots[toIdx];
 
-      const fromDef = from.elementType ? headerElementRegistry.get(from.elementType) : undefined;
-      const toDef = to.elementType ? headerElementRegistry.get(to.elementType) : undefined;
+      // ★ 先保存内容，避免后续 splice 丢失引用
+      const fromType = from.elementType;
+      const fromOpts = from.options;
+      const toType = to.elementType;
+      const toOpts = to.options;
+
+      const fromDef = fromType ? headerElementRegistry.get(fromType) : undefined;
+      const toDef = toType ? headerElementRegistry.get(toType) : undefined;
       const fromNeed = fromDef?.defaultColSpan ?? 1;
       const toNeed = toDef?.defaultColSpan ?? 1;
 
       if (fromNeed > 1 && toIdx + fromNeed > slots.length) return s;
       if (toNeed > 1 && fromIdx + toNeed > slots.length) return s;
 
-      // 1) 清空 from → 拆分多列，可能改变 toIdx
+      // ★ 验证合并范围内没有非空槽位（防止静默覆盖其他组件）
+      const mergeSlotsEmpty = (start: number, count: number, excludeA: string, excludeB: string) => {
+        for (let i = 0; i < count; i++) {
+          const sl = slots[start + i];
+          if (!sl) return false;
+          if (sl.elementType && sl.id !== excludeA && sl.id !== excludeB) return false;
+        }
+        return true;
+      };
+      if (!mergeSlotsEmpty(toIdx, fromNeed, fromId, toId)) return s;
+      if (toType && !mergeSlotsEmpty(fromIdx, toNeed, fromId, toId)) return s;
+
+      // 1) 清空 from → 拆分多列
       const fromSpan = from.colSpan;
       slots[fromIdx] = { ...from, colSpan: 1, elementType: null, options: {} };
       for (let i = 1; i < fromSpan; i++) {
         slots.splice(fromIdx + i, 0, { id: generateId(), colSpan: 1, elementType: null, options: {} });
       }
-      const adjToIdx = fromIdx < toIdx ? toIdx + (fromSpan - 1) : toIdx;
+      let adjToIdx = fromIdx < toIdx ? toIdx + (fromSpan - 1) : toIdx;
 
       // 2) 清空 to → 拆分多列
       const toSpan = slots[adjToIdx].colSpan;
@@ -532,24 +550,24 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         slots.splice(adjToIdx + i, 0, { id: generateId(), colSpan: 1, elementType: null, options: {} });
       }
 
-      // 3) 放 to 的内容到 from 位置
-      const adjFromIdx = fromIdx < adjToIdx ? fromIdx : fromIdx + (toSpan - 1);
-      if (to.elementType) {
-        slots[adjFromIdx] = { ...slots[adjFromIdx], colSpan: toNeed, elementType: to.elementType, options: to.options };
-        if (toNeed > 1) slots.splice(adjFromIdx + 1, toNeed - 1);
+      // 3) ★ 先放 from 到 to 位置（避免 step 3 splice 误删 toId → step 4 findIndex 失败）
+      const toPos = slots.findIndex((sl) => sl.id === toId);
+      if (toPos !== -1 && fromType) {
+        slots[toPos] = { ...slots[toPos], colSpan: fromNeed, elementType: fromType, options: fromOpts };
+        if (fromNeed > 1) slots.splice(toPos + 1, fromNeed - 1);
       }
 
-      // 4) 放 from 的内容到 to 位置
-      const finalToIdx = slots.findIndex((sl) => sl.id === toId);
-      if (finalToIdx !== -1 && from.elementType) {
-        slots[finalToIdx] = { ...slots[finalToIdx], colSpan: fromNeed, elementType: from.elementType, options: from.options };
-        if (fromNeed > 1) slots.splice(finalToIdx + 1, fromNeed - 1);
+      // 4) 再放 to 到 from 位置（重新查找，因为 step 3 可能改变了索引）
+      const fromPos = slots.findIndex((sl) => sl.id === fromId);
+      if (fromPos !== -1 && toType) {
+        slots[fromPos] = { ...slots[fromPos], colSpan: toNeed, elementType: toType, options: toOpts };
+        if (toNeed > 1) slots.splice(fromPos + 1, toNeed - 1);
       }
 
       // 选中项跟随元素移动
       let nextSelected = s.selectedHeaderSlotId;
       if (s.selectedHeaderSlotId === fromId) nextSelected = toId;
-      else if (s.selectedHeaderSlotId === toId && to.elementType) nextSelected = fromId;
+      else if (s.selectedHeaderSlotId === toId && toType) nextSelected = fromId;
 
       return { config: { ...s.config, header: { ...s.config.header, slots } }, selectedHeaderSlotId: nextSelected };
     }),

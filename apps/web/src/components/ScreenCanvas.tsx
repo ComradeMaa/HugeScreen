@@ -65,10 +65,12 @@ function isSlotBlockedByUnexpanded(
   const blocker = getOverlappingWidget(slot, widgets);
   if (!blocker) return false;
 
-  // 中央大区块 → 永远不可截断
+  // 中央大区块 → 永远不可截断（用重叠检测而非精确 col/row，覆盖中央区域的所有 widget）
   if (
-    blocker.layout.col === CENTER_AREA.col &&
-    blocker.layout.row === CENTER_AREA.row
+    layoutEngine.overlaps(
+      { col: blocker.layout.col, row: blocker.layout.row, colSpan: blocker.layout.colSpan, rowSpan: blocker.layout.rowSpan },
+      CENTER_AREA,
+    )
   ) {
     return true;
   }
@@ -248,6 +250,24 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             const def = headerElementRegistry.get(elType);
             const need = def?.defaultColSpan ?? 1;
             setHeaderBlockedIdx(need > 1 && i + need > header.slots.length ? i : null);
+          } else if (e.dataTransfer.types.includes('application/header-element-id') && headerDragSlotId.current) {
+            // 拖拽已有顶栏组件 → 检查合并范围是否冲突
+            const srcSlot = header.slots.find(s => s.id === headerDragSlotId.current);
+            if (srcSlot?.elementType) {
+              const srcDef = headerElementRegistry.get(srcSlot.elementType);
+              const srcNeed = srcDef?.defaultColSpan ?? 1;
+              let mergeBlocked = false;
+              if (srcNeed > 1) {
+                for (let j = 0; j < srcNeed; j++) {
+                  const sl = header.slots[i + j];
+                  if (!sl) { mergeBlocked = true; break; }
+                  if (sl.elementType && sl.id !== srcSlot.id) { mergeBlocked = true; break; }
+                }
+              }
+              setHeaderBlockedIdx(mergeBlocked ? i : null);
+            } else {
+              setHeaderBlockedIdx(null);
+            }
           } else {
             setHeaderBlockedIdx(null);
           }
@@ -291,13 +311,23 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       if (src?.elementType) {
         const srcDef = headerElementRegistry.get(src.elementType);
         const srcNeed = srcDef?.defaultColSpan ?? 1;
-        // 拒绝：多列组件交换到最后一个槽位
+        // 拒绝：多列组件放到末尾会越界
         if (srcNeed > 1 && targetIdx + srcNeed > header.slots.length) return;
+        // 拒绝：多列组件合并范围内有非空槽位（防止静默覆盖）
+        if (srcNeed > 1) {
+          let blocked = false;
+          for (let i = 0; i < srcNeed; i++) {
+            const sl = header.slots[targetIdx + i];
+            if (!sl) { blocked = true; break; }
+            if (sl.elementType && sl.id !== elId && sl.id !== target.id) { blocked = true; break; }
+          }
+          if (blocked) return;
+        }
         // 推迟到 dragend 执行：避免 drop 中同步 setState → React 重渲染干扰浏览器 dragend 事件
         pendingHeaderSwap.current = { fromId: src.id, toId: target.id };
       }
     }
-  }, [clientToDesign, header.slots, headerPx.left, cellW, grid.gap, swapHeaderSlots]);
+  }, [clientToDesign, header.slots, headerPx.left, cellW, grid.gap]);
 
   // ═══ 主区域拖拽（canvas 全局） ═══
   const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
@@ -403,6 +433,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       dragSourceEl.current.style.visibility = 'visible';
       dragSourceEl.current = null;
     }
+    // 清理顶栏拖拽残留状态，防止中断的拖拽污染下一次拖拽
+    pendingHeaderSwap.current = null;
+    headerDragSlotId.current = null;
   }
 
   // ═══ 拖拽生命周期 ═══
@@ -564,17 +597,20 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
   const handleHeaderElDragEnd = useCallback((_e: React.DragEvent, slotId: string) => {
     // ★ 先执行待定的交换（在 dragend 中做 state 更新，避免干扰浏览器事件）
-    if (pendingHeaderSwap.current) {
-      const { fromId, toId } = pendingHeaderSwap.current;
-      pendingHeaderSwap.current = null;
-      swapHeaderSlots(fromId, toId);
+    try {
+      if (pendingHeaderSwap.current) {
+        const { fromId, toId } = pendingHeaderSwap.current;
+        pendingHeaderSwap.current = null;
+        swapHeaderSlots(fromId, toId);
+      }
+    } finally {
+      doDragCleanup();
+      const el = document.getElementById(`header-slot-${slotId}`);
+      if (el) el.style.visibility = 'visible';
+      headerDragSlotId.current = null;
+      setDraggingWidget(false);
+      setDraggingHeaderEl(false);
     }
-    doDragCleanup();
-    const el = document.getElementById(`header-slot-${slotId}`);
-    if (el) el.style.visibility = 'visible';
-    headerDragSlotId.current = null;
-    setDraggingWidget(false);
-    setDraggingHeaderEl(false);
     // 顶栏元素仅通过拖入左侧删除区销毁，拖到其他位置松手自动回到原处
   }, [setDraggingWidget, setDraggingHeaderEl, swapHeaderSlots]);
 
