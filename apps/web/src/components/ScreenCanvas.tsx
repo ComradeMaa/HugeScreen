@@ -575,12 +575,10 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     draggingWidgetId.current = null;
     setDraggingWidget(false);
     setLocalWidgetDrag(false);
-    // 组件未被删除（拖到合法新位置或取消）→ 恢复可见性
+    // 拖到非法位置或取消 → 复原，不删除
     const el = document.getElementById(`widget-${id}`);
     if (el) el.style.visibility = 'visible';
-    // 仅当确实发生了拖拽移动（而非单纯点击）且未被任何目标接收时，才删除
-    if (dragDidMove.current && e.dataTransfer.dropEffect === 'none') removeWidget(id);
-  }, [removeWidget, setDraggingWidget]);
+  }, [setDraggingWidget]);
 
   // ─── 顶栏元素拖拽（与普通组件共用同一套自定义拖拽副本机制）───
   const handleHeaderElDragStart = useCallback((e: React.DragEvent, slotId: string) => {
