@@ -473,7 +473,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         options: options ?? def?.defaultConfig ?? {},
       };
 
-      return { config: { ...s.config, header: { ...s.config.header, slots } } };
+      return { config: { ...s.config, header: { ...s.config.header, slots } }, selectedHeaderSlotId: slotId };
     }),
 
   removeHeaderElement: (slotId: string) =>
@@ -492,7 +492,10 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         });
       }
 
-      return { config: { ...s.config, header: { ...s.config.header, slots } } };
+      return {
+        config: { ...s.config, header: { ...s.config.header, slots } },
+        selectedHeaderSlotId: s.selectedHeaderSlotId === slotId ? null : s.selectedHeaderSlotId,
+      };
     }),
 
   /** 原子化交换两个顶栏槽位的内容，避免分步操作造成的中间态异常 */
@@ -543,7 +546,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         if (fromNeed > 1) slots.splice(finalToIdx + 1, fromNeed - 1);
       }
 
-      return { config: { ...s.config, header: { ...s.config.header, slots } } };
+      // 选中项跟随元素移动
+      let nextSelected = s.selectedHeaderSlotId;
+      if (s.selectedHeaderSlotId === fromId) nextSelected = toId;
+      else if (s.selectedHeaderSlotId === toId && to.elementType) nextSelected = fromId;
+
+      return { config: { ...s.config, header: { ...s.config.header, slots } }, selectedHeaderSlotId: nextSelected };
     }),
 
   selectHeaderSlot: (id: string | null) => set({ selectedHeaderSlotId: id, selectedWidgetId: null }),
