@@ -16,8 +16,8 @@ html, body, #root {
 
 body {
   font-family: 'Inter', 'PingFang SC', sans-serif;
-  background-color: #0a0e1a;
-  color: #e0e0e0;
+  background-color: #2C2C34;
+  color: #E8E8EC;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -45,7 +45,7 @@ body {
 
 /* 选中样式 */
 ::selection {
-  background: rgba(126, 184, 218, 0.3);
+  background: rgba(0, 212, 255, 0.3);
   color: #ffffff;
 }
 

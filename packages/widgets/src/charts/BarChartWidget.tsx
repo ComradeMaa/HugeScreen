@@ -32,7 +32,7 @@ export function BarChartWidget({
   showLabel = false,
   labelFontSize = '10px',
   labelFontWeight = '600',
-  labelColor = '#c9a96e',
+  labelColor = '#FF8C42',
   barWidth = '50%',
 }: BarChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
@@ -48,23 +48,23 @@ export function BarChartWidget({
       : {
           type: 'category' as const,
           data: xLabels,
-          axisLabel: { color: '#8892a4', fontSize: 10 },
+          axisLabel: { color: '#9E9EA8', fontSize: 10 },
         };
 
     const yAxis = isHorizontal
       ? {
           type: 'category' as const,
           data: xLabels,
-          axisLabel: { color: '#8892a4', fontSize: 10 },
+          axisLabel: { color: '#9E9EA8', fontSize: 10 },
         }
       : {
           type: 'value' as const,
           splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
-          axisLabel: { color: '#8892a4', fontSize: 10 },
+          axisLabel: { color: '#9E9EA8', fontSize: 10 },
         };
 
     const xAxisFull = isHorizontal
-      ? { ...xAxis, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } }, axisLabel: { color: '#8892a4', fontSize: 10 } }
+      ? { ...xAxis, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } }, axisLabel: { color: '#9E9EA8', fontSize: 10 } }
       : { ...xAxis, axisTick: { show: false }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } };
 
     const yAxisFull = isHorizontal
@@ -74,9 +74,9 @@ export function BarChartWidget({
     setOption({
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#161b2a',
+        backgroundColor: '#2C2C34',
         borderColor: 'rgba(255,255,255,0.06)',
-        textStyle: { color: '#e0e0e0', fontSize: 12 },
+        textStyle: { color: '#E8E8EC', fontSize: 12 },
       },
       grid: {
         left: 4,
@@ -98,8 +98,8 @@ export function BarChartWidget({
             type: 'linear',
             x: 0, y: 0, x2: isHorizontal ? 1 : 0, y2: isHorizontal ? 0 : 1,
             colorStops: [
-              { offset: 0, color: '#7eb8da' },
-              { offset: 1, color: 'rgba(126,184,218,0.4)' },
+              { offset: 0, color: '#00D4FF' },
+              { offset: 1, color: 'rgba(0,212,255,0.4)' },
             ],
           },
         },
@@ -112,7 +112,7 @@ export function BarChartWidget({
         },
         emphasis: {
           itemStyle: {
-            color: '#c9a96e',
+            color: '#FF8C42',
           },
         },
       })),

@@ -19,7 +19,7 @@ const DEFAULT_DATA = [
   { name: '类别E', value: 548 },
 ];
 
-const COLORS = ['#7eb8da', '#c9a96e', '#34d399', '#f87171', '#a78bfa', '#60a5fa'];
+const COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#a78bfa', '#60a5fa'];
 
 /**
  * 饼图 / 环形图组件
@@ -38,9 +38,9 @@ export function PieChartWidget({
     setOption({
       tooltip: {
         trigger: 'item',
-        backgroundColor: '#161b2a',
+        backgroundColor: '#2C2C34',
         borderColor: 'rgba(255,255,255,0.06)',
-        textStyle: { color: '#e0e0e0', fontSize: 12 },
+        textStyle: { color: '#E8E8EC', fontSize: 12 },
         formatter: (params: { data: { name: string; value: number }; percent: number }) => {
           const pct = total > 0 ? ((params.data.value / total) * 100).toFixed(1) : '0.0';
           return `${params.data.name}: ${params.data.value.toLocaleString()} (${pct}%)`;
@@ -51,7 +51,7 @@ export function PieChartWidget({
             orient: 'vertical',
             right: 4,
             top: 'center',
-            textStyle: { color: '#8892a4', fontSize: 10 },
+            textStyle: { color: '#9E9EA8', fontSize: 10 },
             itemWidth: 8,
             itemHeight: 8,
             itemGap: 8,
@@ -65,7 +65,7 @@ export function PieChartWidget({
           avoidLabelOverlap: false,
           itemStyle: {
             borderRadius: 2,
-            borderColor: '#0a0e1a',
+            borderColor: '#2C2C34',
             borderWidth: 2,
           },
           label: {

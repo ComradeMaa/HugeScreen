@@ -231,10 +231,10 @@ export function PropertyInspector() {
               <label className="flex items-center justify-between">
                 <span className="text-[11px] text-textSecondary/70">颜色</span>
                 <span className="flex items-center gap-1.5">
-                  <input type="color" value={String((widget.options as any).labelColor ?? '#c9a96e')}
+                  <input type="color" value={String((widget.options as any).labelColor ?? '#FF8C42')}
                     onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), labelColor: e.target.value } })}
                     className="w-6 h-6 rounded border border-[rgba(255,255,255,0.06)] bg-transparent cursor-pointer p-0" />
-                  <input type="text" value={String((widget.options as any).labelColor ?? '#c9a96e')}
+                  <input type="text" value={String((widget.options as any).labelColor ?? '#FF8C42')}
                     onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), labelColor: e.target.value } })}
                     className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
                 </span>

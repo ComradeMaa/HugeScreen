@@ -743,8 +743,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           {/* ═══ 拖拽顶栏组件时顶栏蓝框提示 ═══ */}
           {showHeaderDragHint && !showWidgetSlotsHint && (
             <div className="absolute inset-0 z-30 pointer-events-none" style={{
-              boxShadow: 'inset 0 0 0 2px rgba(126,184,218,0.55)',
-              backgroundColor: 'rgba(126,184,218,0.04)',
+              boxShadow: 'inset 0 0 0 2px rgba(0,212,255,0.55)',
+              backgroundColor: 'rgba(0,212,255,0.04)',
               transition: 'all 200ms',
             }} />
           )}
@@ -791,10 +791,10 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                 style={{
                   width: px?.width, height: px?.height,
                   outline: isEditing && selectedHeaderSlotId === slot.id
-                    ? '1px solid rgba(126,184,218,0.7)' : 'none',
+                    ? '1px solid rgba(0,212,255,0.7)' : 'none',
                   outlineOffset: -1,
                   boxShadow: (effectiveHeaderDrag || headerDragHint) && !isHeaderSwapTarget && slot.id !== headerDragSlotId.current
-                    ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
+                    ? 'inset 0 0 0 1px rgba(0,212,255,0.2)' : 'none',
                   transition: 'box-shadow 150ms',
                 }}
                 onClick={e => { if (isEditing) { e.stopPropagation(); selectHeaderSlot(slot.id); } }}
@@ -804,8 +804,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                 {/* 交换目标：荧光蓝边框 */}
                 {isHeaderSwapTarget && (
                   <div className="absolute inset-0 z-30 pointer-events-none" style={{
-                    border: '2px solid rgba(126,184,218,0.6)',
-                    boxShadow: '0 0 16px rgba(126,184,218,0.35), inset 0 0 8px rgba(126,184,218,0.1)',
+                    border: '2px solid rgba(0,212,255,0.6)',
+                    boxShadow: '0 0 16px rgba(0,212,255,0.35), inset 0 0 8px rgba(0,212,255,0.1)',
                     borderRadius: 4,
                   }} />
                 )}
@@ -876,8 +876,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           className="absolute z-25 pointer-events-none"
           style={{
             top: headerBottom, left: 0, right: 0, bottom: 0,
-            boxShadow: 'inset 0 0 0 2px rgba(126,184,218,0.6)',
-            backgroundColor: 'rgba(126,184,218,0.04)',
+            boxShadow: 'inset 0 0 0 2px rgba(0,212,255,0.6)',
+            backgroundColor: 'rgba(0,212,255,0.04)',
             borderRadius: 6,
           }}
         />
@@ -900,8 +900,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           className="absolute pointer-events-none z-35"
           style={{
             ...slotToPx(slot, cellW, cellH, grid.gap),
-            border: '1px solid rgba(126,184,218,0.2)',
-            backgroundColor: 'rgba(126,184,218,0.03)',
+            border: '1px solid rgba(0,212,255,0.2)',
+            backgroundColor: 'rgba(0,212,255,0.03)',
             borderRadius: 4,
           }}
         />
@@ -915,13 +915,13 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             ...slotToPx(dropPreview, cellW, cellH, grid.gap),
             backgroundColor: dropPreview.blocked
               ? 'rgba(248,113,113,0.12)'
-              : 'rgba(126,184,218,0.12)',
+              : 'rgba(0,212,255,0.12)',
             border: dropPreview.blocked
               ? '2px solid rgba(248,113,113,0.55)'
-              : '2px solid rgba(126,184,218,0.6)',
+              : '2px solid rgba(0,212,255,0.6)',
             boxShadow: dropPreview.blocked
               ? 'none'
-              : '0 0 16px rgba(126,184,218,0.35), inset 0 0 8px rgba(126,184,218,0.1)',
+              : '0 0 16px rgba(0,212,255,0.35), inset 0 0 8px rgba(0,212,255,0.1)',
             borderRadius: 4,
           }}
         >
@@ -953,9 +953,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         const borderStyle = widget.style.borderStyle ?? 'none';
         // 不同边框样式的视觉区分
         const borderBoxShadow = borderStyle === 'style1'
-          ? 'inset 0 0 0 3px rgba(126,184,218,0.35)'
+          ? 'inset 0 0 0 3px rgba(0,212,255,0.35)'
           : borderStyle === 'style2'
-            ? 'inset 0 0 0 3px rgba(201,169,110,0.35)'
+            ? 'inset 0 0 0 3px rgba(255,140,66,0.35)'
             : 'none';
 
         return (
@@ -978,7 +978,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               boxShadow: hasBorder
                 ? borderBoxShadow
                 : effectiveWidgetDrag && !effectiveHeaderDrag && !isSwapTarget && widget.id !== draggingWidgetId.current
-                  ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
+                  ? 'inset 0 0 0 1px rgba(0,212,255,0.2)' : 'none',
               transition: isSwapTarget || lastSwapTargetId.current === widget.id
                 ? 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out, box-shadow 150ms'
                 : 'box-shadow 150ms',
@@ -1134,7 +1134,7 @@ function CornerAccent({ isCenter }: { isCenter: boolean }) {
       {corners.map((c, i) => (
         <div key={i} className="absolute pointer-events-none" style={{
           ...c.style, width: size, height: size,
-          borderColor: `rgba(126,184,218,${alpha})`, borderStyle: 'solid',
+          borderColor: `rgba(0,212,255,${alpha})`, borderStyle: 'solid',
         }} />
       ))}
     </>

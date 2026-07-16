@@ -10,16 +10,18 @@ export default {
     extend: {
       colors: {
         surface: {
-          base: '#0a0e1a',
-          panel: '#161b2a',
-          hover: '#1e2440',
+          base: '#2C2C34',
+          panel: '#2C2C34',
+          hover: '#363640',
         },
         accent: {
-          cool: '#7eb8da',
-          warm: '#c9a96e',
+          cool: '#00D4FF',
+          warm: '#FF8C42',
         },
         positive: '#34d399',
         negative: '#f87171',
+        text: '#E8E8EC',
+        'text-secondary': '#9E9EA8',
       },
       fontFamily: {
         sans: ['Inter', 'PingFang SC', 'sans-serif'],

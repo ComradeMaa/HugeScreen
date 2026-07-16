@@ -79,7 +79,7 @@ export function ViewerScreen() {
   // ═══ 加载 / 错误状态 ═══
   if (loading) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-[#0a0e1a]">
+      <div className="w-full h-full flex items-center justify-center bg-[#2C2C34]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-accent-cool animate-pulse" />
           <span className="text-textSecondary/40 text-xs tracking-widest">加载中</span>
@@ -90,7 +90,7 @@ export function ViewerScreen() {
 
   if (error) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-[#0a0e1a]">
+      <div className="w-full h-full flex items-center justify-center bg-[#2C2C34]">
         <div className="flex flex-col items-center gap-3 max-w-sm text-center px-4">
           <span className="text-negative/60 text-sm font-semibold">加载失败</span>
           <span className="text-textSecondary/30 text-xs leading-relaxed">{error}</span>
@@ -101,7 +101,7 @@ export function ViewerScreen() {
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full bg-[#0a0e1a] overflow-hidden">
+    <div ref={containerRef} className="w-full h-full bg-[#2C2C34] overflow-hidden">
       <div
         style={{
           width: config.canvas.width,

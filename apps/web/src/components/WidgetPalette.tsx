@@ -58,17 +58,17 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
   ctx.scale(dpr, dpr);
 
   // 背景
-  ctx.fillStyle = 'rgba(22,27,42,0.92)';
+  ctx.fillStyle = 'rgba(44,44,52,0.92)';
   roundRect(ctx, 0, 0, w, h, 6);
   ctx.fill();
 
   // 边框
-  ctx.strokeStyle = 'rgba(126,184,218,0.45)';
+  ctx.strokeStyle = 'rgba(0,212,255,0.45)';
   ctx.lineWidth = 1;
   roundRect(ctx, 0.5, 0.5, w - 1, h - 1, 6);
   ctx.stroke();
 
-  const c = '#7eb8da';
+  const c = '#00D4FF';
   ctx.fillStyle = c;
   ctx.strokeStyle = c;
   ctx.lineWidth = 1.2;
@@ -79,7 +79,7 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
 
   if (type === 'stat-card') {
     ctx.font = '8px "Inter","PingFang SC",sans-serif';
-    ctx.fillStyle = 'rgba(126,184,218,0.6)';
+    ctx.fillStyle = 'rgba(0,212,255,0.6)';
     ctx.fillText('VISITORS', cx, 18);
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 18px "JetBrains Mono",monospace';
@@ -90,18 +90,18 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
 
   } else if (type === 'line-chart') {
     const pts = [[16, 58], [34, 40], [52, 48], [70, 22], [88, 32]];
-    ctx.strokeStyle = 'rgba(126,184,218,0.7)';
+    ctx.strokeStyle = 'rgba(0,212,255,0.7)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(pts[0][0], pts[0][1]);
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
     ctx.stroke();
     // Points
-    ctx.fillStyle = '#7eb8da';
+    ctx.fillStyle = '#00D4FF';
     pts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill(); });
     // Area
     ctx.globalAlpha = 0.1;
-    ctx.fillStyle = '#7eb8da';
+    ctx.fillStyle = '#00D4FF';
     ctx.beginPath();
     ctx.moveTo(pts[0][0], pts[0][1]);
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
@@ -112,14 +112,14 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
   } else if (type === 'bar-chart') {
     const bars = [[22, 45, 48], [42, 30, 34], [62, 55, 58], [82, 20, 24]];
     bars.forEach(([x, top, bottom]) => {
-      ctx.fillStyle = 'rgba(126,184,218,0.7)';
+      ctx.fillStyle = 'rgba(0,212,255,0.7)';
       roundRect(ctx, x - 6, top, 12, bottom - top, 2);
       ctx.fill();
     });
 
   } else if (type === 'pie-chart') {
     const slices = [[0, 0.35], [0.35, 0.65], [0.65, 1]];
-    const colors = ['rgba(126,184,218,0.75)', 'rgba(126,184,218,0.45)', 'rgba(126,184,218,0.2)'];
+    const colors = ['rgba(0,212,255,0.75)', 'rgba(0,212,255,0.45)', 'rgba(0,212,255,0.2)'];
     slices.forEach(([start, end], i) => {
       ctx.fillStyle = colors[i];
       ctx.beginPath();
@@ -129,7 +129,7 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
       ctx.fill();
     });
     // Donut hole
-    ctx.fillStyle = 'rgba(22,27,42,0.92)';
+    ctx.fillStyle = 'rgba(44,44,52,0.92)';
     ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
 
   } else {
@@ -152,13 +152,13 @@ function createHeaderThumbnail(type: string, w: number, h: number): HTMLElement 
 
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
-  const c = '#7eb8da';
+  const c = '#00D4FF';
 
   // 背景
-  ctx.fillStyle = 'rgba(22,27,42,0.92)';
+  ctx.fillStyle = 'rgba(44,44,52,0.92)';
   roundRect(ctx, 0, 0, w, h, 4);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(126,184,218,0.45)';
+  ctx.strokeStyle = 'rgba(0,212,255,0.45)';
   ctx.lineWidth = 1;
   roundRect(ctx, 0.5, 0.5, w - 1, h - 1, 4);
   ctx.stroke();
@@ -169,30 +169,30 @@ function createHeaderThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.fillStyle = 'rgba(10,14,26,0.7)';
     roundRect(ctx, bx, by, bw, bh, 4);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(126,184,218,0.25)';
+    ctx.strokeStyle = 'rgba(0,212,255,0.25)';
     ctx.lineWidth = 0.5;
     roundRect(ctx, bx + 0.5, by + 0.5, bw - 1, bh - 1, 4);
     ctx.stroke();
     // Time — digital font
     ctx.font = 'bold 20px "JetBrains Mono",monospace';
-    ctx.fillStyle = '#7eb8da';
+    ctx.fillStyle = '#00D4FF';
     ctx.textAlign = 'center';
     ctx.fillText('14:32', bx + bw / 2, by + 19);
     // Date below
     ctx.font = '8px "Inter","PingFang SC",sans-serif';
-    ctx.fillStyle = 'rgba(126,184,218,0.45)';
+    ctx.fillStyle = 'rgba(0,212,255,0.45)';
     ctx.fillText('2026-07-16', bx + bw / 2, by + 30);
 
   } else if (type === 'header-title') {
     // Title lines
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     roundRect(ctx, 10, 14, w - 20, 5, 2); ctx.fill();
-    ctx.fillStyle = 'rgba(126,184,218,0.5)';
+    ctx.fillStyle = 'rgba(0,212,255,0.5)';
     roundRect(ctx, 10, 24, w * 0.5, 4, 2); ctx.fill();
 
   } else {
     ctx.font = '11px "Inter","PingFang SC",sans-serif';
-    ctx.fillStyle = '#7eb8da';
+    ctx.fillStyle = '#00D4FF';
     ctx.textAlign = 'center';
     ctx.fillText(type, cx, cy + 4);
   }

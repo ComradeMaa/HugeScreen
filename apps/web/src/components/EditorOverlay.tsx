@@ -187,9 +187,9 @@ export function EditorOverlay() {
 
         {/* ═══ 组件池拖拽中 — 面板虚化 + 蓝框 ═══ */}
         <div className="absolute inset-0 z-50 pointer-events-none" style={{
-          backgroundColor: isPaletteDragging ? 'rgba(22,27,42,0.5)' : 'transparent',
+          backgroundColor: isPaletteDragging ? 'rgba(44,44,52,0.5)' : 'transparent',
           backdropFilter: isPaletteDragging ? 'blur(2px)' : 'none',
-          boxShadow: isPaletteDragging ? 'inset 0 0 0 2px rgba(126,184,218,0.35)' : 'none',
+          boxShadow: isPaletteDragging ? 'inset 0 0 0 2px rgba(0,212,255,0.35)' : 'none',
           transition: 'all 300ms',
         }} />
       </div>

@@ -31,13 +31,13 @@ export function LineChartWidget({
     setOption({
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#161b2a',
+        backgroundColor: '#2C2C34',
         borderColor: 'rgba(255,255,255,0.06)',
-        textStyle: { color: '#e0e0e0', fontSize: 12 },
+        textStyle: { color: '#E8E8EC', fontSize: 12 },
       },
       legend: {
         bottom: 0,
-        textStyle: { color: '#8892a4', fontSize: 11 },
+        textStyle: { color: '#9E9EA8', fontSize: 11 },
       },
       grid: {
         left: 8,
@@ -51,12 +51,12 @@ export function LineChartWidget({
         data: xLabels,
         axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
         axisTick: { show: false },
-        axisLabel: { color: '#8892a4', fontSize: 10 },
+        axisLabel: { color: '#9E9EA8', fontSize: 10 },
       },
       yAxis: {
         type: 'value',
         splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
-        axisLabel: { color: '#8892a4', fontSize: 10 },
+        axisLabel: { color: '#9E9EA8', fontSize: 10 },
       },
       series: series.map((s) => ({
         name: s.name,
@@ -69,8 +69,8 @@ export function LineChartWidget({
         areaStyle: showArea
           ? {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(126,184,218,0.15)' },
-                { offset: 1, color: 'rgba(126,184,218,0.01)' },
+                { offset: 0, color: 'rgba(0,212,255,0.15)' },
+                { offset: 1, color: 'rgba(0,212,255,0.01)' },
               ]),
             }
           : undefined,

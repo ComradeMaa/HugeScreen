@@ -168,13 +168,13 @@ export interface ThemeFont {
 export const DEFAULT_THEME: ThemeConfig = {
   name: 'dark-premium',
   colors: {
-    background: '#0a0e1a',
-    surface: '#161b2a',
-    surfaceHover: '#1e2440',
-    primary: '#7eb8da',
-    accent: '#c9a96e',
-    text: '#e0e0e0',
-    textSecondary: '#8892a4',
+    background: '#2C2C34',
+    surface: '#2C2C34',
+    surfaceHover: '#363640',
+    primary: '#00D4FF',
+    accent: '#FF8C42',
+    text: '#E8E8EC',
+    textSecondary: '#9E9EA8',
     dataHighlight: '#ffffff',
     border: 'rgba(255,255,255,0.06)',
     positive: '#34d399',
@@ -201,5 +201,5 @@ export const DEFAULT_CANVAS: CanvasConfig = {
   width: 1920,
   height: 1080,
   scaleMode: 'auto',
-  backgroundColor: '#0a0e1a',
+  backgroundColor: '#2C2C34',
 };

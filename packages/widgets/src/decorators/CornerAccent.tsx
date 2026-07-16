@@ -11,7 +11,7 @@ export function CornerAccent({ visible = true }: { visible?: boolean }) {
       position: 'absolute',
       width: 12,
       height: 12,
-      borderColor: 'rgba(126,184,218,0.15)',
+      borderColor: 'rgba(0,212,255,0.15)',
       borderStyle: 'solid',
       borderWidth: 0,
       pointerEvents: 'none',

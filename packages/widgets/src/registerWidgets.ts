@@ -64,7 +64,7 @@ export function registerBuiltinWidgets(): void {
           showLabel: { type: 'boolean', title: '显示数值' },
         },
       },
-      defaultConfig: { direction: 'vertical', showLabel: false, labelFontSize: '10px', labelFontWeight: '600', labelColor: '#c9a96e', barWidth: '50%' },
+      defaultConfig: { direction: 'vertical', showLabel: false, labelFontSize: '10px', labelFontWeight: '600', labelColor: '#FF8C42', barWidth: '50%' },
     },
 
     // ─── 饼图 ───
