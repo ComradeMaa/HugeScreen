@@ -151,6 +151,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const headerDragSlotId = useRef<string | null>(null); // 顶栏拖拽中的槽位 ID（用于 native dragend 兜底恢复可见性）
   const pendingHeaderSwap = useRef<{ fromId: string; toId: string } | null>(null); // 推迟到 dragend 执行的交换
   const lastSwapTargetId = useRef<string | null>(null); // 上一个被"挤"的组件 ID，用于归位动画
+  const lastHeaderSwapInfo = useRef<{ targetSlotId: string; sourceSlotId: string } | null>(null); // 顶栏交换归位动画
 
   type Preview = BlockSlot & { blocked?: boolean; swapping?: boolean };
   const [dropPreview, setDropPreview] = useState<Preview | null>(null);
@@ -272,9 +273,15 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               // 交换预览：目标槽位有内容且不是源槽位 → 目标内容"挤"到原位
               const targetSlot = header.slots[i];
               if (!mergeBlocked && targetSlot.elementType && targetSlot.id !== headerDragSlotId.current) {
-                setHeaderSwapPreview({ targetSlotId: targetSlot.id, sourceSlotId: headerDragSlotId.current });
+                const info = { targetSlotId: targetSlot.id, sourceSlotId: headerDragSlotId.current };
+                setHeaderSwapPreview(info);
+                lastHeaderSwapInfo.current = info;
               } else {
                 setHeaderSwapPreview(null);
+                if (lastHeaderSwapInfo.current) {
+                  const info = lastHeaderSwapInfo.current;
+                  setTimeout(() => { if (lastHeaderSwapInfo.current === info) lastHeaderSwapInfo.current = null; }, 350);
+                }
               }
             } else {
               setHeaderBlockedIdx(null);
@@ -452,6 +459,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     // 清理顶栏拖拽残留状态，防止中断的拖拽污染下一次拖拽
     pendingHeaderSwap.current = null;
     headerDragSlotId.current = null;
+    lastHeaderSwapInfo.current = null;
   }
 
   // ═══ 拖拽生命周期 ═══
@@ -608,12 +616,21 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       }
       setDraggingWidget(false);
       setDraggingHeaderEl(false);
+      // 交换预览归位动画
+      if (lastHeaderSwapInfo.current) {
+        const info = lastHeaderSwapInfo.current;
+        setTimeout(() => { if (lastHeaderSwapInfo.current === info) lastHeaderSwapInfo.current = null; }, 350);
+      }
     };
     document.addEventListener('dragend', onNativeDragEnd);
   }, [isEditing, setDraggingWidget, setDraggingHeaderEl, swapHeaderSlots]);
 
   const handleHeaderElDragEnd = useCallback((_e: React.DragEvent, slotId: string) => {
     setHeaderSwapPreview(null);
+    if (lastHeaderSwapInfo.current) {
+      const info = lastHeaderSwapInfo.current;
+      setTimeout(() => { if (lastHeaderSwapInfo.current === info) lastHeaderSwapInfo.current = null; }, 350);
+    }
     // ★ 先执行待定的交换（在 dragend 中做 state 更新，避免干扰浏览器事件）
     try {
       if (pendingHeaderSwap.current) {
@@ -649,7 +666,14 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         className="absolute z-30"
         style={{ left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height }}
         onDragOver={isEditing ? handleHeaderDragOver : undefined}
-        onDragLeave={() => { setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false); setHeaderSwapPreview(null); }}
+        onDragLeave={() => {
+          setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false);
+          if (headerSwapPreview) {
+            lastHeaderSwapInfo.current = headerSwapPreview;
+            setTimeout(() => { lastHeaderSwapInfo.current = null; }, 350);
+          }
+          setHeaderSwapPreview(null);
+        }}
         onDrop={isEditing ? handleHeaderDrop : undefined}
       >
         <div className="flex h-full relative" style={{ gap: grid.gap }}>
@@ -667,39 +691,39 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             </div>
           )}
 
-          {/* ═══ 交换预览：目标槽位内容渲染到被拖走组件的原位 ═══ */}
-          {headerSwapPreview && (() => {
-            const targetSlot = header.slots.find(s => s.id === headerSwapPreview.targetSlotId);
-            const sourcePx = headerSlotPixels.find(p => p.id === headerSwapPreview.sourceSlotId);
-            if (targetSlot?.elementType && sourcePx) {
-              const targetDef = headerElementRegistry.get(targetSlot.elementType);
-              const TargetComp = targetDef?.component;
-              return (
-                <div
-                  className="absolute z-40 pointer-events-none"
-                  style={{
-                    left: sourcePx.left - headerPx.left,
-                    top: 0,
-                    width: sourcePx.width,
-                    height: sourcePx.height,
-                    background: 'rgba(201,169,110,0.15)',
-                    border: '1px dashed rgba(201,169,110,0.5)',
-                    borderRadius: 2,
-                  }}
-                >
-                  {TargetComp ? (
-                    <TargetComp {...(targetDef.defaultConfig ?? {})} {...(targetSlot.options as object)} />
-                  ) : null}
-                </div>
-              );
-            }
-            return null;
+          {/* ═══ 交换预览：目标内容"挤"到源位置（卡片动画） ═══ */}
+          {(headerSwapPreview || lastHeaderSwapInfo.current) && (() => {
+            const info = headerSwapPreview || lastHeaderSwapInfo.current;
+            if (!info) return null;
+            const targetSlot = header.slots.find(s => s.id === info.targetSlotId);
+            const sourcePx = headerSlotPixels.find(p => p.id === info.sourceSlotId);
+            if (!targetSlot?.elementType || !sourcePx) return null;
+            const targetDef = headerElementRegistry.get(targetSlot.elementType);
+            const TargetComp = targetDef?.component;
+            if (!TargetComp) return null;
+            const isActive = !!headerSwapPreview;
+            return (
+              <div
+                className={`absolute z-40 pointer-events-none ${isActive ? 'animate-headerSqueezeIn' : ''}`}
+                style={{
+                  left: sourcePx.left - headerPx.left,
+                  top: 0,
+                  width: sourcePx.width,
+                  height: sourcePx.height,
+                  transition: 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out, opacity 200ms ease-out',
+                  opacity: isActive ? 1 : 0,
+                }}
+              >
+                <TargetComp {...(targetDef.defaultConfig ?? {})} {...(targetSlot.options as object)} />
+              </div>
+            );
           })()}
 
           {header.slots.map((slot, idx) => {
             const px = headerSlotPixels.find(p => p.id === slot.id);
             const elDef = slot.elementType ? headerElementRegistry.get(slot.elementType) : undefined;
             const ElComp = elDef?.component;
+            const isHeaderSwapTarget = headerSwapPreview?.targetSlotId === slot.id;
             return (
               <div
                 key={slot.id}
@@ -708,8 +732,6 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                 className={`relative overflow-hidden ${isEditing ? 'cursor-pointer' : ''}`}
                 style={{
                   width: px?.width, height: px?.height,
-                  opacity: headerSwapPreview?.targetSlotId === slot.id ? 0.15 : 1,
-                  transition: 'opacity 150ms',
                   outline: isEditing && selectedHeaderSlotId === slot.id
                     ? '1px solid rgba(126,184,218,0.7)' : 'none',
                   outlineOffset: -1,
@@ -718,27 +740,40 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                 onDragStart={e => { if (slot.elementType) handleHeaderElDragStart(e, slot.id); }}
                 onDragEnd={e => handleHeaderElDragEnd(e, slot.id)}
               >
-                {ElComp ? (
-                  <ElComp {...(elDef!.defaultConfig ?? {})} {...(slot.options as object)} />
-                ) : isEditing ? (
-                  <div className={`h-full mx-0.5 rounded border transition-colors ${
-                    headerBlockedIdx === idx
-                      ? 'border-[rgba(248,113,113,0.55)] border-2 bg-negative/8 border-solid'
-                      : headerDragIdx === idx
-                        ? 'border-accent-cool/50 bg-accent-cool/5 border-dashed'
-                        : 'border-[rgba(255,255,255,0.06)] border-dashed'
-                  }`}>
-                    <div className="flex items-center justify-center h-full">
-                      <span className={`text-[10px] tracking-wider select-none ${
-                        headerBlockedIdx === idx ? 'text-negative/70 font-medium' : 'text-textSecondary/25'
-                      }`}>
-                        {headerBlockedIdx === idx ? '需要右侧空间' : '拖入顶栏组件'}
-                      </span>
+                {/* 交换目标：荧光蓝边框 */}
+                {isHeaderSwapTarget && (
+                  <div className="absolute inset-0 z-30 pointer-events-none" style={{
+                    border: '2px solid rgba(126,184,218,0.6)',
+                    boxShadow: '0 0 16px rgba(126,184,218,0.35), inset 0 0 8px rgba(126,184,218,0.1)',
+                    borderRadius: 4,
+                  }} />
+                )}
+                <div className="h-full" style={{
+                  opacity: isHeaderSwapTarget ? 0 : 1,
+                  transition: 'opacity 200ms ease-out',
+                }}>
+                  {ElComp ? (
+                    <ElComp {...(elDef!.defaultConfig ?? {})} {...(slot.options as object)} />
+                  ) : isEditing ? (
+                    <div className={`h-full mx-0.5 rounded border transition-colors ${
+                      headerBlockedIdx === idx
+                        ? 'border-[rgba(248,113,113,0.55)] border-2 bg-negative/8 border-solid'
+                        : headerDragIdx === idx
+                          ? 'border-accent-cool/50 bg-accent-cool/5 border-dashed'
+                          : 'border-[rgba(255,255,255,0.06)] border-dashed'
+                    }`}>
+                      <div className="flex items-center justify-center h-full">
+                        <span className={`text-[10px] tracking-wider select-none ${
+                          headerBlockedIdx === idx ? 'text-negative/70 font-medium' : 'text-textSecondary/25'
+                        }`}>
+                          {headerBlockedIdx === idx ? '需要右侧空间' : '拖入顶栏组件'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
 
-                {isEditing && slot.elementType && (
+                {isEditing && slot.elementType && !isHeaderSwapTarget && (
                   <button
                     className="absolute top-0.5 right-0.5 z-20 w-4 h-4 flex items-center justify-center
                       rounded-full bg-surface-base/80 text-textSecondary/40 hover:text-negative hover:bg-surface-hover

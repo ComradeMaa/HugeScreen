@@ -57,3 +57,12 @@ body {
 .animate-slideIn {
   animation: slideIn 250ms ease-out;
 }
+
+/* 顶栏交换：被挤走卡片入场动画 */
+@keyframes headerSqueezeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-headerSqueezeIn {
+  animation: headerSqueezeIn 150ms ease-out;
+}
