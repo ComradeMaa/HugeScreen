@@ -220,6 +220,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const [headerBlockedIdx, setHeaderBlockedIdx] = useState<number | null>(null);
   const [widgetOverHeader, setWidgetOverHeader] = useState(false); // 一般组件拖入顶栏区域
   const [headerOverWidget, setHeaderOverWidget] = useState(false); // 顶栏元素拖入主区块
+  // 交换预览：拖拽顶栏组件到已占用槽位上时，目标槽位内容在原位显示
+  const [headerSwapPreview, setHeaderSwapPreview] = useState<{ targetSlotId: string; sourceSlotId: string } | null>(null);
 
   const handleHeaderDragOver = useCallback((e: React.DragEvent) => {
     // 一般组件拖入顶栏 → 标记拒绝
@@ -251,20 +253,28 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             const need = def?.defaultColSpan ?? 1;
             setHeaderBlockedIdx(need > 1 && i + need > header.slots.length ? i : null);
           } else if (e.dataTransfer.types.includes('application/header-element-id') && headerDragSlotId.current) {
-            // 拖拽已有顶栏组件 → 检查合并范围是否冲突
+            // 拖拽已有顶栏组件 → 检查合并范围是否冲突 + 设置交换预览
             const srcSlot = header.slots.find(s => s.id === headerDragSlotId.current);
             if (srcSlot?.elementType) {
               const srcDef = headerElementRegistry.get(srcSlot.elementType);
               const srcNeed = srcDef?.defaultColSpan ?? 1;
               let mergeBlocked = false;
               if (srcNeed > 1) {
-                for (let j = 0; j < srcNeed; j++) {
+                // j 从 1 开始：跳过目标槽位本身（目标有元素 = 正常交换，不是冲突）
+                for (let j = 1; j < srcNeed; j++) {
                   const sl = header.slots[i + j];
                   if (!sl) { mergeBlocked = true; break; }
                   if (sl.elementType && sl.id !== srcSlot.id) { mergeBlocked = true; break; }
                 }
               }
               setHeaderBlockedIdx(mergeBlocked ? i : null);
+              // 交换预览：目标槽位有内容且不是源槽位 → 目标内容"挤"到原位
+              const targetSlot = header.slots[i];
+              if (!mergeBlocked && targetSlot.elementType && targetSlot.id !== headerDragSlotId.current) {
+                setHeaderSwapPreview({ targetSlotId: targetSlot.id, sourceSlotId: headerDragSlotId.current });
+              } else {
+                setHeaderSwapPreview(null);
+              }
             } else {
               setHeaderBlockedIdx(null);
             }
@@ -283,6 +293,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const handleHeaderDrop = useCallback((e: React.DragEvent) => {
     setHeaderDragIdx(null);
     setHeaderBlockedIdx(null);
+    setHeaderSwapPreview(null);
     const elType = e.dataTransfer.getData('application/header-element-type');
     const elId = e.dataTransfer.getData('application/header-element-id');
     if (!elType && !elId) return;
@@ -356,12 +367,13 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       setDropPreview({ ...slot, blocked: isSlotBlockedByUnexpanded(slot, widgets) });
     } else if (e.dataTransfer.types.includes('application/widget-id')) {
       e.dataTransfer.dropEffect = 'move';
-      const wid = e.dataTransfer.getData('application/widget-id');
+      // ★ 使用 ref 而非 getData()：Chrome 在 dragover 中禁止 getData() 读取自定义类型
+      const wid = draggingWidgetId.current;
+      if (!wid) { setDragSwap(null); setDropPreview(null); return; }
       const blocker = getOverlappingWidget(slot, widgets, wid);
       const dragged = blocker ? widgets.find((w) => w.id === wid) : null;
       if (blocker && dragged) {
         // 已有组件拖到同类组件上 → 交换预览（不检查大小）
-        // 已有组件拖到同类组件上 → 交换预览
         setDragSwap({
           targetWidgetId: blocker.id,
           originSlot: { col: dragged.layout.col, row: dragged.layout.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan },
@@ -407,7 +419,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       addWidget(wt, { ...slot });
       return;
     }
-    const wid = e.dataTransfer.getData('application/widget-id');
+    // ★ 优先用 ref（dragover 中 getData 不可用），drop 时 ref 兜底
+    const wid = draggingWidgetId.current || e.dataTransfer.getData('application/widget-id');
     if (wid) {
       // 直接在 drop 时检测交换（使用纯重叠检测，不受组件大小限制）
       const blocker = getOverlappingWidget(slot, widgets, wid);
@@ -596,6 +609,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   }, [isEditing, setDraggingWidget, setDraggingHeaderEl, swapHeaderSlots]);
 
   const handleHeaderElDragEnd = useCallback((_e: React.DragEvent, slotId: string) => {
+    setHeaderSwapPreview(null);
     // ★ 先执行待定的交换（在 dragend 中做 state 更新，避免干扰浏览器事件）
     try {
       if (pendingHeaderSwap.current) {
@@ -631,7 +645,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         className="absolute z-30"
         style={{ left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height }}
         onDragOver={isEditing ? handleHeaderDragOver : undefined}
-        onDragLeave={() => { setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false); }}
+        onDragLeave={() => { setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false); setHeaderSwapPreview(null); }}
         onDrop={isEditing ? handleHeaderDrop : undefined}
       >
         <div className="flex h-full relative" style={{ gap: grid.gap }}>
@@ -648,6 +662,36 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               }`}>不可拖拽至此处</span>
             </div>
           )}
+
+          {/* ═══ 交换预览：目标槽位内容渲染到被拖走组件的原位 ═══ */}
+          {headerSwapPreview && (() => {
+            const targetSlot = header.slots.find(s => s.id === headerSwapPreview.targetSlotId);
+            const sourcePx = headerSlotPixels.find(p => p.id === headerSwapPreview.sourceSlotId);
+            if (targetSlot?.elementType && sourcePx) {
+              const targetDef = headerElementRegistry.get(targetSlot.elementType);
+              const TargetComp = targetDef?.component;
+              return (
+                <div
+                  className="absolute z-40 pointer-events-none"
+                  style={{
+                    left: sourcePx.left - headerPx.left,
+                    top: 0,
+                    width: sourcePx.width,
+                    height: sourcePx.height,
+                    background: 'rgba(201,169,110,0.15)',
+                    border: '1px dashed rgba(201,169,110,0.5)',
+                    borderRadius: 2,
+                  }}
+                >
+                  {TargetComp ? (
+                    <TargetComp {...(targetDef.defaultConfig ?? {})} {...(targetSlot.options as object)} />
+                  ) : null}
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {header.slots.map((slot, idx) => {
             const px = headerSlotPixels.find(p => p.id === slot.id);
             const elDef = slot.elementType ? headerElementRegistry.get(slot.elementType) : undefined;
@@ -660,6 +704,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                 className={`relative overflow-hidden ${isEditing ? 'cursor-pointer' : ''}`}
                 style={{
                   width: px?.width, height: px?.height,
+                  opacity: headerSwapPreview?.targetSlotId === slot.id ? 0.15 : 1,
+                  transition: 'opacity 150ms',
                   outline: isEditing && selectedHeaderSlotId === slot.id
                     ? '1px solid rgba(126,184,218,0.7)' : 'none',
                   outlineOffset: -1,
@@ -762,6 +808,19 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         </div>
       )}
 
+      {/* ═══ Widget 交换预览 overlay ═══ */}
+      {isEditing && dragSwap && (
+        <div
+          className="absolute pointer-events-none z-30"
+          style={{
+            ...slotToPx(dragSwap.originSlot, cellW, cellH, grid.gap),
+            backgroundColor: 'rgba(201,169,110,0.1)',
+            border: '2px dashed rgba(201,169,110,0.5)',
+            borderRadius: 4,
+          }}
+        />
+      )}
+
       {/* ═══ 组件 ═══ */}
       {widgets.map(widget => {
         // 交换预览：被"挤"走的组件渲染在原位置
@@ -788,6 +847,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             `}
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
+              opacity: isSwapTarget ? 0.5 : 1,
               backgroundColor: isEditing ? (widget.style.backgroundColor || theme.colors.surface) : 'transparent',
               borderColor: isEditing ? (isSelected ? theme.colors.primary : 'rgba(255,255,255,0.12)') : 'transparent',
               borderWidth: isEditing ? 1 : 0,
