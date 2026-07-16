@@ -146,6 +146,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const dragCleanup = useRef<(() => void) | null>(null);
   const dragSourceEl = useRef<HTMLElement | null>(null);
   const dragDidMove = useRef(false); // 区分真实拖拽和点击
+  const headerDragSlotId = useRef<string | null>(null); // 顶栏拖拽中的槽位 ID（用于 native dragend 兜底恢复可见性）
+  const pendingHeaderSwap = useRef<{ fromId: string; toId: string } | null>(null); // 推迟到 dragend 执行的交换
 
   type Preview = BlockSlot & { blocked?: boolean; swapping?: boolean };
   const [dropPreview, setDropPreview] = useState<Preview | null>(null);
@@ -291,8 +293,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         const srcNeed = srcDef?.defaultColSpan ?? 1;
         // 拒绝：多列组件交换到最后一个槽位
         if (srcNeed > 1 && targetIdx + srcNeed > header.slots.length) return;
-        // 原子化交换，避免双 setHeaderSlot 中间态丢失组件
-        swapHeaderSlots(src.id, target.id);
+        // 推迟到 dragend 执行：避免 drop 中同步 setState → React 重渲染干扰浏览器 dragend 事件
+        pendingHeaderSwap.current = { fromId: src.id, toId: target.id };
       }
     }
   }, [clientToDesign, header.slots, headerPx.left, cellW, grid.gap, swapHeaderSlots]);
@@ -494,6 +496,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     e.dataTransfer.effectAllowed = 'move';
     setDraggingWidget(true);
     setDraggingHeaderEl(true);
+    headerDragSlotId.current = slotId;
 
     const sourceEl = e.currentTarget as HTMLElement;
     dragSourceEl.current = sourceEl;
@@ -522,9 +525,10 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     ghost.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0';
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 0, 0);
-    // 顶栏不隐藏源元素（无"拿起来"效果），只移除鬼影
+    // 先移除鬼影再隐藏源元素（与一般组件拿起来效果一致）
     requestAnimationFrame(() => {
       ghost.remove();
+      sourceEl.style.visibility = 'hidden';
     });
 
     const onDocDragOver = (de: DragEvent) => {
@@ -539,21 +543,40 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     // 原生 dragend 兜底
     const onNativeDragEnd = () => {
       document.removeEventListener('dragend', onNativeDragEnd);
+      // ★ 先执行待定的交换（兜底：React onDragEnd 未触发时由原生事件处理）
+      if (pendingHeaderSwap.current) {
+        const { fromId, toId } = pendingHeaderSwap.current;
+        pendingHeaderSwap.current = null;
+        swapHeaderSlots(fromId, toId);
+      }
       doDragCleanup();
+      // 兜底：确保源槽位可见（避免 React 重建 DOM 后 dragSourceEl ref 失效）
+      if (headerDragSlotId.current) {
+        const el = document.getElementById(`header-slot-${headerDragSlotId.current}`);
+        if (el) el.style.visibility = 'visible';
+        headerDragSlotId.current = null;
+      }
       setDraggingWidget(false);
       setDraggingHeaderEl(false);
     };
     document.addEventListener('dragend', onNativeDragEnd);
-  }, [isEditing, setDraggingWidget, setDraggingHeaderEl]);
+  }, [isEditing, setDraggingWidget, setDraggingHeaderEl, swapHeaderSlots]);
 
   const handleHeaderElDragEnd = useCallback((_e: React.DragEvent, slotId: string) => {
+    // ★ 先执行待定的交换（在 dragend 中做 state 更新，避免干扰浏览器事件）
+    if (pendingHeaderSwap.current) {
+      const { fromId, toId } = pendingHeaderSwap.current;
+      pendingHeaderSwap.current = null;
+      swapHeaderSlots(fromId, toId);
+    }
     doDragCleanup();
-    setDraggingWidget(false);
-    setDraggingHeaderEl(false);
     const el = document.getElementById(`header-slot-${slotId}`);
     if (el) el.style.visibility = 'visible';
+    headerDragSlotId.current = null;
+    setDraggingWidget(false);
+    setDraggingHeaderEl(false);
     // 顶栏元素仅通过拖入左侧删除区销毁，拖到其他位置松手自动回到原处
-  }, [setDraggingWidget, setDraggingHeaderEl]);
+  }, [setDraggingWidget, setDraggingHeaderEl, swapHeaderSlots]);
 
   // ═══════════════════════════════════
   return (
