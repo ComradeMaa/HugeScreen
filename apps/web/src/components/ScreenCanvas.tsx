@@ -52,6 +52,39 @@ function isSlotHardBlocked(
   });
 }
 
+/**
+ * 检测槽位是否被「不可压缩」的组件阻挡。
+ * - 中央大区块（4×6 区域）→ 永远阻挡
+ * - 组件处于默认尺寸（未被 merge 扩大）→ 阻挡
+ * - 组件被 merge 扩大过（删除产生的长区块）→ 不阻挡，允许 reflow 截断
+ */
+function isSlotBlockedByUnexpanded(
+  slot: BlockSlot,
+  widgets: WidgetConfig[],
+): boolean {
+  const blocker = getOverlappingWidget(slot, widgets);
+  if (!blocker) return false;
+
+  // 中央大区块 → 永远不可截断
+  if (
+    blocker.layout.col === CENTER_AREA.col &&
+    blocker.layout.row === CENTER_AREA.row
+  ) {
+    return true;
+  }
+
+  // 检查组件是否被扩大过（超出注册默认尺寸）
+  const def = widgetRegistry.get(blocker.type);
+  const defColSpan = def?.defaultSize?.colSpan ?? blocker.layout.colSpan;
+  const defRowSpan = def?.defaultSize?.rowSpan ?? blocker.layout.rowSpan;
+  const isExpanded =
+    blocker.layout.colSpan > defColSpan ||
+    blocker.layout.rowSpan > defRowSpan;
+
+  // 未扩大 → 阻挡；已扩大 → 放行，由 reflowOnAdd 截断
+  return !isExpanded;
+}
+
 /** 获取槽位中重叠的组件（不检查大小限制），用于交换检测 */
 function getOverlappingWidget(
   slot: BlockSlot,
@@ -288,7 +321,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     if (e.dataTransfer.types.includes('application/widget-type')) {
       e.dataTransfer.dropEffect = 'copy';
       setDragSwap(null);
-      setDropPreview({ ...slot, blocked: isSlotHardBlocked(slot, widgets) });
+      setDropPreview({ ...slot, blocked: isSlotBlockedByUnexpanded(slot, widgets) });
     } else if (e.dataTransfer.types.includes('application/widget-id')) {
       e.dataTransfer.dropEffect = 'move';
       const wid = e.dataTransfer.getData('application/widget-id');
@@ -338,7 +371,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
     const wt = e.dataTransfer.getData('application/widget-type');
     if (wt) {
-      if (isSlotHardBlocked(slot, widgets)) return;
+      if (isSlotBlockedByUnexpanded(slot, widgets)) return;
       addWidget(wt, { ...slot });
       return;
     }
