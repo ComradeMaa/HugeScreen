@@ -37,25 +37,34 @@ function findSlotAt(col: number, row: number): BlockSlot | null {
   );
 }
 
+/** 检测槽位是否被任何组件占据（无论是否扩大），用于 palette 拖入 */
 function isSlotHardBlocked(
   slot: BlockSlot,
   widgets: WidgetConfig[],
   excludeId?: string,
 ): boolean {
-  const occupying = widgets.find((w) => {
+  return widgets.some((w) => {
     if (w.id === excludeId) return false;
     return layoutEngine.overlaps(
       { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
       slot,
     );
   });
-  if (!occupying) return false;
-  const def = widgetRegistry.get(occupying.type);
-  // 注册表中找不到该类型 → 按已扩大处理，允许覆盖（避免死锁）
-  if (!def) return false;
-  const defRowSpan = def.defaultSize?.rowSpan ?? occupying.layout.rowSpan;
-  const defColSpan = def.defaultSize?.colSpan ?? occupying.layout.colSpan;
-  return occupying.layout.rowSpan <= defRowSpan && occupying.layout.colSpan <= defColSpan;
+}
+
+/** 获取槽位中重叠的组件（不检查大小限制），用于交换检测 */
+function getOverlappingWidget(
+  slot: BlockSlot,
+  widgets: WidgetConfig[],
+  excludeId?: string,
+): WidgetConfig | null {
+  return widgets.find((w) => {
+    if (w.id === excludeId) return false;
+    return layoutEngine.overlaps(
+      { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
+      slot,
+    );
+  }) ?? null;
 }
 
 // ─── 像素计算 ───
@@ -90,7 +99,7 @@ function headerBottomY(canvasH: number, gap: number, rows: number): number {
 export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const {
     config, selectedWidgetId, selectedHeaderSlotId, selectWidget, selectHeaderSlot,
-    addWidget, moveWidget, removeWidget,
+    addWidget, moveWidget, swapWidgetLayouts, removeWidget,
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
     setDraggingWidget, setDraggingHeaderEl, isDraggingWidget, isDraggingHeaderEl,
   } = useEditorStore();
@@ -105,8 +114,12 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const dragSourceEl = useRef<HTMLElement | null>(null);
   const dragDidMove = useRef(false); // 区分真实拖拽和点击
 
-  type Preview = BlockSlot & { blocked?: boolean };
+  type Preview = BlockSlot & { blocked?: boolean; swapping?: boolean };
   const [dropPreview, setDropPreview] = useState<Preview | null>(null);
+
+  // 拖拽交换预览：拖拽已有组件到另一个组件上时，目标组件被"挤"到原位置
+  type DragSwap = { targetWidgetId: string; originSlot: BlockSlot; targetSlot: BlockSlot };
+  const [dragSwap, setDragSwap] = useState<DragSwap | null>(null);
 
   const { cellW, cellH } = useMemo(
     () => cellMetrics(canvas.width, canvas.height, grid.gap, grid.cols, grid.rows),
@@ -177,6 +190,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       e.preventDefault();
       e.stopPropagation();
       setWidgetOverHeader(true);
+      setDropPreview(null);
+      setDragSwap(null);
       return;
     }
     if (e.dataTransfer.types.includes('application/header-element-type') ||
@@ -272,11 +287,26 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
     if (e.dataTransfer.types.includes('application/widget-type')) {
       e.dataTransfer.dropEffect = 'copy';
+      setDragSwap(null);
       setDropPreview({ ...slot, blocked: isSlotHardBlocked(slot, widgets) });
     } else if (e.dataTransfer.types.includes('application/widget-id')) {
       e.dataTransfer.dropEffect = 'move';
       const wid = e.dataTransfer.getData('application/widget-id');
-      setDropPreview({ ...slot, blocked: isSlotHardBlocked(slot, widgets, wid) });
+      const blocker = getOverlappingWidget(slot, widgets, wid);
+      const dragged = blocker ? widgets.find((w) => w.id === wid) : null;
+      if (blocker && dragged) {
+        // 已有组件拖到同类组件上 → 交换预览（不检查大小）
+        // 已有组件拖到同类组件上 → 交换预览
+        setDragSwap({
+          targetWidgetId: blocker.id,
+          originSlot: { col: dragged.layout.col, row: dragged.layout.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan },
+          targetSlot: { ...slot },
+        });
+        setDropPreview({ ...slot, swapping: true });
+        return;
+      }
+      setDragSwap(null);
+      setDropPreview({ ...slot, blocked: false });
     } else {
       e.dataTransfer.dropEffect = 'none';
     }
@@ -285,6 +315,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const handleCanvasDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
       setDropPreview(null);
+      setDragSwap(null);
       setHeaderOverWidget(false);
     }
   }, []);
@@ -296,6 +327,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     e.preventDefault();
     e.stopPropagation();
     setDropPreview(null);
+    setDragSwap(null);
 
     const { x, y } = clientToDesign(e.clientX, e.clientY);
     if (y < headerBottom) return;
@@ -312,10 +344,15 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     }
     const wid = e.dataTransfer.getData('application/widget-id');
     if (wid) {
-      if (isSlotHardBlocked(slot, widgets, wid)) return;
-      moveWidget(wid, { ...slot });
+      // 直接在 drop 时检测交换（使用纯重叠检测，不受组件大小限制）
+      const blocker = getOverlappingWidget(slot, widgets, wid);
+      if (blocker) {
+        swapWidgetLayouts(wid, blocker.id);
+      } else {
+        moveWidget(wid, { ...slot });
+      }
     }
-  }, [clientToDesign, grid, canvas.width, canvas.height, widgets, addWidget, moveWidget, headerBottom]);
+  }, [clientToDesign, grid, canvas.width, canvas.height, widgets, addWidget, moveWidget, swapWidgetLayouts, headerBottom]);
 
   // ─── 共享清理函数 ───
   function doDragCleanup() {
@@ -353,6 +390,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
     // ★ 关键：先克隆再隐藏原组件，避免 clone 继承 visibility:hidden
     const clone = sourceEl.cloneNode(true) as HTMLElement;
+    clone.className = 'hugescreen-drag-clone';
     clone.style.position = 'fixed';
     clone.style.left = (e.clientX - offsetX) + 'px';
     clone.style.top = (e.clientY - offsetY) + 'px';
@@ -391,18 +429,18 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     const onNativeDragEnd = () => {
       document.removeEventListener('dragend', onNativeDragEnd);
       doDragCleanup();
+      setDropPreview(null);
+      setDragSwap(null);
       draggingWidgetId.current = null;
       setDraggingWidget(false);
-      if (dragDidMove.current && !dragCloneEl.current) {
-        // clone 已被 doDragCleanup 移除，说明此 dragend 是原生兜底触发
-        // dropEffect 此时无法可靠读取，不做额外删除（handleDeleteDrop 已处理）
-      }
     };
     document.addEventListener('dragend', onNativeDragEnd);
   }, [isEditing, setDraggingWidget]);
 
   const handleWidgetDragEnd = useCallback((e: React.DragEvent, id: string) => {
     doDragCleanup();
+    setDropPreview(null);
+    setDragSwap(null);
     draggingWidgetId.current = null;
     setDraggingWidget(false);
     // 组件未被删除（拖到合法新位置或取消）→ 恢复可见性
@@ -432,6 +470,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
     // 先克隆再隐藏，避免继承 visibility:hidden
     const clone = sourceEl.cloneNode(true) as HTMLElement;
+    clone.className = 'hugescreen-drag-clone';
     clone.style.position = 'fixed';
     clone.style.left = (e.clientX - offsetX) + 'px';
     clone.style.top = (e.clientY - offsetY) + 'px';
@@ -605,8 +644,16 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           className="absolute pointer-events-none z-40"
           style={{
             ...slotToPx(dropPreview, cellW, cellH, grid.gap),
-            backgroundColor: dropPreview.blocked ? 'rgba(248,113,113,0.12)' : 'rgba(126,184,218,0.08)',
-            border: dropPreview.blocked ? '2px solid rgba(248,113,113,0.55)' : '1px dashed rgba(126,184,218,0.35)',
+            backgroundColor: dropPreview.blocked
+              ? 'rgba(248,113,113,0.12)'
+              : dropPreview.swapping
+                ? 'rgba(201,169,110,0.12)'
+                : 'rgba(126,184,218,0.08)',
+            border: dropPreview.blocked
+              ? '2px solid rgba(248,113,113,0.55)'
+              : dropPreview.swapping
+                ? '1px dashed rgba(201,169,110,0.45)'
+                : '1px dashed rgba(126,184,218,0.35)',
             borderRadius: 4,
           }}
         >
@@ -615,12 +662,21 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               <span className="text-negative/80 text-xs font-semibold bg-surface-panel/90 px-2 py-0.5 rounded">此区块已有组件</span>
             </div>
           )}
+          {dropPreview.swapping && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-accent-warm/80 text-xs font-semibold bg-surface-panel/90 px-2 py-0.5 rounded">交换位置</span>
+            </div>
+          )}
         </div>
       )}
 
       {/* ═══ 组件 ═══ */}
       {widgets.map(widget => {
-        const px = positions.find(p => p.id === widget.id);
+        // 交换预览：被"挤"走的组件渲染在原位置
+        const isSwapTarget = dragSwap?.targetWidgetId === widget.id;
+        const px = isSwapTarget
+          ? slotToPx(dragSwap.originSlot, cellW, cellH, grid.gap)
+          : positions.find(p => p.id === widget.id);
         if (!px) return null;
         const def = widgetRegistry.get(widget.type);
         const Comp = def?.component;

@@ -52,11 +52,14 @@ export function EditorOverlay() {
         e.stopPropagation();
         removeWidget(widgetId);
         setDraggingWidget(false);
+        // 清理拖拽副本残留（widget 卸载可能导致合成 dragEnd 不触发）
+        document.querySelectorAll('.hugescreen-drag-clone').forEach((el) => el.remove());
       } else if (headerSlotId) {
         e.preventDefault();
         e.stopPropagation();
         removeHeaderElement(headerSlotId);
         setDraggingWidget(false);
+        document.querySelectorAll('.hugescreen-drag-clone').forEach((el) => el.remove());
       }
     },
     [removeWidget, removeHeaderElement, setDraggingWidget],

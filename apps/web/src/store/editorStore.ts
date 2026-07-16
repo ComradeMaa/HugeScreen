@@ -47,6 +47,7 @@ interface EditorState {
   removeWidget: (id: string) => void;
   updateWidget: (id: string, patch: Partial<WidgetConfig>) => void;
   moveWidget: (id: string, layout: WidgetLayout) => void;
+  swapWidgetLayouts: (idA: string, idB: string) => void;
   resizeWidget: (id: string, layout: WidgetLayout) => void;
   selectWidget: (id: string | null) => void;
   duplicateWidget: (id: string) => void;
@@ -205,6 +206,11 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetCon
       }
     }
 
+    // ═══ 场景 IV：新组件完全覆盖旧组件 → 旧组件缩回默认尺寸 ═══
+    if (ex.rowSpan > defRowSpan && inc.row <= ex.row && incRowEnd >= exRowEnd) {
+      return { ...existing, layout: { ...ex, row: inc.row, rowSpan: defRowSpan, col: inc.col, colSpan: defColSpan } };
+    }
+
     return existing;
   });
 }
@@ -340,40 +346,58 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       const oldWidget = s.config.widgets.find((w) => w.id === id);
       if (!oldWidget) return s;
 
-      // 1. 从旧位置移除
-      let widgets = s.config.widgets.filter((w) => w.id !== id);
+      // 1. 从旧位置移除（不做合并 — merge 仅限于 delete 操作）
+      let widgets = s.config.widgets.map((w) => w.id === id ? { ...w, layout } : w);
 
-      // 2. 旧位置腾空后尝试合并相邻空区块
-      const ghost: WidgetConfig = { ...oldWidget };
-      widgets = mergeSlotsAfterRemove(widgets, ghost);
-
-      // 3. 移动到新位置（使用新区块尺寸）
-      const moved = { ...oldWidget, layout };
-
-      // 4. 新位置 reflow：如果和目标区块内的已扩大组件重叠，先缩回
-      widgets = reflowOnAdd(widgets, moved);
-
-      // 5. reflow 后仍有冲突 → findFreeSlot 兜底
-      const inc = moved.layout;
-      const stillOverlaps = widgets.some((w) =>
+      // 2. 重叠守卫：如果新位置与其他组件重叠 → 调整
+      const inc = layout;
+      const others = widgets.filter((w) => w.id !== id);
+      const overlaps = others.find((w) =>
         layoutEngine.overlaps(
           { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
           { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
         ),
       );
-      if (stillOverlaps) {
-        const occupied = widgets.map((w) => ({
-          col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan,
-        }));
-        occupied.push(row0Guard(s.config.grid));
-        const free = layoutEngine.findFreeSlot(
-          { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
-          occupied,
-          s.config.grid,
+      if (overlaps) {
+        // 尝试 reflow：如果重叠的是已扩大的组件，缩回默认尺寸
+        widgets = reflowOnAdd(widgets, widgets.find((w) => w.id === id)!);
+        // reflow 后仍重叠 → findFreeSlot 兜底
+        const stillOverlaps = widgets.filter((w) => w.id !== id).some((w) =>
+          layoutEngine.overlaps(
+            { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
+            { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
+          ),
         );
-        moved.layout = { col: free.col, row: Math.max(1, free.row), colSpan: free.colSpan, rowSpan: free.rowSpan };
+        if (stillOverlaps) {
+          const occupied = widgets.filter((w) => w.id !== id).map((w) => ({
+            col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan,
+          }));
+          occupied.push(row0Guard(s.config.grid));
+          const free = layoutEngine.findFreeSlot(
+            { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
+            occupied,
+            s.config.grid,
+          );
+          const idx = widgets.findIndex((w) => w.id === id);
+          if (idx !== -1) {
+            widgets[idx] = { ...widgets[idx], layout: { col: free.col, row: Math.max(1, free.row), colSpan: free.colSpan, rowSpan: free.rowSpan } };
+          }
+        }
       }
-      widgets.push(moved);
+      return { config: { ...s.config, widgets } };
+    }),
+
+  /** 原子交换两个组件的布局（不做 merge/reflow，纯位置互换） */
+  swapWidgetLayouts: (idA: string, idB: string) =>
+    set((s) => {
+      const a = s.config.widgets.find((w) => w.id === idA);
+      const b = s.config.widgets.find((w) => w.id === idB);
+      if (!a || !b) return s;
+      const widgets = s.config.widgets.map((w) => {
+        if (w.id === idA) return { ...w, layout: { ...b.layout } };
+        if (w.id === idB) return { ...w, layout: { ...a.layout } };
+        return w;
+      });
       return { config: { ...s.config, widgets } };
     }),
 
