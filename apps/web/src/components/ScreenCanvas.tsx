@@ -948,6 +948,15 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           widget.layout.colSpan >= CENTER_AREA.colSpan &&
           widget.layout.row === CENTER_AREA.row;
         const isSelected = widget.id === selectedWidgetId;
+        const hasBorder = !!widget.style.borderStyle && widget.style.borderStyle !== 'none';
+        const borderPad = hasBorder ? 8 : 0; // 有边框时向内收缩 8px
+        const borderStyle = widget.style.borderStyle ?? 'none';
+        // 不同边框样式的视觉区分
+        const borderBoxShadow = borderStyle === 'style1'
+          ? 'inset 0 0 0 3px rgba(126,184,218,0.35)'
+          : borderStyle === 'style2'
+            ? 'inset 0 0 0 3px rgba(201,169,110,0.35)'
+            : 'none';
 
         return (
           <div
@@ -960,13 +969,16 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             `}
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
+              padding: borderPad,
               backgroundColor: isEditing ? (widget.style.backgroundColor || theme.colors.surface) : 'transparent',
               borderColor: isEditing ? (isSelected ? theme.colors.primary : 'rgba(255,255,255,0.12)') : 'transparent',
               borderWidth: isEditing ? 1 : 0,
               borderStyle: isEditing ? 'dashed' : 'solid',
               borderRadius: isEditing ? 4 : 0,
-              boxShadow: effectiveWidgetDrag && !effectiveHeaderDrag && !isSwapTarget && widget.id !== draggingWidgetId.current
-                ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
+              boxShadow: hasBorder
+                ? borderBoxShadow
+                : effectiveWidgetDrag && !effectiveHeaderDrag && !isSwapTarget && widget.id !== draggingWidgetId.current
+                  ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
               transition: isSwapTarget || lastSwapTargetId.current === widget.id
                 ? 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out, box-shadow 150ms'
                 : 'box-shadow 150ms',

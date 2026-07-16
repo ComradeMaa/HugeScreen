@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { headerElementRegistry } from '@hugescreen/widgets';
-import { ChevronDown } from 'lucide-react';
+import type { WidgetStyle } from '@hugescreen/shared';
+import { ChevronDown, Ban } from 'lucide-react';
 
 /** 已知属性 key → 可选值列表（渲染为下拉菜单） */
 const SELECT_OPTIONS: Record<string, string[]> = {
@@ -242,6 +243,16 @@ export function PropertyInspector() {
           </>
         )}
 
+        {/* ═══ 边框样式 ═══ */}
+        <CollapsibleFieldGroup label="边框" defaultOpen={false}>
+          <BorderStylePicker
+            value={widget.style.borderStyle ?? 'none'}
+            onChange={(v) => updateWidget(widget.id, {
+              style: { ...widget.style, borderStyle: v as WidgetStyle['borderStyle'] },
+            })}
+          />
+        </CollapsibleFieldGroup>
+
         <FieldGroup label="动效">
           <label className="flex items-center justify-between">
             <span className="text-[11px] text-textSecondary/70">启用动效</span>
@@ -355,6 +366,42 @@ function TitleRow({
       >
         + 添加
       </button>
+    </div>
+  );
+}
+
+/** 边框样式选择器 — 小方格概览图 */
+const BORDER_STYLES: { value: WidgetStyle['borderStyle']; label: string }[] = [
+  { value: 'none', label: '无' },
+  { value: 'style1', label: '样式1' },
+  { value: 'style2', label: '样式2' },
+];
+
+function BorderStylePicker({ value, onChange }: { value: WidgetStyle['borderStyle']; onChange: (v: WidgetStyle['borderStyle']) => void }) {
+  return (
+    <div className="flex gap-2 px-1">
+      {BORDER_STYLES.map((s) => {
+        const active = (value ?? 'none') === s.value;
+        const isNone = s.value === 'none';
+        return (
+          <button
+            key={s.value}
+            onClick={() => onChange(s.value)}
+            title={s.label}
+            className={`relative w-12 h-10 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${
+              active
+                ? 'border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40'
+                : 'border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-[rgba(255,255,255,0.15)]'
+            }`}
+          >
+            {isNone ? (
+              <Ban size={18} strokeWidth={1.5} className="text-textSecondary/40" />
+            ) : (
+              <span className="text-[9px] text-textSecondary/30">{s.label}</span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

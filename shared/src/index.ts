@@ -126,6 +126,8 @@ export interface WidgetStyle {
   backgroundColor?: string;
   opacity?: number;
   title?: WidgetTitleConfig;
+  /** 边框样式：none=无, style1=样式1, style2=样式2 */
+  borderStyle?: 'none' | 'style1' | 'style2';
 }
 
 /** 一级/二级标题配置。存在即显示，不存在即不占空间 */
