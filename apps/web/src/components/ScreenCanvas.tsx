@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useState, useCallback } from 'react';
+import { Suspense, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
@@ -224,6 +224,36 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const [headerOverWidget, setHeaderOverWidget] = useState(false); // 顶栏元素拖入主区块
   // 交换预览：拖拽顶栏组件到已占用槽位上时，目标槽位内容在原位显示
   const [headerSwapPreview, setHeaderSwapPreview] = useState<{ targetSlotId: string; sourceSlotId: string } | null>(null);
+  const [headerDragHint, setHeaderDragHint] = useState(false); // 顶栏相关拖拽悬停时高亮可用槽位
+  const [widgetDragHint, setWidgetDragHint] = useState(false); // 一般组件拖拽时高亮可用区块
+
+  // 从组件池拿起组件时即可启用可用区域高亮
+  useEffect(() => {
+    const onDragStart = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes('application/header-element-type')) {
+        setHeaderDragHint(true);
+      }
+      if (e.dataTransfer?.types.includes('application/widget-type')) {
+        setWidgetDragHint(true);
+      }
+    };
+    const onDragEnd = () => {
+      setHeaderDragHint(false);
+      setWidgetDragHint(false);
+    };
+    document.addEventListener('dragstart', onDragStart);
+    document.addEventListener('dragend', onDragEnd);
+    return () => {
+      document.removeEventListener('dragstart', onDragStart);
+      document.removeEventListener('dragend', onDragEnd);
+    };
+  }, []);
+
+  // 计算一般组件可放置的区块（palette 拖拽时显示提示）
+  const availableWidgetSlots = useMemo(() => {
+    if (!widgetDragHint) return [];
+    return CANONICAL_SLOTS.filter(s => !isSlotBlockedByUnexpanded(s, widgets));
+  }, [widgetDragHint, widgets]);
 
   const handleHeaderDragOver = useCallback((e: React.DragEvent) => {
     // 一般组件拖入顶栏 → 标记拒绝
@@ -239,6 +269,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         e.dataTransfer.types.includes('application/header-element-id')) {
       e.preventDefault();
       e.stopPropagation();
+      setHeaderDragHint(true);
       // palette 拖入 → copy；已有顶栏换位 → move（必须与 effectAllowed 匹配，否则浏览器重置为 none）
       e.dataTransfer.dropEffect = e.dataTransfer.types.includes('application/header-element-type')
         ? 'copy' : 'move';
@@ -302,6 +333,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     setHeaderDragIdx(null);
     setHeaderBlockedIdx(null);
     setHeaderSwapPreview(null);
+    setHeaderDragHint(false);
     const elType = e.dataTransfer.getData('application/header-element-type');
     const elId = e.dataTransfer.getData('application/header-element-id');
     if (!elType && !elId) return;
@@ -667,7 +699,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         style={{ left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height }}
         onDragOver={isEditing ? handleHeaderDragOver : undefined}
         onDragLeave={() => {
-          setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false);
+          setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false); setHeaderDragHint(false);
           if (headerSwapPreview) {
             lastHeaderSwapInfo.current = headerSwapPreview;
             setTimeout(() => { lastHeaderSwapInfo.current = null; }, 350);
@@ -735,6 +767,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                   outline: isEditing && selectedHeaderSlotId === slot.id
                     ? '1px solid rgba(126,184,218,0.7)' : 'none',
                   outlineOffset: -1,
+                  boxShadow: (isDraggingHeaderEl || headerDragHint) && !isHeaderSwapTarget && slot.id !== headerDragSlotId.current
+                    ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
+                  transition: 'box-shadow 150ms',
                 }}
                 onClick={e => { if (isEditing) { e.stopPropagation(); selectHeaderSlot(slot.id); } }}
                 onDragStart={e => { if (slot.elementType) handleHeaderElDragStart(e, slot.id); }}
@@ -815,6 +850,20 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         </div>
       )}
 
+      {/* ═══ 可用区块提示（palette 拖拽时） ═══ */}
+      {widgetDragHint && availableWidgetSlots.map(slot => (
+        <div
+          key={`whint-${slot.col}-${slot.row}`}
+          className="absolute pointer-events-none z-35"
+          style={{
+            ...slotToPx(slot, cellW, cellH, grid.gap),
+            border: '1px solid rgba(126,184,218,0.2)',
+            backgroundColor: 'rgba(126,184,218,0.03)',
+            borderRadius: 4,
+          }}
+        />
+      ))}
+
       {/* ═══ 拖入预览 ═══ */}
       {isEditing && dropPreview && (
         <div
@@ -862,20 +911,22 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             key={widget.id}
             id={`widget-${widget.id}`}
             draggable={isEditing}
-            className={`absolute overflow-hidden flex flex-col transition-shadow duration-300
+            className={`absolute overflow-hidden flex flex-col
               ${isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
               ${isCenter && !isEditing ? 'z-10' : 'z-0'}
             `}
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
-              ...(isSwapTarget || lastSwapTargetId.current === widget.id
-                ? { transition: 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out' }
-                : {}),
               backgroundColor: isEditing ? (widget.style.backgroundColor || theme.colors.surface) : 'transparent',
               borderColor: isEditing ? (isSelected ? theme.colors.primary : 'rgba(255,255,255,0.12)') : 'transparent',
               borderWidth: isEditing ? 1 : 0,
               borderStyle: isEditing ? 'dashed' : 'solid',
               borderRadius: isEditing ? 4 : 0,
+              boxShadow: isDraggingWidget && !isDraggingHeaderEl && !isSwapTarget && widget.id !== draggingWidgetId.current
+                ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
+              transition: isSwapTarget || lastSwapTargetId.current === widget.id
+                ? 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out, box-shadow 150ms'
+                : 'box-shadow 150ms',
             }}
             onClick={e => { if (isEditing) { e.stopPropagation(); selectWidget(widget.id); } }}
             onDragStart={e => handleWidgetDragStart(e, widget.id)}
