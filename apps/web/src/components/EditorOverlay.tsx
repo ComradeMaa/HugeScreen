@@ -15,6 +15,26 @@ export function EditorOverlay() {
   const [activeTab, setActiveTab] = useState<'palette' | 'inspector'>('palette');
   const [dragOverDelete, setDragOverDelete] = useState(false);
 
+  // 从组件池拿起组件时编辑器面板虚化 + 蓝框
+  const [isPaletteDragging, setIsPaletteDragging] = useState(false);
+
+  useEffect(() => {
+    const paletteTypes = ['application/widget-type', 'application/header-element-type'];
+    const onDragStart = (e: DragEvent) => {
+      if (paletteTypes.some(t => e.dataTransfer?.types.includes(t))) {
+        // 延迟到下一帧，避免 dragstart 期间 React 重渲染导致拖拽源 DOM 被重建而取消拖拽
+        setTimeout(() => setIsPaletteDragging(true), 0);
+      }
+    };
+    const onDragEnd = () => setIsPaletteDragging(false);
+    document.addEventListener('dragstart', onDragStart);
+    document.addEventListener('dragend', onDragEnd);
+    return () => {
+      document.removeEventListener('dragstart', onDragStart);
+      document.removeEventListener('dragend', onDragEnd);
+    };
+  }, []);
+
   // ESC 关闭
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') hideEditor();
@@ -119,7 +139,7 @@ export function EditorOverlay() {
 
         {/* 内容 */}
         <div
-          className={`flex-1 overflow-y-auto ${isDraggingWidget ? 'pointer-events-none' : ''}`}
+          className={`flex-1 overflow-y-auto ${(isDraggingWidget || isPaletteDragging) ? 'pointer-events-none' : ''}`}
           onDragOver={handleDeleteDragOver}
           onDragLeave={handleDeleteDragLeave}
           onDrop={handleDeleteDrop}
@@ -164,6 +184,14 @@ export function EditorOverlay() {
             </div>
           </div>
         )}
+
+        {/* ═══ 组件池拖拽中 — 面板虚化 + 蓝框 ═══ */}
+        <div className="absolute inset-0 z-50 pointer-events-none" style={{
+          backgroundColor: isPaletteDragging ? 'rgba(22,27,42,0.5)' : 'transparent',
+          backdropFilter: isPaletteDragging ? 'blur(2px)' : 'none',
+          boxShadow: isPaletteDragging ? 'inset 0 0 0 2px rgba(126,184,218,0.35)' : 'none',
+          transition: 'all 300ms',
+        }} />
       </div>
     </div>
   );

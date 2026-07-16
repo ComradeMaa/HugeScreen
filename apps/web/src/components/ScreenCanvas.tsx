@@ -226,6 +226,12 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const [headerSwapPreview, setHeaderSwapPreview] = useState<{ targetSlotId: string; sourceSlotId: string } | null>(null);
   const [headerDragHint, setHeaderDragHint] = useState(false); // 顶栏相关拖拽悬停时高亮可用槽位
   const [widgetDragHint, setWidgetDragHint] = useState(false); // 一般组件拖拽时高亮可用区块
+  const [localWidgetDrag, setLocalWidgetDrag] = useState(false); // 本地跟踪一般组件拖拽（避开 zustand 同步更新问题）
+  const [localHeaderDrag, setLocalHeaderDrag] = useState(false); // 本地跟踪顶栏元素拖拽
+
+  // 合并 store 和本地拖拽状态（store 用于跨组件通信，本地用于本组件即时渲染）
+  const effectiveWidgetDrag = isDraggingWidget || localWidgetDrag;
+  const effectiveHeaderDrag = isDraggingHeaderEl || localHeaderDrag;
 
   // 从组件池拿起组件时即可启用可用区域高亮
   useEffect(() => {
@@ -250,7 +256,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   }, []);
 
   // 一般组件拖拽时（palette 新建 / 已有组件移动）是否启用可用区块提示
-  const showWidgetSlotsHint = widgetDragHint || (isDraggingWidget && !isDraggingHeaderEl);
+  const showWidgetSlotsHint = widgetDragHint || (effectiveWidgetDrag && !effectiveHeaderDrag);
+  const showHeaderDragHint = effectiveHeaderDrag || headerDragHint; // palette / 已有顶栏拖拽
 
   const handleHeaderDragOver = useCallback((e: React.DragEvent) => {
     // 一般组件拖入顶栏 → 标记拒绝
@@ -501,6 +508,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     e.dataTransfer.setData('application/widget-id', id);
     e.dataTransfer.effectAllowed = 'move';
     draggingWidgetId.current = id;
+    setLocalWidgetDrag(true); // React 18 自动批处理，handler 结束后才重渲染
     setDraggingWidget(true);
 
     const sourceEl = e.currentTarget as HTMLElement;
@@ -554,6 +562,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       setDragSwap(null);
       draggingWidgetId.current = null;
       setDraggingWidget(false);
+      setLocalWidgetDrag(false);
     };
     document.addEventListener('dragend', onNativeDragEnd);
   }, [isEditing, setDraggingWidget]);
@@ -565,6 +574,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     lastSwapTargetId.current = null;
     draggingWidgetId.current = null;
     setDraggingWidget(false);
+    setLocalWidgetDrag(false);
     // 组件未被删除（拖到合法新位置或取消）→ 恢复可见性
     const el = document.getElementById(`widget-${id}`);
     if (el) el.style.visibility = 'visible';
@@ -581,9 +591,10 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
     e.dataTransfer.setData('application/header-element-id', slotId);
     e.dataTransfer.effectAllowed = 'move';
+    headerDragSlotId.current = slotId;
+    setLocalHeaderDrag(true); // React 18 自动批处理，handler 结束后才重渲染
     setDraggingWidget(true);
     setDraggingHeaderEl(true);
-    headerDragSlotId.current = slotId;
 
     const sourceEl = e.currentTarget as HTMLElement;
     dragSourceEl.current = sourceEl;
@@ -645,6 +656,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       }
       setDraggingWidget(false);
       setDraggingHeaderEl(false);
+      setLocalHeaderDrag(false);
+      setLocalWidgetDrag(false);
       // 交换预览归位动画
       if (lastHeaderSwapInfo.current) {
         const info = lastHeaderSwapInfo.current;
@@ -674,6 +687,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       headerDragSlotId.current = null;
       setDraggingWidget(false);
       setDraggingHeaderEl(false);
+      setLocalHeaderDrag(false);
+      setLocalWidgetDrag(false);
     }
     // 顶栏元素仅通过拖入左侧删除区销毁，拖到其他位置松手自动回到原处
   }, [setDraggingWidget, setDraggingHeaderEl, swapHeaderSlots]);
@@ -708,16 +723,32 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         <div className="flex h-full relative" style={{ gap: grid.gap }}>
 
           {/* 拖拽一般组件时顶栏虚化红框提示 */}
-          {isDraggingWidget && !isDraggingHeaderEl && (
-            <div className={`absolute inset-0 z-30 pointer-events-none flex items-center justify-center transition-all duration-200 ${
-              widgetOverHeader
-                ? 'bg-negative/15 backdrop-blur-sm ring-2 ring-negative/60'
-                : 'bg-negative/5 backdrop-blur-[3px] ring-2 ring-negative/30'
-            }`}>
-              <span className={`font-bold tracking-wide transition-all duration-200 ${
-                widgetOverHeader ? 'text-negative text-sm scale-110' : 'text-negative/80 text-xs'
-              }`}>不可拖拽至此处</span>
+          {showWidgetSlotsHint && (
+            <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
+              style={{
+                backgroundColor: widgetOverHeader ? 'rgba(248,113,113,0.15)' : 'rgba(248,113,113,0.06)',
+                boxShadow: widgetOverHeader
+                  ? 'inset 0 0 0 2px rgba(248,113,113,0.6)'
+                  : 'inset 0 0 0 2px rgba(248,113,113,0.35)',
+                backdropFilter: widgetOverHeader ? 'blur(4px)' : 'blur(3px)',
+                transition: 'all 200ms',
+              }}
+            >
+              <span className="font-bold tracking-wide" style={{
+                color: widgetOverHeader ? 'rgba(248,113,113,0.9)' : 'rgba(248,113,113,0.65)',
+                fontSize: widgetOverHeader ? 14 : 12,
+                transition: 'all 200ms',
+              }}>不可拖拽至此处</span>
             </div>
+          )}
+
+          {/* ═══ 拖拽顶栏组件时顶栏蓝框提示 ═══ */}
+          {showHeaderDragHint && !showWidgetSlotsHint && (
+            <div className="absolute inset-0 z-30 pointer-events-none" style={{
+              boxShadow: 'inset 0 0 0 2px rgba(126,184,218,0.55)',
+              backgroundColor: 'rgba(126,184,218,0.04)',
+              transition: 'all 200ms',
+            }} />
           )}
 
           {/* ═══ 交换预览：目标内容"挤"到源位置（卡片动画） ═══ */}
@@ -764,7 +795,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                   outline: isEditing && selectedHeaderSlotId === slot.id
                     ? '1px solid rgba(126,184,218,0.7)' : 'none',
                   outlineOffset: -1,
-                  boxShadow: (isDraggingHeaderEl || headerDragHint) && !isHeaderSwapTarget && slot.id !== headerDragSlotId.current
+                  boxShadow: (effectiveHeaderDrag || headerDragHint) && !isHeaderSwapTarget && slot.id !== headerDragSlotId.current
                     ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
                   transition: 'box-shadow 150ms',
                 }}
@@ -820,21 +851,38 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       </div>
 
       {/* ═══ 顶栏元素拖入主区块 → 虚化红框 ═══ */}
-      {isDraggingHeaderEl && (
+      {showHeaderDragHint && (
         <div
-          className="absolute z-30 pointer-events-none"
-          style={{ top: headerBottom, left: 0, right: 0, bottom: 0 }}
+          className="absolute z-30 pointer-events-none flex items-center justify-center"
+          style={{
+            top: headerBottom, left: 0, right: 0, bottom: 0,
+            backgroundColor: headerOverWidget ? 'rgba(248,113,113,0.15)' : 'rgba(248,113,113,0.06)',
+            boxShadow: headerOverWidget
+              ? 'inset 0 0 0 2px rgba(248,113,113,0.6)'
+              : 'inset 0 0 0 2px rgba(248,113,113,0.35)',
+            backdropFilter: headerOverWidget ? 'blur(4px)' : 'blur(3px)',
+            transition: 'all 200ms',
+          }}
         >
-          <div className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ${
-            headerOverWidget
-              ? 'bg-negative/15 backdrop-blur-sm ring-2 ring-negative/60'
-              : 'bg-negative/5 backdrop-blur-[3px] ring-2 ring-negative/30'
-          }`}>
-            <span className={`font-bold tracking-wide transition-all duration-200 ${
-              headerOverWidget ? 'text-negative text-sm scale-110' : 'text-negative/80 text-xs'
-            }`}>不可拖拽至此处</span>
-          </div>
+          <span className="font-bold tracking-wide" style={{
+            color: headerOverWidget ? 'rgba(248,113,113,0.9)' : 'rgba(248,113,113,0.65)',
+            fontSize: headerOverWidget ? 14 : 12,
+            transition: 'all 200ms',
+          }}>不可拖拽至此处</span>
         </div>
+      )}
+
+      {/* ═══ 拖拽已有组件 → 主体区域蓝框提示 ═══ */}
+      {showWidgetSlotsHint && (
+        <div
+          className="absolute z-25 pointer-events-none"
+          style={{
+            top: headerBottom, left: 0, right: 0, bottom: 0,
+            boxShadow: 'inset 0 0 0 2px rgba(126,184,218,0.6)',
+            backgroundColor: 'rgba(126,184,218,0.04)',
+            borderRadius: 6,
+          }}
+        />
       )}
 
       {/* ═══ 中心空提示 ═══ */}
@@ -919,7 +967,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               borderWidth: isEditing ? 1 : 0,
               borderStyle: isEditing ? 'dashed' : 'solid',
               borderRadius: isEditing ? 4 : 0,
-              boxShadow: isDraggingWidget && !isDraggingHeaderEl && !isSwapTarget && widget.id !== draggingWidgetId.current
+              boxShadow: effectiveWidgetDrag && !effectiveHeaderDrag && !isSwapTarget && widget.id !== draggingWidgetId.current
                 ? 'inset 0 0 0 1px rgba(126,184,218,0.2)' : 'none',
               transition: isSwapTarget || lastSwapTargetId.current === widget.id
                 ? 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out, box-shadow 150ms'
