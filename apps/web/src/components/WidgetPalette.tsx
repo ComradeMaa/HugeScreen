@@ -30,6 +30,176 @@ function WidgetIcon({ name }: { name: string }) {
   return <span className="text-sm font-bold opacity-40">{name.slice(0, 2)}</span>;
 }
 
+/** Canvas: 圆角矩形 */
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+/** 创建拖拽缩略图 — Canvas 绘制图形化组件样本 */
+function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement {
+  const dpr = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${w}px;height:${h}px;opacity:0.82`;
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(dpr, dpr);
+
+  // 背景
+  ctx.fillStyle = 'rgba(22,27,42,0.92)';
+  roundRect(ctx, 0, 0, w, h, 6);
+  ctx.fill();
+
+  // 边框
+  ctx.strokeStyle = 'rgba(126,184,218,0.45)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, 0.5, 0.5, w - 1, h - 1, 6);
+  ctx.stroke();
+
+  const c = '#7eb8da';
+  ctx.fillStyle = c;
+  ctx.strokeStyle = c;
+  ctx.lineWidth = 1.2;
+  ctx.font = '10px "Inter","PingFang SC",sans-serif';
+  ctx.textAlign = 'center';
+
+  const cx = w / 2, cy = h / 2;
+
+  if (type === 'stat-card') {
+    ctx.font = '8px "Inter","PingFang SC",sans-serif';
+    ctx.fillStyle = 'rgba(126,184,218,0.6)';
+    ctx.fillText('VISITORS', cx, 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px "JetBrains Mono",monospace';
+    ctx.fillText('12.8k', cx, 42);
+    ctx.fillStyle = '#34d399';
+    ctx.font = '9px "Inter","PingFang SC",sans-serif';
+    ctx.fillText('↑ 12.5%', cx, 58);
+
+  } else if (type === 'line-chart') {
+    const pts = [[16, 58], [34, 40], [52, 48], [70, 22], [88, 32]];
+    ctx.strokeStyle = 'rgba(126,184,218,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
+    // Points
+    ctx.fillStyle = '#7eb8da';
+    pts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill(); });
+    // Area
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = '#7eb8da';
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.lineTo(pts[4][0], h - 10); ctx.lineTo(pts[0][0], h - 10); ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+  } else if (type === 'bar-chart') {
+    const bars = [[22, 45, 48], [42, 30, 34], [62, 55, 58], [82, 20, 24]];
+    bars.forEach(([x, top, bottom]) => {
+      ctx.fillStyle = 'rgba(126,184,218,0.7)';
+      roundRect(ctx, x - 6, top, 12, bottom - top, 2);
+      ctx.fill();
+    });
+
+  } else if (type === 'pie-chart') {
+    const slices = [[0, 0.35], [0.35, 0.65], [0.65, 1]];
+    const colors = ['rgba(126,184,218,0.75)', 'rgba(126,184,218,0.45)', 'rgba(126,184,218,0.2)'];
+    slices.forEach(([start, end], i) => {
+      ctx.fillStyle = colors[i];
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, 22, start * Math.PI * 2 - Math.PI / 2, end * Math.PI * 2 - Math.PI / 2);
+      ctx.closePath();
+      ctx.fill();
+    });
+    // Donut hole
+    ctx.fillStyle = 'rgba(22,27,42,0.92)';
+    ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+
+  } else {
+    // Fallback: centered label
+    ctx.font = '12px "Inter","PingFang SC",sans-serif';
+    ctx.fillText(type, cx, cy + 4);
+  }
+
+  return canvas;
+}
+
+/** 创建顶栏组件拖拽缩略图 */
+function createHeaderThumbnail(type: string, w: number, h: number): HTMLElement {
+  const dpr = 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:${w}px;height:${h}px;opacity:0.82`;
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(dpr, dpr);
+  const c = '#7eb8da';
+
+  // 背景
+  ctx.fillStyle = 'rgba(22,27,42,0.92)';
+  roundRect(ctx, 0, 0, w, h, 4);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(126,184,218,0.45)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, 0.5, 0.5, w - 1, h - 1, 4);
+  ctx.stroke();
+
+  if (type === 'header-datetime') {
+    // Digital clock display — dark panel
+    const bx = 8, by = 5, bw = w - 16, bh = h - 10;
+    ctx.fillStyle = 'rgba(10,14,26,0.7)';
+    roundRect(ctx, bx, by, bw, bh, 4);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(126,184,218,0.25)';
+    ctx.lineWidth = 0.5;
+    roundRect(ctx, bx + 0.5, by + 0.5, bw - 1, bh - 1, 4);
+    ctx.stroke();
+    // Time — digital font
+    ctx.font = 'bold 20px "JetBrains Mono",monospace';
+    ctx.fillStyle = '#7eb8da';
+    ctx.textAlign = 'center';
+    ctx.fillText('14:32', bx + bw / 2, by + 19);
+    // Date below
+    ctx.font = '8px "Inter","PingFang SC",sans-serif';
+    ctx.fillStyle = 'rgba(126,184,218,0.45)';
+    ctx.fillText('2026-07-16', bx + bw / 2, by + 30);
+
+  } else if (type === 'header-title') {
+    // Title lines
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    roundRect(ctx, 10, 14, w - 20, 5, 2); ctx.fill();
+    ctx.fillStyle = 'rgba(126,184,218,0.5)';
+    roundRect(ctx, 10, 24, w * 0.5, 4, 2); ctx.fill();
+
+  } else {
+    ctx.font = '11px "Inter","PingFang SC",sans-serif';
+    ctx.fillStyle = '#7eb8da';
+    ctx.textAlign = 'center';
+    ctx.fillText(type, cx, cy + 4);
+  }
+
+  return canvas;
+}
+
 const CATEGORY_LABELS: Record<WidgetCategory, string> = {
   stat: '统计卡',
   chart: '图表',
@@ -93,6 +263,9 @@ function PaletteItem({ widget }: { widget: WidgetDefinition }) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/widget-type', widget.type);
     e.dataTransfer.effectAllowed = 'copy';
+    const thumb = createWidgetThumbnail(widget.type, 120, 72);
+    e.dataTransfer.setDragImage(thumb, 60, 36);
+    requestAnimationFrame(() => thumb.remove());
   };
 
   return (
@@ -131,6 +304,9 @@ function HeaderPaletteItem({ element }: { element: HeaderElementDefinition }) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/header-element-type', element.type);
     e.dataTransfer.effectAllowed = 'copy';
+    const thumb = createHeaderThumbnail(element.type, 90, 42);
+    e.dataTransfer.setDragImage(thumb, 45, 21);
+    requestAnimationFrame(() => thumb.remove());
   };
 
   return (
