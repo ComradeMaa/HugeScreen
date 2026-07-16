@@ -171,6 +171,40 @@ export function EditorOverlay() {
 
 function ToolbarActions() {
   const { saveConfig, exportConfig, importConfig, config } = useEditorStore();
+  const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'done' | 'error'>('idle');
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+
+  const handlePublish = async () => {
+    setPublishStatus('publishing');
+    try {
+      const res = await fetch('/api/view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      setPublishedUrl(data.url);
+      setPublishStatus('done');
+    } catch {
+      setPublishStatus('error');
+    }
+  };
+
+  if (publishStatus === 'done' && publishedUrl) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[10px] text-accent-cool/70 px-1">发布成功</div>
+        <div className="flex items-center gap-1 bg-surface-base rounded p-1.5">
+          <span className="text-[10px] text-accent-cool font-mono truncate flex-1 select-all">{publishedUrl}</span>
+          <button
+            onClick={() => { setPublishStatus('idle'); setPublishedUrl(null); }}
+            className="text-[10px] text-textSecondary/50 hover:text-text px-1 flex-shrink-0"
+          >×</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -195,6 +229,19 @@ function ToolbarActions() {
           导入
         </button>
       </div>
+      <button
+        onClick={handlePublish}
+        disabled={publishStatus === 'publishing'}
+        className={`w-full text-[11px] py-1.5 rounded transition-colors ${
+          publishStatus === 'publishing'
+            ? 'bg-surface-hover/50 text-textSecondary/30 cursor-wait'
+            : publishStatus === 'error'
+            ? 'bg-negative/10 text-negative/80 hover:bg-negative/15'
+            : 'bg-accent-cool/10 text-accent-cool hover:bg-accent-cool/15'
+        }`}
+      >
+        {publishStatus === 'publishing' ? '发布中...' : publishStatus === 'error' ? '发布失败，重试' : '发布大屏'}
+      </button>
     </div>
   );
 }
