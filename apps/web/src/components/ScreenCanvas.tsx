@@ -150,6 +150,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const dragDidMove = useRef(false); // 区分真实拖拽和点击
   const headerDragSlotId = useRef<string | null>(null); // 顶栏拖拽中的槽位 ID（用于 native dragend 兜底恢复可见性）
   const pendingHeaderSwap = useRef<{ fromId: string; toId: string } | null>(null); // 推迟到 dragend 执行的交换
+  const lastSwapTargetId = useRef<string | null>(null); // 上一个被"挤"的组件 ID，用于归位动画
 
   type Preview = BlockSlot & { blocked?: boolean; swapping?: boolean };
   const [dropPreview, setDropPreview] = useState<Preview | null>(null);
@@ -374,6 +375,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       const dragged = blocker ? widgets.find((w) => w.id === wid) : null;
       if (blocker && dragged) {
         // 已有组件拖到同类组件上 → 交换预览（不检查大小）
+        lastSwapTargetId.current = blocker.id;
         setDragSwap({
           targetWidgetId: blocker.id,
           originSlot: { col: dragged.layout.col, row: dragged.layout.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan },
@@ -382,6 +384,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         setDropPreview({ ...slot, swapping: true });
         return;
       }
+      // 不在这里清 lastSwapTargetId：保留它让组件归位也有动画
       setDragSwap(null);
       setDropPreview({ ...slot, blocked: false });
     } else {
@@ -522,6 +525,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     doDragCleanup();
     setDropPreview(null);
     setDragSwap(null);
+    lastSwapTargetId.current = null;
     draggingWidgetId.current = null;
     setDraggingWidget(false);
     // 组件未被删除（拖到合法新位置或取消）→ 恢复可见性
@@ -784,14 +788,13 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             ...slotToPx(dropPreview, cellW, cellH, grid.gap),
             backgroundColor: dropPreview.blocked
               ? 'rgba(248,113,113,0.12)'
-              : dropPreview.swapping
-                ? 'rgba(201,169,110,0.12)'
-                : 'rgba(126,184,218,0.08)',
+              : 'rgba(126,184,218,0.12)',
             border: dropPreview.blocked
               ? '2px solid rgba(248,113,113,0.55)'
-              : dropPreview.swapping
-                ? '1px dashed rgba(201,169,110,0.45)'
-                : '1px dashed rgba(126,184,218,0.35)',
+              : '2px solid rgba(126,184,218,0.6)',
+            boxShadow: dropPreview.blocked
+              ? 'none'
+              : '0 0 16px rgba(126,184,218,0.35), inset 0 0 8px rgba(126,184,218,0.1)',
             borderRadius: 4,
           }}
         >
@@ -800,26 +803,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               <span className="text-negative/80 text-xs font-semibold bg-surface-panel/90 px-2 py-0.5 rounded">此区块已有组件</span>
             </div>
           )}
-          {dropPreview.swapping && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-accent-warm/80 text-xs font-semibold bg-surface-panel/90 px-2 py-0.5 rounded">交换位置</span>
-            </div>
-          )}
         </div>
       )}
 
-      {/* ═══ Widget 交换预览 overlay ═══ */}
-      {isEditing && dragSwap && (
-        <div
-          className="absolute pointer-events-none z-30"
-          style={{
-            ...slotToPx(dragSwap.originSlot, cellW, cellH, grid.gap),
-            backgroundColor: 'rgba(201,169,110,0.1)',
-            border: '2px dashed rgba(201,169,110,0.5)',
-            borderRadius: 4,
-          }}
-        />
-      )}
 
       {/* ═══ 组件 ═══ */}
       {widgets.map(widget => {
@@ -847,7 +833,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             `}
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
-              opacity: isSwapTarget ? 0.5 : 1,
+              ...(isSwapTarget || lastSwapTargetId.current === widget.id
+                ? { transition: 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out' }
+                : {}),
               backgroundColor: isEditing ? (widget.style.backgroundColor || theme.colors.surface) : 'transparent',
               borderColor: isEditing ? (isSelected ? theme.colors.primary : 'rgba(255,255,255,0.12)') : 'transparent',
               borderWidth: isEditing ? 1 : 0,
