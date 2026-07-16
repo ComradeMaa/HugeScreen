@@ -249,11 +249,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     };
   }, []);
 
-  // 计算一般组件可放置的区块（palette 拖拽时显示提示）
-  const availableWidgetSlots = useMemo(() => {
-    if (!widgetDragHint) return [];
-    return CANONICAL_SLOTS.filter(s => !isSlotBlockedByUnexpanded(s, widgets));
-  }, [widgetDragHint, widgets]);
+  // 一般组件拖拽时（palette 新建 / 已有组件移动）是否启用可用区块提示
+  const showWidgetSlotsHint = widgetDragHint || (isDraggingWidget && !isDraggingHeaderEl);
 
   const handleHeaderDragOver = useCallback((e: React.DragEvent) => {
     // 一般组件拖入顶栏 → 标记拒绝
@@ -850,8 +847,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         </div>
       )}
 
-      {/* ═══ 可用区块提示（palette 拖拽时） ═══ */}
-      {widgetDragHint && availableWidgetSlots.map(slot => (
+      {/* ═══ 可用区块提示（低图层，已有组件自然遮挡不可用位置） ═══ */}
+      {showWidgetSlotsHint && CANONICAL_SLOTS.map(slot => (
         <div
           key={`whint-${slot.col}-${slot.row}`}
           className="absolute pointer-events-none z-35"
