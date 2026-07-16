@@ -92,7 +92,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     config, selectedWidgetId, selectedHeaderSlotId, selectWidget, selectHeaderSlot,
     addWidget, moveWidget, removeWidget,
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
-    setDraggingWidget,
+    setDraggingWidget, setDraggingHeaderEl, isDraggingWidget, isDraggingHeaderEl,
   } = useEditorStore();
   const { canvas, grid, header, widgets, theme } = config;
 
@@ -168,8 +168,17 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   // ═══ 顶栏拖拽 ═══
   const [headerDragIdx, setHeaderDragIdx] = useState<number | null>(null);
   const [headerBlockedIdx, setHeaderBlockedIdx] = useState<number | null>(null);
+  const [widgetOverHeader, setWidgetOverHeader] = useState(false); // 一般组件拖入顶栏区域
+  const [headerOverWidget, setHeaderOverWidget] = useState(false); // 顶栏元素拖入主区块
 
   const handleHeaderDragOver = useCallback((e: React.DragEvent) => {
+    // 一般组件拖入顶栏 → 标记拒绝
+    if (e.dataTransfer.types.includes('application/widget-id')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setWidgetOverHeader(true);
+      return;
+    }
     if (e.dataTransfer.types.includes('application/header-element-type') ||
         e.dataTransfer.types.includes('application/header-element-id')) {
       e.preventDefault();
@@ -242,9 +251,13 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
   // ═══ 主区域拖拽（canvas 全局） ═══
   const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
-    // 顶栏元素 → 不处理（顶栏自己 stopPropagation）
+    // 顶栏元素拖入主区块 → 标记拒绝
     if (e.dataTransfer.types.includes('application/header-element-type') ||
-        e.dataTransfer.types.includes('application/header-element-id')) return;
+        e.dataTransfer.types.includes('application/header-element-id')) {
+      e.preventDefault();
+      setHeaderOverWidget(true);
+      return;
+    }
 
     e.preventDefault();
     e.stopPropagation();
@@ -272,6 +285,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   const handleCanvasDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
       setDropPreview(null);
+      setHeaderOverWidget(false);
     }
   }, []);
 
@@ -408,6 +422,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     e.dataTransfer.setData('application/header-element-id', slotId);
     e.dataTransfer.effectAllowed = 'move';
     setDraggingWidget(true);
+    setDraggingHeaderEl(true);
 
     const sourceEl = e.currentTarget as HTMLElement;
     dragSourceEl.current = sourceEl;
@@ -454,17 +469,19 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       document.removeEventListener('dragend', onNativeDragEnd);
       doDragCleanup();
       setDraggingWidget(false);
+      setDraggingHeaderEl(false);
     };
     document.addEventListener('dragend', onNativeDragEnd);
-  }, [isEditing, setDraggingWidget]);
+  }, [isEditing, setDraggingWidget, setDraggingHeaderEl]);
 
   const handleHeaderElDragEnd = useCallback((_e: React.DragEvent, slotId: string) => {
     doDragCleanup();
     setDraggingWidget(false);
+    setDraggingHeaderEl(false);
     const el = document.getElementById(`header-slot-${slotId}`);
     if (el) el.style.visibility = 'visible';
     // 顶栏元素仅通过拖入左侧删除区销毁，拖到其他位置松手自动回到原处
-  }, [setDraggingWidget]);
+  }, [setDraggingWidget, setDraggingHeaderEl]);
 
   // ═══════════════════════════════════
   return (
@@ -483,10 +500,23 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         className="absolute z-30"
         style={{ left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height }}
         onDragOver={isEditing ? handleHeaderDragOver : undefined}
-        onDragLeave={() => { setHeaderDragIdx(null); setHeaderBlockedIdx(null); }}
+        onDragLeave={() => { setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false); }}
         onDrop={isEditing ? handleHeaderDrop : undefined}
       >
-        <div className="flex h-full" style={{ gap: grid.gap }}>
+        <div className="flex h-full relative" style={{ gap: grid.gap }}>
+
+          {/* 拖拽一般组件时顶栏虚化红框提示 */}
+          {isDraggingWidget && !isDraggingHeaderEl && (
+            <div className={`absolute inset-0 z-30 pointer-events-none flex items-center justify-center transition-all duration-200 ${
+              widgetOverHeader
+                ? 'bg-negative/15 backdrop-blur-sm ring-2 ring-negative/60'
+                : 'bg-negative/5 backdrop-blur-[3px] ring-2 ring-negative/30'
+            }`}>
+              <span className={`font-bold tracking-wide transition-all duration-200 ${
+                widgetOverHeader ? 'text-negative text-sm scale-110' : 'text-negative/80 text-xs'
+              }`}>不可拖拽至此处</span>
+            </div>
+          )}
           {header.slots.map((slot, idx) => {
             const px = headerSlotPixels.find(p => p.id === slot.id);
             const elDef = slot.elementType ? headerElementRegistry.get(slot.elementType) : undefined;
@@ -540,6 +570,24 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           })}
         </div>
       </div>
+
+      {/* ═══ 顶栏元素拖入主区块 → 虚化红框 ═══ */}
+      {isDraggingHeaderEl && (
+        <div
+          className="absolute z-30 pointer-events-none"
+          style={{ top: headerBottom, left: 0, right: 0, bottom: 0 }}
+        >
+          <div className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ${
+            headerOverWidget
+              ? 'bg-negative/15 backdrop-blur-sm ring-2 ring-negative/60'
+              : 'bg-negative/5 backdrop-blur-[3px] ring-2 ring-negative/30'
+          }`}>
+            <span className={`font-bold tracking-wide transition-all duration-200 ${
+              headerOverWidget ? 'text-negative text-sm scale-110' : 'text-negative/80 text-xs'
+            }`}>不可拖拽至此处</span>
+          </div>
+        </div>
+      )}
 
       {/* ═══ 中心空提示 ═══ */}
       {isCenterEmpty && (
