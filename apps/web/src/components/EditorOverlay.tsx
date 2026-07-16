@@ -119,7 +119,7 @@ export function EditorOverlay() {
 
         {/* 内容 */}
         <div
-          className="flex-1 overflow-y-auto"
+          className={`flex-1 overflow-y-auto ${isDraggingWidget ? 'pointer-events-none' : ''}`}
           onDragOver={handleDeleteDragOver}
           onDragLeave={handleDeleteDragLeave}
           onDrop={handleDeleteDrop}
@@ -134,11 +134,16 @@ export function EditorOverlay() {
 
         {/* ─── 拖拽删除提示覆盖层 ─── */}
         {isDraggingWidget && (
-          <div className={`absolute inset-0 z-20 pointer-events-none flex items-center justify-center transition-all duration-200 ${
-            dragOverDelete
-              ? 'bg-negative/15 backdrop-blur-sm'
-              : 'bg-negative/5 backdrop-blur-[3px]'
-          }`}>
+          <div
+            className={`absolute inset-0 z-20 flex items-center justify-center transition-all duration-200 ${
+              dragOverDelete
+                ? 'bg-negative/15 backdrop-blur-sm'
+                : 'bg-negative/5 backdrop-blur-[3px]'
+            }`}
+            onDragOver={handleDeleteDragOver}
+            onDragLeave={handleDeleteDragLeave}
+            onDrop={handleDeleteDrop}
+          >
             <div className={`absolute inset-0 pointer-events-none transition-all duration-200 ${
               dragOverDelete
                 ? 'ring-2 ring-negative/60'
