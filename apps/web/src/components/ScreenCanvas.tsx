@@ -998,7 +998,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
               padding: borderPad,
-              backgroundColor: isEditing ? (widget.style.backgroundColor || theme.colors.surface) : 'transparent',
+              backgroundColor: widget.style.backgroundColor || 'rgba(30, 30, 36, 0.82)',
               borderColor: isEditing ? (isSelected ? theme.colors.primary : 'rgba(255,255,255,0.12)') : 'transparent',
               borderWidth: isEditing ? 1 : 0,
               borderStyle: isEditing ? 'dashed' : 'solid',
