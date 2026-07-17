@@ -99,7 +99,7 @@ export function BarChartWidget({
             x: 0, y: 0, x2: isHorizontal ? 1 : 0, y2: isHorizontal ? 0 : 1,
             colorStops: [
               { offset: 0, color: '#00D4FF' },
-              { offset: 1, color: 'rgba(0,212,255,0.4)' },
+              { offset: 1, color: '#005566' },
             ],
           },
         },

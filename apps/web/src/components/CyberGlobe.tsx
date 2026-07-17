@@ -247,7 +247,7 @@ export function CyberGlobe({ canvasW, canvasH, variant = 'top-down' }: CyberGlob
   return (
     <div
       ref={containerRef}
-      style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, zIndex: 3, pointerEvents: 'none' }}
+      style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, zIndex: isOblique ? 3 : 0, pointerEvents: 'none' }}
     />
   );
 }
