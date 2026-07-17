@@ -1,25 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
-import * as echarts from 'echarts/core';
-import { CanvasRenderer } from 'echarts/renderers';
-import { LineChart, BarChart, PieChart } from 'echarts/charts';
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-} from 'echarts/components';
-
-// 按需注册 ECharts 核心组件
-echarts.use([
-  CanvasRenderer,
-  LineChart,
-  BarChart,
-  PieChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-]);
+import * as echarts from 'echarts';
 
 export function useECharts() {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -28,8 +8,9 @@ export function useECharts() {
   const setOption = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (option: any, notMerge = true) => {
-      if (!instanceRef.current) return;
-      instanceRef.current.setOption(option, { notMerge });
+      const inst = instanceRef.current;
+      if (!inst) return;
+      inst.setOption(option, notMerge);
     },
     [],
   );
