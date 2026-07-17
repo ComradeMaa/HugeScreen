@@ -292,6 +292,22 @@ export function PropertyInspector() {
           </>
         )}
 
+        {/* ═══ 饼图专属配置 ═══ */}
+        {widget.type === 'pie-chart' && (
+          <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+            <BarCategoriesEditor
+              categories={
+                Array.isArray((widget.options as any).categories) && (widget.options as any).categories.length > 0
+                  ? (widget.options as any).categories
+                  : [{ name: '类别A', value: 335 }, { name: '类别B', value: 310 }, { name: '类别C', value: 234 }, { name: '类别D', value: 135 }, { name: '类别E', value: 548 }]
+              }
+              onChange={(cats) => updateWidget(widget.id, {
+                options: { ...(widget.options as object), categories: cats },
+              })}
+            />
+          </CollapsibleFieldGroup>
+        )}
+
         {/* ═══ 边框样式 ═══ */}
         <CollapsibleFieldGroup label="边框" defaultOpen={false}>
           <BorderStylePicker

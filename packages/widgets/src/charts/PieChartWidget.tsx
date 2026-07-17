@@ -5,6 +5,8 @@ interface PieChartWidgetProps {
   title?: string;
   /** 数据：{ name, value }[] */
   data?: { name: string; value: number }[];
+  /** 可编辑类别（优先于 data） */
+  categories?: { name: string; value: number }[];
   /** 是否环形图 */
   donut?: boolean;
   /** 是否显示图例 */
@@ -26,14 +28,16 @@ const COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#a78bfa', '#60a5fa'
  */
 export function PieChartWidget({
   title,
-  data = DEFAULT_DATA,
+  data,
+  categories,
   donut = true,
   showLegend = true,
 }: PieChartWidgetProps) {
+  const pieData = (categories && categories.length > 0 ? categories : data) ?? DEFAULT_DATA;
   const { chartRef, setOption } = useECharts();
 
   useEffect(() => {
-    const total = data.reduce((sum, d) => sum + d.value, 0);
+    const total = pieData.reduce((sum, d) => sum + d.value, 0);
 
     setOption({
       tooltip: {
@@ -80,14 +84,27 @@ export function PieChartWidget({
             },
             scaleSize: 8,
           },
-          data: data.map((d, i) => ({
+          data: pieData.map((d, i) => ({
             ...d,
             itemStyle: { color: COLORS[i % COLORS.length] },
           })),
         },
       ],
     }, true);
-  }, [data, donut, showLegend]);
+  }, [pieData, donut, showLegend]);
 
-  return <div ref={chartRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      {/* 左上角色块图例 */}
+      <div className="absolute top-1 left-2 z-10 pointer-events-none flex flex-col gap-0.5 max-w-[70%]">
+        {pieData.map((d, i) => (
+          <div key={i} className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+            <span className="text-[9px] text-textSecondary/70 truncate max-w-[60px]" title={d.name}>{d.name}</span>
+          </div>
+        ))}
+      </div>
+      <div ref={chartRef} className="w-full h-full" />
+    </div>
+  );
 }

@@ -72,16 +72,13 @@ export function LineChartWidget({
         borderColor: 'rgba(255,255,255,0.06)',
         textStyle: { color: '#E8E8EC', fontSize: 12 },
       },
-      legend: {
-        bottom: 0,
-        textStyle: { color: '#9E9EA8', fontSize: 11 },
-      },
+      legend: { show: false },
       color: LINE_COLORS,
       grid: {
         left: 8,
         right: 16,
         top: title ? 8 : 4,
-        bottom: lSeries.length > 1 ? 28 : 4,
+        bottom: 4,
         containLabel: true,
       },
       xAxis: {
@@ -118,5 +115,21 @@ export function LineChartWidget({
     }, true);
   }, [lSeries, xData, smooth, showArea, title, yPad, dataMax, dataMin]);
 
-  return <div ref={chartRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      {/* 右上角系列图例 */}
+      <div className="absolute top-1 right-2 z-10 pointer-events-none flex flex-col gap-1.5 max-w-[50%]">
+          {lSeries.map((s, i) => (
+            <div key={i} className="flex items-center gap-2 justify-end">
+              <span className="text-[11px] text-textSecondary/80 truncate max-w-[80px]" title={s.name}>{s.name}</span>
+              <span className="relative flex items-center flex-shrink-0" style={{ width: 36, height: 28 }}>
+                <span className="absolute top-1/2 left-0 right-0 h-0.5 -translate-y-1/2" style={{ backgroundColor: LINE_COLORS[i % LINE_COLORS.length] }} />
+                <span className="absolute top-1/2 left-1/2 w-3.5 h-3.5 rounded-full -translate-x-1/2 -translate-y-1/2" style={{ backgroundColor: LINE_COLORS[i % LINE_COLORS.length] }} />
+              </span>
+            </div>
+          ))}
+        </div>
+      <div ref={chartRef} className="w-full h-full" />
+    </div>
+  );
 }

@@ -104,9 +104,20 @@ export function registerBuiltinWidgets(): void {
         properties: {
           donut: { type: 'boolean', title: '环形' },
           showLegend: { type: 'boolean', title: '图例' },
+          categories: { type: 'array', title: '数据类别' },
         },
       },
-      defaultConfig: { donut: true, showLegend: true },
+      defaultConfig: {
+        donut: true,
+        showLegend: true,
+        categories: [
+          { name: '类别A', value: 335 },
+          { name: '类别B', value: 310 },
+          { name: '类别C', value: 234 },
+          { name: '类别D', value: 135 },
+          { name: '类别E', value: 548 },
+        ],
+      },
     },
   ]);
 
