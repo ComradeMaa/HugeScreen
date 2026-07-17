@@ -240,31 +240,56 @@ export function PropertyInspector() {
                 </span>
               </label>
             </CollapsibleFieldGroup>
+
+            <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+              <BarCategoriesEditor
+                categories={
+                  Array.isArray((widget.options as any).categories) && (widget.options as any).categories.length > 0
+                    ? (widget.options as any).categories
+                    : [{ name: '类别A', value: 182 }, { name: '类别B', value: 234 }, { name: '类别C', value: 165 }, { name: '类别D', value: 298 }, { name: '类别E', value: 210 }]
+                }
+                onChange={(cats) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), categories: cats },
+                })}
+              />
+            </CollapsibleFieldGroup>
           </>
         )}
 
         {/* ═══ 折线图专属配置 ═══ */}
         {widget.type === 'line-chart' && (
-          <CollapsibleFieldGroup label="折线" defaultOpen={false}>
-            <label className="flex items-center justify-between">
-              <span className="text-[11px] text-textSecondary/70">平滑曲线</span>
-              <input type="checkbox"
-                checked={!!(widget.options as Record<string, unknown>).smooth}
-                onChange={(e) => updateWidget(widget.id, {
-                  options: { ...(widget.options as object), smooth: e.target.checked },
+          <>
+            <CollapsibleFieldGroup label="折线" defaultOpen={false}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">平滑曲线</span>
+                <input type="checkbox"
+                  checked={!!(widget.options as Record<string, unknown>).smooth}
+                  onChange={(e) => updateWidget(widget.id, {
+                    options: { ...(widget.options as object), smooth: e.target.checked },
+                  })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">面积填充</span>
+                <input type="checkbox"
+                  checked={!!(widget.options as Record<string, unknown>).showArea}
+                  onChange={(e) => updateWidget(widget.id, {
+                    options: { ...(widget.options as object), showArea: e.target.checked },
+                  })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+
+            <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+              <LineChartDataEditor
+                xLabels={Array.isArray((widget.options as any).xLabels) ? (widget.options as any).xLabels : ['周一','周二','周三','周四','周五','周六','周日']}
+                lineSeries={Array.isArray((widget.options as any).lineSeries) ? (widget.options as any).lineSeries : [{ name: '系列1', data: [120,200,150,80,70,110,130] }]}
+                onChange={(xLabels, lineSeries) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), xLabels, lineSeries },
                 })}
-                className="rounded" />
-            </label>
-            <label className="flex items-center justify-between mt-2">
-              <span className="text-[11px] text-textSecondary/70">面积填充</span>
-              <input type="checkbox"
-                checked={!!(widget.options as Record<string, unknown>).showArea}
-                onChange={(e) => updateWidget(widget.id, {
-                  options: { ...(widget.options as object), showArea: e.target.checked },
-                })}
-                className="rounded" />
-            </label>
-          </CollapsibleFieldGroup>
+              />
+            </CollapsibleFieldGroup>
+          </>
         )}
 
         {/* ═══ 边框样式 ═══ */}
@@ -328,6 +353,154 @@ function CollapsibleFieldGroup({ label, children, defaultOpen = false }: { label
 }
 
 /** 下拉选择行 */
+interface BarCategory { name: string; value: number; }
+
+function BarCategoriesEditor({ categories, onChange }: { categories: BarCategory[]; onChange: (cats: BarCategory[]) => void }) {
+  const updateCat = (i: number, patch: Partial<BarCategory>) => {
+    const next = categories.map((c, j) => (j === i ? { ...c, ...patch } : c));
+    onChange(next);
+  };
+  const removeCat = (i: number) => {
+    if (categories.length <= 1) return;
+    onChange(categories.filter((_, j) => j !== i));
+  };
+  const addCat = () => {
+    onChange([...categories, { name: `类别${categories.length + 1}`, value: 100 }]);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {categories.map((cat, i) => (
+        <div key={i} className="flex items-center gap-1">
+          <input
+            type="text"
+            value={cat.name}
+            onChange={(e) => updateCat(i, { name: e.target.value })}
+            className="flex-1 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors"
+            placeholder="名称"
+          />
+          <input
+            type="number"
+            value={cat.value}
+            onChange={(e) => updateCat(i, { value: Number(e.target.value) || 0 })}
+            className="w-16 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right"
+            placeholder="值"
+          />
+          <button
+            onClick={() => removeCat(i)}
+            disabled={categories.length <= 1}
+            className="text-textSecondary/30 hover:text-negative transition-colors text-xs px-0.5 disabled:opacity-20"
+          >×</button>
+        </div>
+      ))}
+      <button
+        onClick={addCat}
+        className="w-full text-[10px] py-1 rounded border border-dashed border-[rgba(255,255,255,0.08)] text-textSecondary/40 hover:text-accent-cool hover:border-accent-cool/30 transition-colors"
+      >
+        + 添加类别
+      </button>
+    </div>
+  );
+}
+
+interface LineSeries { name: string; data: number[]; }
+
+function LineChartDataEditor({
+  xLabels, lineSeries, onChange,
+}: {
+  xLabels: string[];
+  lineSeries: LineSeries[];
+  onChange: (xLabels: string[], series: LineSeries[]) => void;
+}) {
+  const updateLabel = (i: number, val: string) => {
+    const next = xLabels.map((l, j) => (j === i ? val : l));
+    onChange(next, lineSeries);
+  };
+  const addLabel = () => onChange([...xLabels, `未定义${xLabels.length + 1}`], lineSeries);
+  const removeLabel = (i: number) => {
+    if (xLabels.length <= 1) return;
+    // 删除标签时同步截断所有系列的数据
+    const nextLabels = xLabels.filter((_, j) => j !== i);
+    const nextSeries = lineSeries.map(s => ({ ...s, data: s.data.filter((_, j) => j !== i) }));
+    onChange(nextLabels, nextSeries);
+  };
+
+  const updateSeriesName = (i: number, name: string) => {
+    const next = lineSeries.map((s, j) => (j === i ? { ...s, name } : s));
+    onChange(xLabels, next);
+  };
+  const updateSeriesData = (si: number, di: number, val: number) => {
+    const next = lineSeries.map((s, j) => {
+      if (j !== si) return s;
+      const data = [...s.data];
+      data[di] = val;
+      return { ...s, data };
+    });
+    onChange(xLabels, next);
+  };
+  const addSeries = () => {
+    const next = [...lineSeries, { name: `系列${lineSeries.length + 1}`, data: xLabels.map(() => 0) }];
+    onChange(xLabels, next);
+  };
+  const removeSeries = (i: number) => {
+    if (lineSeries.length <= 1) return;
+    onChange(xLabels, lineSeries.filter((_, j) => j !== i));
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* X 轴标签 */}
+      <div>
+        <div className="text-[10px] text-textSecondary/40 mb-1">X 轴标签</div>
+        <div className="space-y-1">
+          {xLabels.map((l, i) => (
+            <div key={i} className="flex items-center gap-1">
+              <span className="text-[10px] text-textSecondary/30 w-5 text-right">{i + 1}</span>
+              <input type="text" value={l}
+                onChange={(e) => updateLabel(i, e.target.value)}
+                className="flex-1 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-0.5 text-[11px] text-text focus:outline-none focus:border-accent-cool/50 transition-colors" />
+              <button onClick={() => removeLabel(i)} disabled={xLabels.length <= 1}
+                className="text-textSecondary/30 hover:text-negative text-xs disabled:opacity-20">×</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={addLabel}
+          className="w-full text-[10px] py-0.5 mt-1 rounded border border-dashed border-[rgba(255,255,255,0.08)] text-textSecondary/40 hover:text-accent-cool hover:border-accent-cool/30 transition-colors">+ 标签</button>
+      </div>
+
+      {/* 数据系列 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">数据系列</span>
+          <button onClick={addSeries}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加系列</button>
+        </div>
+        {lineSeries.map((s, si) => (
+          <div key={si} className="mb-2 bg-surface-base/30 rounded p-2">
+            <div className="flex items-center gap-1 mb-1.5">
+              <input type="text" value={s.name}
+                onChange={(e) => updateSeriesName(si, e.target.value)}
+                className="flex-1 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-0.5 text-[11px] text-accent-cool font-medium focus:outline-none focus:border-accent-cool/50 transition-colors" />
+              <button onClick={() => removeSeries(si)} disabled={lineSeries.length <= 1}
+                className="text-textSecondary/30 hover:text-negative text-xs disabled:opacity-20">×</button>
+            </div>
+            <div className="space-y-0.5">
+              {xLabels.map((lbl, di) => (
+                <div key={di} className="flex items-center gap-1">
+                  <span className="text-[9px] text-textSecondary/25 w-12 truncate text-right" title={lbl}>{lbl}</span>
+                  <input type="number" value={s.data[di] ?? 0}
+                    onChange={(e) => updateSeriesData(si, di, Number(e.target.value) || 0)}
+                    className="w-16 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-0.5 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LabelSelectRow({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
   return (
     <label className="flex items-center justify-between">

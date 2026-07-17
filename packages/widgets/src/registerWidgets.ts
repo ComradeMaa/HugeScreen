@@ -41,9 +41,18 @@ export function registerBuiltinWidgets(): void {
         properties: {
           smooth: { type: 'boolean', title: '平滑曲线' },
           showArea: { type: 'boolean', title: '显示面积' },
+          xLabels: { type: 'array', title: 'X轴标签' },
+          lineSeries: { type: 'array', title: '数据系列' },
         },
       },
-      defaultConfig: { smooth: true, showArea: true },
+      defaultConfig: {
+        smooth: true,
+        showArea: true,
+        xLabels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+        lineSeries: [
+          { name: '系列1', data: [120, 200, 150, 80, 70, 110, 130] },
+        ],
+      },
     },
 
     // ─── 柱状图（含条形图模式）───
@@ -62,9 +71,21 @@ export function registerBuiltinWidgets(): void {
         properties: {
           direction: { type: 'string', title: '呈现方式', enum: ['vertical', 'horizontal'] },
           showLabel: { type: 'boolean', title: '显示数值' },
+          categories: { type: 'array', title: '数据类别' },
         },
       },
-      defaultConfig: { direction: 'vertical', showLabel: false, labelFontSize: '10px', labelFontWeight: '600', labelColor: '#FF8C42', barWidth: '50%' },
+      defaultConfig: {
+        direction: 'vertical',
+        showLabel: false,
+        labelFontSize: '10px', labelFontWeight: '600', labelColor: '#FF8C42', barWidth: '50%',
+        categories: [
+          { name: '类别A', value: 182 },
+          { name: '类别B', value: 234 },
+          { name: '类别C', value: 165 },
+          { name: '类别D', value: 298 },
+          { name: '类别E', value: 210 },
+        ],
+      },
     },
 
     // ─── 饼图 ───
