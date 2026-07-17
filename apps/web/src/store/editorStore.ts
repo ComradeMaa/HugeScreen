@@ -39,6 +39,7 @@ interface EditorState {
   showGrid: boolean;
   snapToGrid: boolean;
   backgroundPattern: string; // 背景图案：'none' | 'globe-1' 等
+  backgroundEffect: string;  // 背景效果：'none' | 'energy-flow' 等
 
   setConfig: (config: ScreenConfig) => void;
   setTheme: (theme: ThemeConfig) => void;
@@ -68,6 +69,7 @@ interface EditorState {
   toggleGrid: () => void;
   toggleSnap: () => void;
   setBackgroundPattern: (pattern: string) => void;
+  setBackgroundEffect: (effect: string) => void;
 
   saveConfig: () => string;
   loadConfig: (json: string) => void;
@@ -263,6 +265,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   showGrid: true,
   snapToGrid: true,
   backgroundPattern: 'none',
+  backgroundEffect: 'energy-flow',
 
   setConfig: (config: ScreenConfig) => set({ config }),
 
@@ -586,6 +589,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
   setBackgroundPattern: (pattern: string) => set({ backgroundPattern: pattern }),
+  setBackgroundEffect: (effect: string) => set({ backgroundEffect: effect }),
 
   saveConfig: () => {
     const json = JSON.stringify(get().config, null, 2);

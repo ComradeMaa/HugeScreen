@@ -130,9 +130,14 @@ export function CyberGlobe({ canvasW, canvasH }: CyberGlobeProps) {
 
     // ── 动画循环 ──
     let running = true;
+    const rotationSpeed = 0.06; // 弧度/秒，≈ 0.001 * 60fps
+    let lastTime = performance.now();
     function animate() {
       if (!running) return;
-      globeGroup.rotation.y += 0.001;
+      const now = performance.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.1); // 上限 100ms 防跳帧
+      lastTime = now;
+      globeGroup.rotation.y += rotationSpeed * delta;
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
     }

@@ -11,6 +11,7 @@ import {
   PieChart,
   Type,
   Clock,
+  Globe,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -22,6 +23,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   PieChart,
   Type,
   Clock,
+  Globe,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -189,6 +191,34 @@ function createHeaderThumbnail(type: string, w: number, h: number): HTMLElement 
     roundRect(ctx, 10, 14, w - 20, 5, 2); ctx.fill();
     ctx.fillStyle = 'rgba(0,212,255,0.5)';
     roundRect(ctx, 10, 24, w * 0.5, 4, 2); ctx.fill();
+
+  } else if (type === 'mini-globe') {
+    const gr = 14; // globe radius
+    const gx = w / 2, gy = h / 2;
+    // Sphere body
+    ctx.fillStyle = 'rgba(44,44,52,0.7)';
+    ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2); ctx.stroke();
+    // Latitude lines
+    ctx.strokeStyle = 'rgba(0,212,255,0.15)';
+    ctx.lineWidth = 0.5;
+    [-6, -3, 0, 3, 6].forEach(dy => {
+      const rx = Math.sqrt(gr * gr - dy * dy);
+      ctx.beginPath();
+      ctx.ellipse(gx, gy + dy, rx, 1.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    // Equator ring
+    ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.ellipse(gx, gy, gr + 1, 2.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    // Highlight dot
+    ctx.fillStyle = 'rgba(0,212,255,0.5)';
+    ctx.beginPath(); ctx.arc(gx - 4, gy - 5, 1.2, 0, Math.PI * 2); ctx.fill();
 
   } else {
     ctx.font = '11px "Inter","PingFang SC",sans-serif';

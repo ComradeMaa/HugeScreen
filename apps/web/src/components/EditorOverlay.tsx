@@ -150,6 +150,9 @@ export function EditorOverlay() {
         {/* 背景图案 */}
         <BackgroundPatternSelector />
 
+        {/* 背景效果 */}
+        <BackgroundEffectSelector />
+
         {/* 底部操作 */}
         <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.04)] flex-shrink-0">
           <ToolbarActions />
@@ -230,6 +233,44 @@ function BackgroundPatternSelector() {
               }`}
             >
               {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const BG_EFFECTS = [
+  { value: 'none', label: '无' },
+  { value: 'energy-flow', label: 'PCB 流光' },
+];
+
+function BackgroundEffectSelector() {
+  const { backgroundEffect, setBackgroundEffect } = useEditorStore();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.04)] flex-shrink-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-[10px] font-semibold text-textSecondary/50 uppercase tracking-wider mb-1.5 hover:text-textSecondary/70 transition-colors w-full text-left"
+      >
+        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-0' : '-rotate-90'}`} />
+        背景效果
+      </button>
+      {open && (
+        <div className="flex gap-1.5">
+          {BG_EFFECTS.map(e => (
+            <button
+              key={e.value}
+              onClick={() => setBackgroundEffect(e.value)}
+              className={`flex-1 text-[11px] py-1.5 rounded transition-colors ${
+                backgroundEffect === e.value
+                  ? 'bg-accent-cool/15 text-accent-cool ring-1 ring-accent-cool/30'
+                  : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
+              }`}
+            >
+              {e.label}
             </button>
           ))}
         </div>

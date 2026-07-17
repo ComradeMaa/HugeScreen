@@ -141,6 +141,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
     setDraggingWidget, setDraggingHeaderEl, isDraggingWidget, isDraggingHeaderEl,
     backgroundPattern,
+    backgroundEffect,
   } = useEditorStore();
   const { canvas, grid, header, widgets, theme } = config;
 
@@ -440,7 +441,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   }, [clientToDesign, grid, canvas.width, canvas.height, widgets, headerBottom]);
 
   const handleCanvasDragLeave = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
+    // 只有真正离开 canvas 容器才清状态，进入子元素（relatedTarget 仍在容器内）不做处理
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setDropPreview(null);
       setDragSwap(null);
       setHeaderOverWidget(false);
@@ -723,7 +725,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         </Suspense>
       )}
       {/* ═══ 能量脉冲动线 ═══ */}
-      <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} />
+      {backgroundEffect === 'energy-flow' && (
+        <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} />
+      )}
       {isEditing && <GridOverlay grid={grid} canvasWidth={canvas.width} canvasHeight={canvas.height} />}
 
       {/* ═══ 固定顶栏 ═══ */}
@@ -732,7 +736,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         style={{ left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height }}
         onDragOver={isEditing ? handleHeaderDragOver : undefined}
         onDragLeave={() => {
-          setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false); setHeaderDragHint(false);
+          setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false);
           if (headerSwapPreview) {
             lastHeaderSwapInfo.current = headerSwapPreview;
             setTimeout(() => { lastHeaderSwapInfo.current = null; }, 350);

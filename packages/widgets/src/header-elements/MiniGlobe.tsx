@@ -108,10 +108,15 @@ export function MiniGlobe() {
 
     function animate() {
       if (!running) return;
-      globeGroup.rotation.y += 0.002;
+      const now = performance.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+      globeGroup.rotation.y += rotationSpeed * delta;
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
     }
+    let lastTime = performance.now();
+    const rotationSpeed = 0.12; // 弧度/秒，≈ 0.002 * 60fps
     animate();
 
     return () => {
