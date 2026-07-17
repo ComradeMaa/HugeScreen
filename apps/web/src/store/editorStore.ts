@@ -14,7 +14,7 @@ import {
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import { generateId } from '../utils/id';
-import { DEFAULT_SLOTS, DEFAULT_GRID as LAYOUT_GRID, type ScreenSlot } from './defaultLayout';
+import { DEFAULT_SLOTS, DEFAULT_GRID as LAYOUT_GRID, findSlotAt, type ScreenSlot } from './defaultLayout';
 
 export type Breakpoint = 'desktop' | 'tablet' | 'mobile';
 
@@ -160,6 +160,9 @@ function mergeSlotsAfterRemove(widgets: WidgetConfig[], removed: WidgetConfig): 
  *   I.   新组件在顶部  → 旧组件向下收缩（row 下移，rowSpan 减少）
  *   II.  新组件在底部  → 旧组件向上收缩（rowSpan 减少）
  *   III. 新组件在中间  → 旧组件保留最上方部分，下方释放为空区块
+ *
+ * ★ 兼容 swap 后的多槽位组件：组件布局跨越多个标准槽位时（即使未超过自身默认尺寸），
+ *   也能被新组件截断——以标准槽位尺寸为最小阈值，而非组件默认尺寸。
  */
 function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetConfig[] {
   const inc = incoming.layout;
@@ -176,42 +179,57 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetCon
     const defRowSpan = def?.defaultSize?.rowSpan ?? ex.rowSpan;
     const defColSpan = def?.defaultSize?.colSpan ?? ex.colSpan;
 
-    // 未扩大 → 不动（交由 findFreeSlot 找其他位置）
-    if (ex.rowSpan <= defRowSpan && ex.colSpan <= defColSpan) return existing;
+    // ── 可分割判定 ──
+    // 条件 A：组件被 merge 扩大过（rowSpan/colSpan > 默认）
+    const isExpanded = ex.rowSpan > defRowSpan || ex.colSpan > defColSpan;
+    // 条件 B：组件布局跨越多个标准槽位（swap 后常见：中心组件换到侧栏 2×4）
+    const canonicalSlot = findSlotAt(ex.col, ex.row);
+    const spansMultipleSlots = canonicalSlot
+      ? (ex.colSpan * ex.rowSpan > canonicalSlot.colSpan * canonicalSlot.rowSpan)
+      : false;
+
+    // 两种条件都不满足 → 不可截断
+    if (!isExpanded && !spansMultipleSlots) return existing;
+
+    // 最小阈值：非扩大但跨多槽位 → 用标准槽位尺寸；扩大 → 用组件默认尺寸
+    const minRowSpan = (!isExpanded && spansMultipleSlots)
+      ? (canonicalSlot?.rowSpan ?? defRowSpan)
+      : defRowSpan;
+    const minColSpan = (!isExpanded && spansMultipleSlots)
+      ? (canonicalSlot?.colSpan ?? defColSpan)
+      : defColSpan;
 
     const incRowEnd = inc.row + inc.rowSpan;
     const exRowEnd = ex.row + ex.rowSpan;
 
     // ═══ 场景 I：新组件在顶部 → 旧组件向下缩 ═══
-    // 例：旧 rows 1-6, 新 rows 1-2 → 旧缩为 rows 3-6
-    if (ex.rowSpan > defRowSpan && inc.row <= ex.row && incRowEnd < exRowEnd) {
+    if (inc.row <= ex.row && incRowEnd < exRowEnd) {
       const newRow = incRowEnd;
       const newRowSpan = exRowEnd - incRowEnd;
-      if (newRowSpan >= defRowSpan) {
+      if (newRowSpan >= minRowSpan) {
         return { ...existing, layout: { ...ex, row: newRow, rowSpan: newRowSpan } };
       }
     }
 
     // ═══ 场景 II：新组件在底部 → 旧组件向上缩 ═══
-    // 例：旧 rows 1-6, 新 rows 5-6 → 旧缩为 rows 1-4
-    if (ex.rowSpan > defRowSpan && inc.row > ex.row && incRowEnd >= exRowEnd) {
+    if (inc.row > ex.row && incRowEnd >= exRowEnd) {
       const newRowSpan = inc.row - ex.row;
-      if (newRowSpan >= defRowSpan) {
+      if (newRowSpan >= minRowSpan) {
         return { ...existing, layout: { ...ex, rowSpan: newRowSpan } };
       }
     }
 
     // ═══ 场景 III：新组件在中间 → 旧组件保留最上方部分 ═══
-    // 例：旧 rows 1-6（三个 2 行区块合并），新 rows 3-4 → 旧缩为 rows 1-2，释放 3-6
-    if (ex.rowSpan > defRowSpan && inc.row > ex.row && incRowEnd < exRowEnd) {
+    if (inc.row > ex.row && incRowEnd < exRowEnd) {
       const topRowSpan = inc.row - ex.row;
-      if (topRowSpan >= defRowSpan) {
+      if (topRowSpan >= minRowSpan) {
         return { ...existing, layout: { ...ex, rowSpan: topRowSpan } };
       }
     }
 
-    // ═══ 场景 IV：新组件完全覆盖旧组件 → 旧组件缩回默认尺寸 ═══
-    if (ex.rowSpan > defRowSpan && inc.row <= ex.row && incRowEnd >= exRowEnd) {
+    // ═══ 场景 IV：新组件完全覆盖已扩大的组件 → 缩回默认尺寸 ═══
+    // （仅限真正被 merge 扩大的组件；swap 产生的多槽位不由场景 IV 处理，交由 findFreeSlot 转移）
+    if (isExpanded && inc.row <= ex.row && incRowEnd >= exRowEnd) {
       return { ...existing, layout: { ...ex, row: inc.row, rowSpan: defRowSpan, col: inc.col, colSpan: defColSpan } };
     }
 

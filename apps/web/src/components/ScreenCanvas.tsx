@@ -1,5 +1,6 @@
 import { Suspense, lazy, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
+import { CANONICAL_SLOTS, CENTER_SLOT, findSlotAt } from '../store/defaultLayout';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
@@ -18,29 +19,6 @@ interface BlockSlot {
   rowSpan: number;
 }
 
-const CANONICAL_SLOTS: BlockSlot[] = [
-  { col: 0, row: 1, colSpan: 2, rowSpan: 2 }, // left-1
-  { col: 0, row: 3, colSpan: 2, rowSpan: 2 }, // left-2
-  { col: 0, row: 5, colSpan: 2, rowSpan: 2 }, // left-3
-  { col: 2, row: 1, colSpan: 4, rowSpan: 6 }, // center
-  { col: 6, row: 1, colSpan: 2, rowSpan: 2 }, // right-1
-  { col: 6, row: 3, colSpan: 2, rowSpan: 2 }, // right-2
-  { col: 6, row: 5, colSpan: 2, rowSpan: 2 }, // right-3
-];
-
-const CENTER_AREA = CANONICAL_SLOTS[3];
-
-function findSlotAt(col: number, row: number): BlockSlot | null {
-  return (
-    CANONICAL_SLOTS.find(
-      (s) =>
-        col >= s.col && col < s.col + s.colSpan &&
-        row >= s.row && row < s.row + s.rowSpan,
-    ) ?? null
-  );
-}
-
-/** 检测槽位是否被任何组件占据（无论是否扩大），用于 palette 拖入 */
 function isSlotHardBlocked(
   slot: BlockSlot,
   widgets: WidgetConfig[],
@@ -58,8 +36,8 @@ function isSlotHardBlocked(
 /**
  * 检测槽位是否被「不可压缩」的组件阻挡。
  * - 中央大区块（4×6 区域）→ 永远阻挡
- * - 组件处于默认尺寸（未被 merge 扩大）→ 阻挡
- * - 组件被 merge 扩大过（删除产生的长区块）→ 不阻挡，允许 reflow 截断
+ * - 组件占据多个标准槽位（merge 扩大 / swap 后）→ 不阻挡，允许 reflow 截断
+ * - 组件处于默认尺寸 → 阻挡
  */
 function isSlotBlockedByUnexpanded(
   slot: BlockSlot,
@@ -68,14 +46,23 @@ function isSlotBlockedByUnexpanded(
   const blocker = getOverlappingWidget(slot, widgets);
   if (!blocker) return false;
 
-  // 中央大区块 → 永远不可截断（用重叠检测而非精确 col/row，覆盖中央区域的所有 widget）
+  // 中央大区块 → 永远不可截断
   if (
     layoutEngine.overlaps(
       { col: blocker.layout.col, row: blocker.layout.row, colSpan: blocker.layout.colSpan, rowSpan: blocker.layout.rowSpan },
-      CENTER_AREA,
+      CENTER_SLOT,
     )
   ) {
     return true;
+  }
+
+  // ★ 检查组件是否占据超过一个标准槽位（merge 扩大 或 swap 后布局跨越多个槽位）
+  const canonicalSlot = findSlotAt(blocker.layout.col, blocker.layout.row);
+  if (canonicalSlot) {
+    const blockerArea = blocker.layout.colSpan * blocker.layout.rowSpan;
+    const slotArea = canonicalSlot.colSpan * canonicalSlot.rowSpan;
+    // 面积 > 单个标准槽位 → 可分割（无论是否 swap 导致）
+    if (blockerArea > slotArea) return false;
   }
 
   // 检查组件是否被扩大过（超出注册默认尺寸）
@@ -201,10 +188,10 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       const wEndCol = w.layout.col + w.layout.colSpan;
       const wEndRow = w.layout.row + w.layout.rowSpan;
       return (
-        w.layout.col < CENTER_AREA.col + CENTER_AREA.colSpan &&
-        wEndCol > CENTER_AREA.col &&
-        w.layout.row < CENTER_AREA.row + CENTER_AREA.rowSpan &&
-        wEndRow > CENTER_AREA.row
+        w.layout.col < CENTER_SLOT.col + CENTER_SLOT.colSpan &&
+        wEndCol > CENTER_SLOT.col &&
+        w.layout.row < CENTER_SLOT.row + CENTER_SLOT.rowSpan &&
+        wEndRow > CENTER_SLOT.row
       );
     });
   }, [widgets]);
@@ -915,7 +902,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       {isCenterEmpty && (
         <div
           className="absolute flex items-center justify-center pointer-events-none z-20"
-          style={slotToPx(CENTER_AREA, cellW, cellH, grid.gap)}
+          style={slotToPx(CENTER_SLOT, cellW, cellH, grid.gap)}
         >
           <span className="text-sm text-textSecondary/25 tracking-widest select-none">Ctrl+E 以添加组件</span>
         </div>
@@ -972,9 +959,9 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         if (!px) return null;
         const def = widgetRegistry.get(widget.type);
         const Comp = def?.component;
-        const isCenter = widget.layout.col === CENTER_AREA.col &&
-          widget.layout.colSpan >= CENTER_AREA.colSpan &&
-          widget.layout.row === CENTER_AREA.row;
+        const isCenter = widget.layout.col === CENTER_SLOT.col &&
+          widget.layout.colSpan >= CENTER_SLOT.colSpan &&
+          widget.layout.row === CENTER_SLOT.row;
         const isSelected = widget.id === selectedWidgetId;
         const hasBorder = !!widget.style.borderStyle && widget.style.borderStyle !== 'none';
         const borderPad = hasBorder ? 8 : 0; // 有边框时向内收缩 8px

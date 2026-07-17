@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useECharts } from './useECharts';
 
 interface PieChartWidgetProps {
-  title?: string;
   data?: { name: string; value: number }[];
   categories?: { name: string; value: number }[];
   donut?: boolean;
@@ -15,7 +14,7 @@ const DEFAULT_DATA = [
 ];
 const COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#a78bfa', '#60a5fa'];
 
-export function PieChartWidget({ title, data, categories, donut = true, showLegend = true }: PieChartWidgetProps) {
+export function PieChartWidget({ data, categories, donut = true, showLegend = true }: PieChartWidgetProps) {
   const pd = (categories?.length ? categories : data) ?? DEFAULT_DATA;
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
@@ -58,7 +57,7 @@ export function PieChartWidget({ title, data, categories, donut = true, showLege
     });
 
     if (didInit) {
-      setOption(opt(true), false);
+      setOption(opt(true), true);
     } else {
       setDidInit(true);
       // 空数组基线 → 真正从空白开始

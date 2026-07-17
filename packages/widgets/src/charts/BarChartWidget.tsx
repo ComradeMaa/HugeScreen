@@ -4,7 +4,6 @@ import { useECharts } from './useECharts';
 export interface BarCategory { name: string; value: number; }
 
 interface BarChartWidgetProps {
-  title?: string;
   xLabels?: string[];
   series?: { name: string; data: number[] }[];
   categories?: BarCategory[];
@@ -90,7 +89,8 @@ export function BarChartWidget({
     });
 
     if (didInit) {
-      setOption(opt(true), false);
+      // notMerge=true 确保关闭选项（如 dataZoom:undefined）被正确清除
+      setOption(opt(true), true);
     } else {
       setDidInit(true);
       // 首帧用零值作基线（animation:false），双 rAF 确保落定后切真实数据触发入场动画
@@ -101,7 +101,7 @@ export function BarChartWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(catLabels), JSON.stringify(catValues), isHorizontal, showLabel, cats.length]);
+  }, [JSON.stringify(catLabels), JSON.stringify(catValues), isHorizontal, showLabel, barWidth, labelFontSize, labelFontWeight, labelColor, cats.length]);
 
   return <div ref={chartRef} className="w-full h-full" />;
 }

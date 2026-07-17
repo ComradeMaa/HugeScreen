@@ -24,7 +24,8 @@ export function LineChartWidget({
 
   const ls = lineSeries?.length ? lineSeries : (oldSeries?.length ? oldSeries : DEFAULT_SERIES);
   const labels = oldLabels?.length ? oldLabels : DEFAULT_LABELS;
-  const maxLen = Math.max(...ls.map(s => s.data.length), labels.length);
+  const lens = ls.map(s => s.data.length);
+  const maxLen = lens.length ? Math.max(...lens, labels.length) : labels.length;
   const xData = labels.length >= maxLen ? labels
     : [...labels, ...Array.from({ length: maxLen - labels.length }, (_, i) => `未定义${i + 1}`)];
   const allVals = ls.flatMap(s => s.data);
@@ -73,7 +74,7 @@ export function LineChartWidget({
     });
 
     if (didInit) {
-      setOption(opt(true), false);
+      setOption(opt(true), true);
     } else {
       setDidInit(true);
       // 基线：空 series → 第二帧新增整个系列，progressive 逐段绘制

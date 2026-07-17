@@ -122,3 +122,31 @@ export const DEFAULT_GRID = {
   gap: 8,
   snapToGrid: true,
 };
+
+/**
+ * 标准槽位 — 画布上 7 个不可再分的基础区块。
+ * 组件注册的默认尺寸应与此对齐；merge/swap 产生的多槽位布局可通过 reflow 重新分割。
+ */
+export const CANONICAL_SLOTS: WidgetLayout[] = [
+  { col: 0, row: 1, colSpan: 2, rowSpan: 2 }, // left-1
+  { col: 0, row: 3, colSpan: 2, rowSpan: 2 }, // left-2
+  { col: 0, row: 5, colSpan: 2, rowSpan: 2 }, // left-3
+  { col: 2, row: 1, colSpan: 4, rowSpan: 6 }, // center
+  { col: 6, row: 1, colSpan: 2, rowSpan: 2 }, // right-1
+  { col: 6, row: 3, colSpan: 2, rowSpan: 2 }, // right-2
+  { col: 6, row: 5, colSpan: 2, rowSpan: 2 }, // right-3
+];
+
+/** 中央大区块（索引 3），永远不可被普通组件截断 */
+export const CENTER_SLOT = CANONICAL_SLOTS[3];
+
+/** 根据网格坐标查找所属的标准槽位 */
+export function findSlotAt(col: number, row: number): WidgetLayout | null {
+  return (
+    CANONICAL_SLOTS.find(
+      (s) =>
+        col >= s.col && col < s.col + s.colSpan &&
+        row >= s.row && row < s.row + s.rowSpan,
+    ) ?? null
+  );
+}

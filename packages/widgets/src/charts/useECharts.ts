@@ -15,31 +15,26 @@ export function useECharts() {
     [],
   );
 
-  const getInstance = useCallback(() => instanceRef.current, []);
-
   useEffect(() => {
     if (!chartRef.current) return;
 
-    // 初始化图表实例
     const instance = echarts.init(chartRef.current);
     instanceRef.current = instance;
 
-    // 响应窗口变化
     const handleResize = () => instance.resize();
-    // 使用 ResizeObserver 监听容器变化
-    const observer = new ResizeObserver(() => {
-      instance.resize();
-    });
+    window.addEventListener('resize', handleResize);
+    const observer = new ResizeObserver(() => instance.resize());
     observer.observe(chartRef.current);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
       observer.disconnect();
       instance.dispose();
       instanceRef.current = null;
     };
   }, []);
 
-  return { chartRef, setOption, getInstance };
+  return { chartRef, setOption };
 }
 
 export { echarts };
