@@ -146,6 +146,78 @@ export function CyberGlobe({ canvasW, canvasH, variant = 'top-down' }: CyberGlob
     torusMesh.rotation.x = Math.PI / 2;
     globeGroup.add(torusMesh);
 
+    // ═══ 边缘光晕（Fresnel glow） ═══
+    const glowGeo = new THREE.SphereGeometry(1006, 64, 32);
+    const glowMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color('#00D4FF') },
+        uIntensity: { value: 0.14 },
+        uFalloff: { value: 3.5 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        uniform vec3 uColor;
+        uniform float uIntensity;
+        uniform float uFalloff;
+        void main() {
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+          float fresnel = 1.0 - abs(dot(viewDir, vNormal));
+          fresnel = pow(fresnel, uFalloff);
+          gl_FragColor = vec4(uColor, fresnel * uIntensity);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+    });
+    globeGroup.add(new THREE.Mesh(glowGeo, glowMat));
+
+    // ═══ 外层暗色晕（柔化边缘融入背景） ═══
+    const darkGlowGeo = new THREE.SphereGeometry(1012, 64, 32);
+    const darkGlowMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color('#1A1A20') },
+        uIntensity: { value: 0.18 },
+        uFalloff: { value: 2.0 },
+      },
+      vertexShader: /* glsl */ `
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        varying vec3 vNormal;
+        varying vec3 vWorldPos;
+        uniform vec3 uColor;
+        uniform float uIntensity;
+        uniform float uFalloff;
+        void main() {
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+          float fresnel = 1.0 - abs(dot(viewDir, vNormal));
+          fresnel = pow(fresnel, uFalloff);
+          gl_FragColor = vec4(uColor, fresnel * uIntensity);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+    });
+    globeGroup.add(new THREE.Mesh(darkGlowGeo, darkGlowMat));
+
     scene.add(globeGroup);
 
     // ── 动画循环 ──
