@@ -243,6 +243,30 @@ export function PropertyInspector() {
           </>
         )}
 
+        {/* ═══ 折线图专属配置 ═══ */}
+        {widget.type === 'line-chart' && (
+          <CollapsibleFieldGroup label="折线" defaultOpen={false}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">平滑曲线</span>
+              <input type="checkbox"
+                checked={!!(widget.options as Record<string, unknown>).smooth}
+                onChange={(e) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), smooth: e.target.checked },
+                })}
+                className="rounded" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">面积填充</span>
+              <input type="checkbox"
+                checked={!!(widget.options as Record<string, unknown>).showArea}
+                onChange={(e) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), showArea: e.target.checked },
+                })}
+                className="rounded" />
+            </label>
+          </CollapsibleFieldGroup>
+        )}
+
         {/* ═══ 边框样式 ═══ */}
         <CollapsibleFieldGroup label="边框" defaultOpen={false}>
           <BorderStylePicker

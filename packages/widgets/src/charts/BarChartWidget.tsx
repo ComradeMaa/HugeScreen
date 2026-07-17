@@ -51,6 +51,11 @@ export function BarChartWidget({
           axisLabel: { color: '#9E9EA8', fontSize: 10 },
         };
 
+    // 显示标签时，Y 轴最大值上浮 18% 留出标签空间，防止被挤出组件
+    const allVals = series.flatMap((s) => s.data);
+    const dataMax = allVals.length > 0 ? Math.max(...allVals) : 0;
+    const yMax = !isHorizontal && showLabel && dataMax > 0 ? dataMax * 1.18 : undefined;
+
     const yAxis = isHorizontal
       ? {
           type: 'category' as const,
@@ -59,6 +64,7 @@ export function BarChartWidget({
         }
       : {
           type: 'value' as const,
+          max: yMax,
           splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
           axisLabel: { color: '#9E9EA8', fontSize: 10 },
         };
@@ -71,6 +77,9 @@ export function BarChartWidget({
       ? { ...yAxis, axisTick: { show: false }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } }
       : yAxis;
 
+    // 显示标签时增加顶部内边距，配合 containLabel 确保标签不被裁剪
+    const gridTop = !isHorizontal && showLabel ? 20 : 4;
+
     setOption({
       tooltip: {
         trigger: 'axis',
@@ -81,7 +90,7 @@ export function BarChartWidget({
       grid: {
         left: 4,
         right: 16,
-        top: 4,
+        top: gridTop,
         bottom: isHorizontal ? 4 : 24,
         containLabel: true,
       },

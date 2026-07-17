@@ -38,8 +38,8 @@ interface EditorState {
   isDraggingHeaderEl: boolean; // 是否正在拖拽顶栏元素（区分一般组件和顶栏拖拽）
   showGrid: boolean;
   snapToGrid: boolean;
-  backgroundPattern: string; // 背景图案：'none' | 'globe-1' 等
-  backgroundEffect: string;  // 背景效果：'none' | 'energy-flow' 等
+  backgroundPattern: string; // 背景图案：'none' | 'globe-1' 等（同步至 config）
+  backgroundEffect: string;  // 背景效果：'none' | 'energy-flow' 等（同步至 config）
 
   setConfig: (config: ScreenConfig) => void;
   setTheme: (theme: ThemeConfig) => void;
@@ -251,6 +251,8 @@ function createInitialConfig(): ScreenConfig {
     },
     widgets: createDefaultWidgets(initialSlots),
     theme: { ...DEFAULT_THEME },
+    backgroundPattern: 'none',
+    backgroundEffect: 'energy-flow',
   };
 }
 
@@ -267,7 +269,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   backgroundPattern: 'none',
   backgroundEffect: 'energy-flow',
 
-  setConfig: (config: ScreenConfig) => set({ config }),
+  setConfig: (config: ScreenConfig) =>
+    set({
+      config,
+      backgroundPattern: config.backgroundPattern ?? 'none',
+      backgroundEffect: config.backgroundEffect ?? 'energy-flow',
+    }),
 
   setTheme: (theme: ThemeConfig) =>
     set((s) => ({ config: { ...s.config, theme } })),
@@ -588,8 +595,16 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   setDraggingHeaderEl: (v: boolean) => set({ isDraggingHeaderEl: v }),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
-  setBackgroundPattern: (pattern: string) => set({ backgroundPattern: pattern }),
-  setBackgroundEffect: (effect: string) => set({ backgroundEffect: effect }),
+  setBackgroundPattern: (pattern: string) =>
+    set((s) => ({
+      backgroundPattern: pattern,
+      config: { ...s.config, backgroundPattern: pattern },
+    })),
+  setBackgroundEffect: (effect: string) =>
+    set((s) => ({
+      backgroundEffect: effect,
+      config: { ...s.config, backgroundEffect: effect },
+    })),
 
   saveConfig: () => {
     const json = JSON.stringify(get().config, null, 2);
@@ -618,7 +633,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
               : w,
           );
       }
-      set({ config: raw as ScreenConfig });
+      set({
+        config: raw as ScreenConfig,
+        backgroundPattern: (raw as ScreenConfig).backgroundPattern ?? 'none',
+        backgroundEffect: (raw as ScreenConfig).backgroundEffect ?? 'energy-flow',
+      });
     } catch { console.error('[EditorStore] Failed to parse config JSON'); }
   },
 

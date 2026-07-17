@@ -23,6 +23,8 @@ export interface ScreenConfig {
   responsive: ResponsiveConfig;
   widgets: WidgetConfig[];
   theme: ThemeConfig;
+  backgroundPattern?: string;
+  backgroundEffect?: string;
 }
 
 export interface CanvasConfig {
