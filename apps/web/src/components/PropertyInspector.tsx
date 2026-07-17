@@ -583,35 +583,90 @@ function TitleRow({
   );
 }
 
-/** 边框样式选择器 — 小方格概览图 */
+/** 边框样式选择器 — SVG 缩略图预览 */
 const BORDER_STYLES: { value: WidgetStyle['borderStyle']; label: string }[] = [
   { value: 'none', label: '无' },
-  { value: 'style1', label: '样式1' },
-  { value: 'style2', label: '样式2' },
+  { value: 'style1', label: '电光蓝角标' },
+  { value: 'style2', label: '琥珀橙扫描线' },
+  { value: 'style3', label: '样式3' },
+  { value: 'style4', label: '样式4' },
+  { value: 'style5', label: '样式5' },
+  { value: 'style6', label: '样式6' },
 ];
+
+function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
+  const SIZE = 48;
+  const PAD = 8;
+  if (style === 'none') return <Ban size={18} strokeWidth={1.5} className="text-textSecondary/40" />;
+  // 尚未实现的样式 → 占位符
+  if (style === 'style3' || style === 'style4' || style === 'style5' || style === 'style6') {
+    return <span className="text-[9px] text-textSecondary/30">即将推出</span>;
+  }
+  return (
+    <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
+      <rect x="0" y="0" width={SIZE} height={SIZE} rx="3" fill="#1E1E24" />
+      {style === 'style1' && (
+        <>
+          {/* Beveled corners */}
+          <path d={`M${PAD},${PAD+4} L${PAD+4},${PAD}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
+          <path d={`M${SIZE-PAD-4},${PAD} L${SIZE-PAD},${PAD+4}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
+          <path d={`M${SIZE-PAD},${SIZE-PAD-4} L${SIZE-PAD-4},${SIZE-PAD}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
+          <path d={`M${PAD+4},${SIZE-PAD} L${PAD},${SIZE-PAD-4}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
+          {/* Top line */}
+          <line x1={PAD+6} y1={PAD-0.5} x2={SIZE-PAD-6} y2={PAD-0.5} stroke="#FFFFFF" strokeWidth="0.8" />
+          {/* Top ticks */}
+          <line x1={SIZE-PAD-9} y1={PAD} x2={SIZE-PAD-9} y2={PAD+4} stroke="#FFFFFF" strokeWidth="0.7" />
+          <line x1={SIZE-PAD-12} y1={PAD} x2={SIZE-PAD-12} y2={PAD+4} stroke="#FFFFFF" strokeWidth="0.7" />
+          <line x1={SIZE-PAD-15} y1={PAD} x2={SIZE-PAD-15} y2={PAD+4} stroke="#FFFFFF" strokeWidth="0.7" />
+          {/* Bottom V arrows */}
+          <path d={`M${SIZE-PAD-12},${SIZE-PAD} l2,2 l2,-2 l2,2 l2,-2`} stroke="#FFFFFF" strokeWidth="0.7" fill="none" />
+          {/* Bottom line */}
+          <line x1={PAD+6} y1={SIZE-PAD+0.5} x2={SIZE-PAD-14} y2={SIZE-PAD+0.5} stroke="#FFFFFF" strokeWidth="0.8" />
+          {/* Left cross-lines */}
+          <line x1={PAD} y1={PAD+14} x2={PAD+3} y2={PAD+14} stroke="#FFFFFF" strokeWidth="0.6" />
+          <line x1={PAD} y1={PAD+18} x2={PAD+3} y2={PAD+18} stroke="#FFFFFF" strokeWidth="0.6" />
+          <line x1={PAD} y1={PAD+22} x2={PAD+3} y2={PAD+22} stroke="#FFFFFF" strokeWidth="0.6" />
+          {/* Right cross-lines */}
+          <line x1={SIZE-PAD-3} y1={PAD+14} x2={SIZE-PAD} y2={PAD+14} stroke="#FFFFFF" strokeWidth="0.6" />
+          <line x1={SIZE-PAD-3} y1={PAD+18} x2={SIZE-PAD} y2={PAD+18} stroke="#FFFFFF" strokeWidth="0.6" />
+          <line x1={SIZE-PAD-3} y1={PAD+22} x2={SIZE-PAD} y2={PAD+22} stroke="#FFFFFF" strokeWidth="0.6" />
+          {/* Inner layer hints */}
+          <line x1={PAD+4} y1={PAD+3} x2={SIZE-PAD-8} y2={PAD+3} stroke="#FFFFFF" strokeWidth="0.5" opacity="0.5" />
+          <line x1={PAD+3} y1={PAD+6} x2={PAD+3} y2={SIZE-PAD-6} stroke="#FFFFFF" strokeWidth="0.5" opacity="0.5" />
+          {/* Bottom-left dots */}
+          <circle cx={PAD+8} cy={SIZE-PAD-1} r={0.6} fill="#FFFFFF" opacity="0.6" />
+          <circle cx={PAD+12} cy={SIZE-PAD-1} r={0.6} fill="#FFFFFF" opacity="0.6" />
+          <circle cx={PAD+16} cy={SIZE-PAD-1} r={0.6} fill="#FFFFFF" opacity="0.6" />
+        </>
+      )}
+      {style === 'style2' && (
+        <>
+          <rect x={PAD+2} y={PAD} width={SIZE-(PAD+2)*2} height={2} rx="1" fill="#FF8C42" />
+          <rect x={PAD+2} y={SIZE-PAD-2} width={SIZE-(PAD+2)*2} height={2} rx="1" fill="#FF8C42" />
+        </>
+      )}
+    </svg>
+  );
+}
 
 function BorderStylePicker({ value, onChange }: { value: WidgetStyle['borderStyle']; onChange: (v: WidgetStyle['borderStyle']) => void }) {
   return (
-    <div className="flex gap-2 px-1">
+    <div className="flex gap-2 px-1 flex-wrap">
       {BORDER_STYLES.map((s) => {
         const active = (value ?? 'none') === s.value;
-        const isNone = s.value === 'none';
         return (
           <button
             key={s.value}
             onClick={() => onChange(s.value)}
             title={s.label}
-            className={`relative w-12 h-10 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${
+            className={`relative w-14 h-12 rounded-md border flex flex-col items-center justify-center transition-all flex-shrink-0 ${
               active
                 ? 'border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40'
                 : 'border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-[rgba(255,255,255,0.15)]'
             }`}
           >
-            {isNone ? (
-              <Ban size={18} strokeWidth={1.5} className="text-textSecondary/40" />
-            ) : (
-              <span className="text-[9px] text-textSecondary/30">{s.label}</span>
-            )}
+            <BorderThumbnail style={s.value} />
+            <span className="text-[8px] text-textSecondary/40 mt-0.5 leading-none">{s.label}</span>
           </button>
         );
       })}

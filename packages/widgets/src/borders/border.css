@@ -1,0 +1,98 @@
+/* ═══════════════════════════════════════════════════
+   HugeScreen Border System — Shared Keyframes
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Base ─── */
+.hs-border {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.hs-border *,
+.hs-border *::before,
+.hs-border *::after {
+  pointer-events: none;
+}
+
+/* ─── Phase control ─── */
+.hs-border .hsb-phase-mounting { opacity: 0; }
+.hs-border .hsb-phase-entering { /* entry animations active */ }
+.hs-border .hsb-phase-entered  { /* loop animations active */ }
+
+/* ═══════════════════════════════════════════════
+   Entry Keyframes (one-shot, forwards)
+   ═══════════════════════════════════════════════ */
+
+/* Horizontal line: extend from center */
+@keyframes hsb-extend-h {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+@keyframes hsb-extend-h-r { /* from right */
+  0%   { transform: scaleX(0); transform-origin: right center; }
+  100% { transform: scaleX(1); transform-origin: right center; }
+}
+
+/* Vertical line: extend from center */
+@keyframes hsb-extend-v {
+  0%   { transform: scaleY(0); }
+  100% { transform: scaleY(1); }
+}
+
+/* Corner bracket: spring in */
+@keyframes hsb-corner-in {
+  0%   { opacity: 0; transform: scale(0) rotate(-90deg); }
+  55%  { opacity: 1; transform: scale(1.15) rotate(3deg); }
+  75%  { transform: scale(0.95) rotate(-1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* Glow fade-in */
+@keyframes hsb-glow-in {
+  0%   { opacity: 0; filter: blur(12px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+
+/* ═══════════════════════════════════════════════
+   Loop Keyframes (infinite)
+   ═══════════════════════════════════════════════ */
+
+/* Soft breathe */
+@keyframes hsb-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* Glow pulse (use via CSS vars) */
+@keyframes hsb-glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px  var(--hsb-glow, rgba(0,212,255,0.25)); }
+  50%      { box-shadow: 0 0 18px var(--hsb-glow, rgba(0,212,255,0.65)); }
+}
+
+/* Subtle shift — very slow lateral shimmer */
+@keyframes hsb-shimmer {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Dash flow along a path */
+@keyframes hsb-dash-flow {
+  0%   { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -40; }
+}
+
+/* ═══════════════════════════════════════════════
+   CyberBorder1 — HUD 科技线框专用
+   ═══════════════════════════════════════════════ */
+
+/* 逐段描边：从当前 dashoffset（内联设置 = 段长）→ 0 */
+@keyframes hsb1-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* 刻度 / 箭头元素微呼吸（纯白线稿，仅透明度变化，无发光） */
+@keyframes hsb1-breathe-accent {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}

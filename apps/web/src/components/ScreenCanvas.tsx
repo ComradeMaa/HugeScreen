@@ -1,10 +1,11 @@
-import { Suspense, lazy, useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { Suspense, lazy, useMemo, useRef, useState, useCallback, useEffect, Fragment } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { CANONICAL_SLOTS, CENTER_SLOT, findSlotAt } from '../store/defaultLayout';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
 import { EnergyFlow } from './EnergyFlow';
+import { BorderFrame } from '@hugescreen/widgets/borders';
 // 动态加载 CyberGlobe + Three.js，防止模块错误导致整页白屏
 const CyberGlobe = lazy(() => import('./CyberGlobe').then(m => ({ default: m.CyberGlobe })));
 
@@ -964,36 +965,26 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           widget.layout.row === CENTER_SLOT.row;
         const isSelected = widget.id === selectedWidgetId;
         const hasBorder = !!widget.style.borderStyle && widget.style.borderStyle !== 'none';
-        const borderPad = hasBorder ? 8 : 0; // 有边框时向内收缩 8px
-        const borderStyle = widget.style.borderStyle ?? 'none';
-        // 不同边框样式的视觉区分
-        const borderBoxShadow = borderStyle === 'style1'
-          ? 'inset 0 0 0 3px rgba(0,212,255,0.35)'
-          : borderStyle === 'style2'
-            ? 'inset 0 0 0 3px rgba(255,140,66,0.35)'
-            : 'none';
+        const borderOutset = 12; // 边框向外溢出 px（利用网格间距容纳边框）
 
         return (
+          <Fragment key={widget.id}>
           <div
-            key={widget.id}
             id={`widget-${widget.id}`}
             draggable={isEditing}
             className={`absolute overflow-hidden flex flex-col
               ${isEditing ? 'cursor-grab active:cursor-grabbing' : ''}
-              ${isCenter && !isEditing ? 'z-10' : 'z-0'}
+              ${!isEditing ? 'z-10' : 'z-0'}
             `}
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
-              padding: borderPad,
               backgroundColor: widget.style.backgroundColor || 'rgba(30, 30, 36, 0.82)',
               borderColor: isEditing ? (isSelected ? theme.colors.primary : 'rgba(255,255,255,0.12)') : 'transparent',
               borderWidth: isEditing ? 1 : 0,
               borderStyle: isEditing ? 'dashed' : 'solid',
               borderRadius: isEditing ? 4 : 0,
-              boxShadow: hasBorder
-                ? borderBoxShadow
-                : effectiveWidgetDrag && !effectiveHeaderDrag && !isSwapTarget && widget.id !== draggingWidgetId.current
-                  ? 'inset 0 0 0 1px rgba(0,212,255,0.2)' : 'none',
+              boxShadow: !hasBorder && effectiveWidgetDrag && !effectiveHeaderDrag && !isSwapTarget && widget.id !== draggingWidgetId.current
+                ? 'inset 0 0 0 1px rgba(0,212,255,0.2)' : 'none',
               transition: isSwapTarget || lastSwapTargetId.current === widget.id
                 ? 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out, box-shadow 150ms'
                 : 'box-shadow 150ms',
@@ -1040,6 +1031,18 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
               </>
             )}
           </div>
+          {/* ═══ 边框装饰层 — 独立图层，不被组件 overflow-hidden 裁剪 ═══ */}
+          {hasBorder && (
+            <BorderFrame
+              borderStyle={widget.style.borderStyle!}
+              left={px.left - borderOutset}
+              top={px.top - borderOutset}
+              width={px.width + borderOutset * 2}
+              height={px.height + borderOutset * 2}
+              isSelected={isSelected}
+            />
+          )}
+          </Fragment>
         );
       })}
     </div>
