@@ -711,7 +711,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       <div
         className="absolute pointer-events-none"
         style={{
-          left: headerPx.left, top: 0, width: headerPx.width, height: canvas.height,
+          left: 0, top: 0, width: canvas.width, height: canvas.height,
           background: [
             'radial-gradient(ellipse 100% 22% at 50% 0%, #15151A 0%, #1A1A20 35%, #222228 65%, transparent 85%)',
             'radial-gradient(ellipse 100% 10% at 50% 100%, #15151A 0%, #1A1A20 50%, #222228 80%, transparent 100%)',

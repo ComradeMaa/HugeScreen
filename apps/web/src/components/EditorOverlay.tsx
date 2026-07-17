@@ -227,7 +227,7 @@ function BackgroundPatternSelector() {
             <button
               key={p.value}
               onClick={() => setBackgroundPattern(p.value)}
-              className={`flex-1 text-[11px] py-1.5 rounded transition-colors ${
+              className={`flex-1 min-w-[80px] text-[11px] py-1.5 rounded transition-colors whitespace-nowrap ${
                 backgroundPattern === p.value
                   ? 'bg-accent-cool/15 text-accent-cool ring-1 ring-accent-cool/30'
                   : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
@@ -265,7 +265,7 @@ function BackgroundEffectSelector() {
             <button
               key={e.value}
               onClick={() => setBackgroundEffect(e.value)}
-              className={`flex-1 text-[11px] py-1.5 rounded transition-colors ${
+              className={`flex-1 min-w-[80px] text-[11px] py-1.5 rounded transition-colors whitespace-nowrap ${
                 backgroundEffect === e.value
                   ? 'bg-accent-cool/15 text-accent-cool ring-1 ring-accent-cool/30'
                   : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
