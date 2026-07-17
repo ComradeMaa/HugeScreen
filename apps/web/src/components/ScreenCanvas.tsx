@@ -3,6 +3,7 @@ import { useEditorStore } from '../store/editorStore';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
+import { EnergyFlow } from './EnergyFlow';
 
 interface ScreenCanvasProps {
   isEditing?: boolean;
@@ -701,16 +702,19 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       onDragLeave={isEditing ? handleCanvasDragLeave : undefined}
       onDrop={isEditing ? handleCanvasDrop : undefined}
     >
-      {/* ═══ 背景聚光渐变 — HUD 座舱感 ═══ */}
+      {/* ═══ 背景聚光渐变 — HUD 座舱感（宽度对齐顶栏） ═══ */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute pointer-events-none"
         style={{
+          left: headerPx.left, top: 0, width: headerPx.width, height: canvas.height,
           background: [
             'radial-gradient(ellipse 100% 22% at 50% 0%, #15151A 0%, #1A1A20 35%, #222228 65%, transparent 85%)',
-            'radial-gradient(ellipse 100% 18% at 50% 100%, #15151A 0%, #1A1A20 30%, #222228 60%, transparent 80%)',
+            'radial-gradient(ellipse 100% 10% at 50% 100%, #15151A 0%, #1A1A20 50%, #222228 80%, transparent 100%)',
           ].join(', '),
         }}
       />
+      {/* ═══ 能量脉冲动线 ═══ */}
+      <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} />
       {isEditing && <GridOverlay grid={grid} canvasWidth={canvas.width} canvasHeight={canvas.height} />}
 
       {/* ═══ 固定顶栏 ═══ */}
