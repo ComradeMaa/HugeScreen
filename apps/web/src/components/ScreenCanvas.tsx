@@ -696,11 +696,21 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     <div
       ref={canvasRef}
       className="relative"
-      style={{ width: canvas.width, height: canvas.height, backgroundColor: theme.colors.background }}
+      style={{ width: canvas.width, height: canvas.height, backgroundColor: '#2C2C34' }}
       onDragOver={isEditing ? handleCanvasDragOver : undefined}
       onDragLeave={isEditing ? handleCanvasDragLeave : undefined}
       onDrop={isEditing ? handleCanvasDrop : undefined}
     >
+      {/* ═══ 背景聚光渐变 — HUD 座舱感 ═══ */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: [
+            'radial-gradient(ellipse 100% 22% at 50% 0%, #15151A 0%, #1A1A20 35%, #222228 65%, transparent 85%)',
+            'radial-gradient(ellipse 100% 18% at 50% 100%, #15151A 0%, #1A1A20 30%, #222228 60%, transparent 80%)',
+          ].join(', '),
+        }}
+      />
       {isEditing && <GridOverlay grid={grid} canvasWidth={canvas.width} canvasHeight={canvas.height} />}
 
       {/* ═══ 固定顶栏 ═══ */}
@@ -1073,13 +1083,20 @@ function WidgetTitleBar({ primary, secondary, isCenter, isEditing, accentColor }
 
   return (
     <div
-      className="flex items-center flex-shrink-0 z-10"
+      className="flex items-center flex-shrink-0 z-10 relative"
       style={{
         height: both ? 44 : hasPrimary ? 32 : 24,
         paddingLeft: 16,
         paddingRight: 16,
       }}
     >
+      {/* 渐变飘带底衬 */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `linear-gradient(to right, ${accentColor}22 0%, ${accentColor}08 55%, transparent 100%)`,
+        }}
+      />
       {/* 左侧强调色条 */}
       <div
         className="rounded-full flex-shrink-0"
