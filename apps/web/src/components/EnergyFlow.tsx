@@ -1,14 +1,19 @@
 import { useEffect, useRef } from 'react';
 
-interface Track {
+interface TrackDef {
   points: [number, number][];
-  phase: number;         // 0→1 头部位置
-  travelTime: number;    // 跑完全程 ms
-  cycleDuration: number; // 完整周期 ms
-  cycleOffset: number;   // 初始相位偏移 ms
-  alpha: number;         // 当前透明度
-  wasActive: boolean;    // 上一帧活跃状态
+  travelTime: number; // ms 跑完全程
 }
+
+interface ActiveTrack {
+  defIdx: number;   // 对应的轨道定义索引
+  phase: number;    // 0→1
+  travelTime: number;
+  alpha: number;    // 由 phase 计算
+}
+
+const ACTIVE_COUNT = 20; // 始终维持 20 条活跃线
+const COOLDOWN = 3;      // 同一轨道至少间隔 3 轮才能复用
 
 function trackLen(pts: [number, number][]): number {
   let len = 0;
@@ -63,40 +68,68 @@ function drawRibbon(
   }
 }
 
-function buildTracks(w: number, h: number): Track[] {
-  const descs: { ox: number; oy: number; waypoints: [number, number][] }[] = [
-    { ox: 0,       oy: h * 0.12, waypoints: [[w * 0.15, h * 0.12], [w * 0.15, h * 0.28], [w * 0.32, h * 0.28]] },
-    { ox: 0,       oy: h * 0.45, waypoints: [[w * 0.18, h * 0.45], [w * 0.18, h * 0.35], [w * 0.3,  h * 0.35]] },
-    { ox: 0,       oy: h * 0.78, waypoints: [[w * 0.12, h * 0.78], [w * 0.12, h * 0.58], [w * 0.28, h * 0.58]] },
-    { ox: w,       oy: h * 0.18, waypoints: [[w * 0.82, h * 0.18], [w * 0.82, h * 0.42], [w * 0.68, h * 0.42]] },
-    { ox: w,       oy: h * 0.55, waypoints: [[w * 0.8,  h * 0.55], [w * 0.8,  h * 0.45], [w * 0.7,  h * 0.45]] },
-    { ox: w,       oy: h * 0.85, waypoints: [[w * 0.78, h * 0.85], [w * 0.78, h * 0.65], [w * 0.65, h * 0.65]] },
-    { ox: w * 0.25,oy: 0,        waypoints: [[w * 0.25, h * 0.12], [w * 0.42, h * 0.12], [w * 0.42, h * 0.25]] },
-    { ox: w * 0.7, oy: 0,        waypoints: [[w * 0.7,  h * 0.1],  [w * 0.52, h * 0.1],  [w * 0.52, h * 0.22]] },
-    { ox: w * 0.2, oy: h,        waypoints: [[w * 0.2,  h * 0.82], [w * 0.35, h * 0.82], [w * 0.35, h * 0.72]] },
-    { ox: w * 0.65,oy: h,        waypoints: [[w * 0.65, h * 0.85], [w * 0.55, h * 0.85], [w * 0.55, h * 0.75]] },
-  ];
+/** 40 条轨道定义池 — 所有折线均为直角拐弯 */
+function buildTrackPool(w: number, h: number): TrackDef[] {
+  const pool: { ox: number; oy: number; waypoints: [number, number][] }[] = [];
 
-  return descs.map(({ ox, oy, waypoints }) => {
+  // 左边 10 条：先水平右移 → 再竖直 → 再水平
+  for (let i = 0; i < 10; i++) {
+    const oy = h * (0.04 + i * 0.092);
+    const mx1 = w * (0.10 + Math.random() * 0.08);
+    const my1 = oy + (Math.random() > 0.5 ? 1 : -1) * h * (0.04 + Math.random() * 0.08);
+    const mx2 = w * (0.18 + Math.random() * 0.10);
+    pool.push({ ox: 0, oy, waypoints: [[mx1, oy], [mx1, my1], [mx2, my1]] });
+  }
+  // 右边 10 条：先水平左移 → 再竖直 → 再水平
+  for (let i = 0; i < 10; i++) {
+    const oy = h * (0.04 + i * 0.092);
+    const mx1 = w * (0.84 + Math.random() * 0.08);
+    const my1 = oy + (Math.random() > 0.5 ? 1 : -1) * h * (0.04 + Math.random() * 0.08);
+    const mx2 = w * (0.68 + Math.random() * 0.10);
+    pool.push({ ox: w, oy, waypoints: [[mx1, oy], [mx1, my1], [mx2, my1]] });
+  }
+  // 上边 10 条：先竖直下移 → 再水平 → 再竖直
+  for (let i = 0; i < 10; i++) {
+    const ox = w * (0.04 + i * 0.092);
+    const my1 = h * (0.06 + Math.random() * 0.06);
+    const mx1 = ox + (Math.random() > 0.5 ? 1 : -1) * w * (0.03 + Math.random() * 0.06);
+    const my2 = h * (0.14 + Math.random() * 0.10);
+    pool.push({ ox, oy: 0, waypoints: [[ox, my1], [mx1, my1], [mx1, my2]] });
+  }
+  // 下边 10 条：先竖直上移 → 再水平 → 再竖直
+  for (let i = 0; i < 10; i++) {
+    const ox = w * (0.04 + i * 0.092);
+    const my1 = h * (0.88 + Math.random() * 0.06);
+    const mx1 = ox + (Math.random() > 0.5 ? 1 : -1) * w * (0.03 + Math.random() * 0.06);
+    const my2 = h * (0.70 + Math.random() * 0.10);
+    pool.push({ ox, oy: h, waypoints: [[ox, my1], [mx1, my1], [mx1, my2]] });
+  }
+
+  return pool.map(({ ox, oy, waypoints }) => {
     const pts: [number, number][] = [[ox, oy], ...waypoints];
     const plen = trackLen(pts);
-    // 跑完全程时间正比于路径长度（每 500px ≈ 1s）
-    const travelTime = 800 + (plen / 500) * 800 + Math.random() * 400;
-    // 完整周期 = 跑完时间 × (1 + 休息比)，休息比 25-45%
-    const restRatio = 0.25 + Math.random() * 0.20;
-    const cycleDuration = travelTime * (1 + restRatio);
-    const activeRatio = travelTime / cycleDuration;
-
     return {
       points: pts,
-      phase: 0,
-      travelTime,
-      cycleDuration,
-      cycleOffset: Math.random() * cycleDuration,
-      alpha: 0,
-      wasActive: false,
+      travelTime: 800 + (plen / 500) * 700 + Math.random() * 500,
     };
   });
+}
+
+function pickTrack(pool: TrackDef[], active: ActiveTrack[], usedHistory: number[], round: number): number {
+  const activeSet = new Set(active.map(a => a.defIdx));
+  // 可用 = 非活跃 + 冷却已过
+  const available = pool
+    .map((_, i) => i)
+    .filter(i => !activeSet.has(i) && (round - (usedHistory[i] ?? 0)) >= COOLDOWN);
+
+  if (available.length === 0) {
+    // 全部在冷却中，选冷却最久的
+    return pool
+      .map((_, i) => i)
+      .filter(i => !activeSet.has(i))
+      .sort((a, b) => (usedHistory[a] ?? 0) - (usedHistory[b] ?? 0))[0] ?? 0;
+  }
+  return available[Math.floor(Math.random() * available.length)];
 }
 
 interface EnergyFlowProps {
@@ -106,10 +139,13 @@ interface EnergyFlowProps {
 
 export function EnergyFlow({ canvasW, canvasH }: EnergyFlowProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const tracksRef = useRef<Track[]>([]);
+  const poolRef = useRef<TrackDef[]>([]);
+  const activeRef = useRef<ActiveTrack[]>([]);
+  const usedHistoryRef = useRef<number[]>([]);
+  const roundRef = useRef(0);
 
   useEffect(() => {
-    tracksRef.current = buildTracks(canvasW, canvasH);
+    poolRef.current = buildTrackPool(canvasW, canvasH);
   }, [canvasW, canvasH]);
 
   useEffect(() => {
@@ -120,6 +156,23 @@ export function EnergyFlow({ canvasW, canvasH }: EnergyFlowProps) {
     let running = true;
     let lastTime = 0;
 
+    // 初始化 20 条活跃线
+    const pool = poolRef.current;
+    const used: number[] = [];
+    const actives: ActiveTrack[] = [];
+    for (let i = 0; i < ACTIVE_COUNT && i < pool.length; i++) {
+      actives.push({
+        defIdx: i,
+        phase: Math.random() * 0.4, // 初始相位错开
+        travelTime: pool[i].travelTime,
+        alpha: 0,
+      });
+      used[i] = 0;
+    }
+    activeRef.current = actives;
+    usedHistoryRef.current = used;
+    roundRef.current = 0;
+
     function tick(now: number) {
       if (!running) return;
       if (!lastTime) lastTime = now;
@@ -128,40 +181,54 @@ export function EnergyFlow({ canvasW, canvasH }: EnergyFlowProps) {
 
       ctx!.clearRect(0, 0, canvasW, canvasH);
 
-      for (const tr of tracksRef.current) {
-        const cycleTime = (now + tr.cycleOffset) % tr.cycleDuration;
-        const isActive = cycleTime < tr.travelTime;
-        const maxAlpha = 0.55;
+      const toReplace: number[] = [];
+      const fadeZone = 0.30;
+      const maxAlpha = 0.55;
+      const p = pool;
 
-        // 活跃状态切换 → 重置相位
-        if (isActive !== tr.wasActive) {
-          tr.wasActive = isActive;
-          if (isActive) tr.phase = 0;
-        }
+      for (let ai = 0; ai < activeRef.current.length; ai++) {
+        const a = activeRef.current[ai];
+        const def = p[a.defIdx];
 
-        // alpha 由相位驱动：开头淡入（0→tailLen），末尾淡出（1-tailLen→1）
-        const fadeZone = 0.30; // 淡入淡出各占轨道 30%
-        if (isActive) {
-          if (tr.phase < fadeZone) {
-            tr.alpha = (tr.phase / fadeZone) * maxAlpha;
-          } else if (tr.phase > 1 - fadeZone) {
-            tr.alpha = ((1 - tr.phase) / fadeZone) * maxAlpha;
-          } else {
-            tr.alpha = maxAlpha;
-          }
+        // phase 驱动 alpha：淡入 → 全亮 → 淡出
+        if (a.phase < fadeZone) {
+          a.alpha = (a.phase / fadeZone) * maxAlpha;
+        } else if (a.phase > 1 - fadeZone) {
+          a.alpha = ((1 - a.phase) / fadeZone) * maxAlpha;
         } else {
-          tr.alpha = 0;
+          a.alpha = maxAlpha;
         }
 
-        // 推进相位
-        tr.phase = (tr.phase + delta / tr.travelTime) % 1;
-
-        if (tr.alpha > 0.003) {
-          const tailLen = 0.45 + tr.alpha * 0.25;
+        if (a.alpha > 0.003) {
+          const tailLen = 0.45 + a.alpha * 0.25;
           ctx!.shadowBlur = 8;
-          ctx!.shadowColor = `rgba(0,212,255,${(tr.alpha * 0.35).toFixed(3)})`;
-          drawRibbon(ctx!, tr.points, tr.phase, tailLen, tr.alpha);
+          ctx!.shadowColor = `rgba(0,212,255,${(a.alpha * 0.35).toFixed(3)})`;
+          drawRibbon(ctx!, def.points, a.phase, tailLen, a.alpha);
           ctx!.shadowBlur = 0;
+        }
+
+        // 推进
+        a.phase += delta / a.travelTime;
+
+        // 完成 → 标记替换
+        if (a.phase >= 1.0) {
+          toReplace.push(ai);
+        }
+      }
+
+      // 替换完成的线
+      if (toReplace.length > 0) {
+        roundRef.current++;
+        for (const ai of toReplace) {
+          const old = activeRef.current[ai];
+          const newIdx = pickTrack(p, activeRef.current, usedHistoryRef.current, roundRef.current);
+          usedHistoryRef.current[old.defIdx] = roundRef.current;
+          activeRef.current[ai] = {
+            defIdx: newIdx,
+            phase: 0,
+            travelTime: p[newIdx].travelTime,
+            alpha: 0,
+          };
         }
       }
 
