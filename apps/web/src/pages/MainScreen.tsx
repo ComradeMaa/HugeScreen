@@ -1,7 +1,9 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, Suspense, lazy } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { ScreenCanvas } from '../components/ScreenCanvas';
 import { EditorOverlay } from '../components/EditorOverlay';
+
+const CyberGlobe = lazy(() => import('../components/CyberGlobe').then(m => ({ default: m.CyberGlobe })));
 
 /**
  * 主屏幕
@@ -14,10 +16,13 @@ export function MainScreen() {
     showEditor,
     hideEditor,
     loadConfig,
+    backgroundPattern,
   } = useEditorStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  const [viewportW, setViewportW] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
 
   // 启动时加载本地配置
   useEffect(() => {
@@ -26,6 +31,19 @@ export function MainScreen() {
       try { loadConfig(saved); } catch { /* use default */ }
     }
   }, [loadConfig]);
+
+  // 跟踪容器尺寸（用于背景地球-2 视口级渲染）
+  useEffect(() => {
+    const update = () => {
+      if (containerRef.current) {
+        setViewportW(containerRef.current.clientWidth);
+        setViewportH(containerRef.current.clientHeight);
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   // 缩放比：编辑模式需扣除左侧面板宽度
   const EDITOR_PANEL_WIDTH = 280;
@@ -82,6 +100,13 @@ export function MainScreen() {
       ref={containerRef}
       className="w-full h-full bg-surface-base overflow-hidden relative"
     >
+      {/* ═══ 背景地球-2：视口级渲染，不受画布缩放偏移影响 ═══ */}
+      {backgroundPattern === 'globe-2' && viewportW > 0 && (
+        <Suspense fallback={null}>
+          <CyberGlobe canvasW={viewportW} canvasH={viewportH} variant="oblique" />
+        </Suspense>
+      )}
+
       {/* 展示画布 */}
       <div style={canvasStyle}>
         <ScreenCanvas isEditing={isEditorVisible} />

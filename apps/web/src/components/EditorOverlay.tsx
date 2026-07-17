@@ -206,6 +206,7 @@ export function EditorOverlay() {
 const BG_PATTERNS = [
   { value: 'none', label: '无' },
   { value: 'globe-1', label: '地球-1' },
+  { value: 'globe-2', label: '地球-2' },
 ];
 
 function BackgroundPatternSelector() {

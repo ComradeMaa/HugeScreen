@@ -59,12 +59,14 @@ function linesToGeometry(lines: THREE.Vector3[][]): THREE.BufferGeometry {
 interface CyberGlobeProps {
   canvasW: number;
   canvasH: number;
+  variant?: 'top-down' | 'oblique';
 }
 
-export function CyberGlobe({ canvasW, canvasH }: CyberGlobeProps) {
+export function CyberGlobe({ canvasW, canvasH, variant = 'top-down' }: CyberGlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [segments, setSegments] = useState<THREE.Vector3[][] | null>(null);
   const gridLines = useMemo(() => createGrids(1000), []);
+  const isOblique = variant === 'oblique';
 
   useEffect(() => {
     loadCoastlineData().then(setSegments).catch(console.error);
@@ -74,33 +76,51 @@ export function CyberGlobe({ canvasW, canvasH }: CyberGlobeProps) {
     if (!segments || !containerRef.current) return;
 
     const container = containerRef.current;
-    const sphereY = -350;
 
     // ── 渲染器 ──
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(canvasW, canvasH);
     renderer.setClearColor(0x000000, 0);
-    renderer.domElement.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
+    // ★ 先设 CSS，再 setSize，避免 cssText 覆盖 width/height 导致 canvas 尺寸丢失
+    Object.assign(renderer.domElement.style, {
+      position: 'absolute', top: '0', left: '0', pointerEvents: 'none',
+    });
+    renderer.setSize(canvasW, canvasH);
     container.appendChild(renderer.domElement);
 
     // ── 场景 ──
     const scene = new THREE.Scene();
 
-    // ── 正交相机 ──
-    const frustumSize = canvasW;
-    const aspect = canvasW / canvasH;
-    const camera = new THREE.OrthographicCamera(
-      frustumSize / -2, frustumSize / 2,
-      frustumSize / aspect / 2, -frustumSize / aspect / 2,
-      100, 5000,
-    );
-    camera.position.set(0, 700, 0);
-    camera.lookAt(0, 0, 0);
-
-    // ── 球体组 ──
+    // ── 球体组（先创建，oblique 需要 scale 放大） ──
     const globeGroup = new THREE.Group();
-    globeGroup.position.set(0, sphereY, 0);
+
+    // ── 相机 ──
+    let camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
+    if (isOblique) {
+      // 近地轨道临边侧视 — 地平线横贯画面中央，上方太空留白，下方地球曲面
+      const SCALE = 7.5; // 有效半径 7500
+      // Y 轴压缩 0.7× → 扁椭球畸变，地平线弧线更平缓宽阔；球心上移补偿压缩
+      const Y_SQUASH = 0.7;
+      globeGroup.scale.set(SCALE, SCALE * Y_SQUASH, SCALE);
+      globeGroup.position.set(0, -6000, -6000);
+      camera = new THREE.PerspectiveCamera(50, canvasW / canvasH, 100, 30000);
+      camera.position.set(0, 0, 0);
+      // 望向扁椭球切线点，使地平线位于画面中央
+      camera.lookAt(0, -1800, -6000);
+    } else {
+      // 极点俯视 — 原始正交投影，偏移至右下角 + 放大
+      globeGroup.scale.set(1.3, 1.3, 1.3);
+      globeGroup.position.set(480, -1050, 0);
+      const frustumSize = canvasW;
+      const aspect = canvasW / canvasH;
+      camera = new THREE.OrthographicCamera(
+        frustumSize / -2, frustumSize / 2,
+        frustumSize / aspect / 2, -frustumSize / aspect / 2,
+        100, 5000,
+      );
+      camera.position.set(0, 700, 0);
+      camera.lookAt(0, 0, 0);
+    }
 
     // 半透明球面
     const sphereGeo = new THREE.SphereGeometry(1000, 64, 32);
@@ -155,8 +175,7 @@ export function CyberGlobe({ canvasW, canvasH }: CyberGlobeProps) {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 pointer-events-none"
-      style={{ width: canvasW, height: canvasH, zIndex: 3 }}
+      style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, zIndex: 3, pointerEvents: 'none' }}
     />
   );
 }

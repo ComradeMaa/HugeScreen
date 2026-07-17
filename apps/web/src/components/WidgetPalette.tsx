@@ -155,6 +155,7 @@ function createHeaderThumbnail(type: string, w: number, h: number): HTMLElement 
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
   const c = '#00D4FF';
+  const cx = w / 2, cy = h / 2;
 
   // 背景
   ctx.fillStyle = 'rgba(44,44,52,0.92)';

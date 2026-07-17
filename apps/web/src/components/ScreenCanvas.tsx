@@ -718,12 +718,13 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           ].join(', '),
         }}
       />
-{/* ═══ 3D 赛博地球 ═══ */}
+{/* ═══ 3D 赛博地球（俯视）════ */}
       {backgroundPattern === 'globe-1' && (
         <Suspense fallback={null}>
-          <CyberGlobe canvasW={canvas.width} canvasH={canvas.height} />
+          <CyberGlobe canvasW={canvas.width} canvasH={canvas.height} variant="top-down" />
         </Suspense>
       )}
+      {/* 地球-2（斜平视角）已移至 MainScreen 视口级渲染，不受画布缩放/偏移影响 */}
       {/* ═══ 能量脉冲动线 ═══ */}
       {backgroundEffect === 'energy-flow' && (
         <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} />
