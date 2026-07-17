@@ -1,6 +1,7 @@
 import { headerElementRegistry } from './header-elements';
 import { HeaderTitle } from './header-elements/HeaderTitle';
 import { HeaderDateTime } from './header-elements/HeaderDateTime';
+import { MiniGlobe } from './header-elements/MiniGlobe';
 
 export function registerHeaderElements(): void {
   headerElementRegistry.register({
@@ -26,6 +27,15 @@ export function registerHeaderElements(): void {
     defaultColSpan: 1,
     component: HeaderDateTime,
     defaultConfig: { showSeconds: true },
+  });
+
+  headerElementRegistry.register({
+    type: 'mini-globe',
+    name: '迷你地球',
+    icon: 'Globe',
+    defaultColSpan: 1,
+    component: MiniGlobe,
+    defaultConfig: {},
   });
 
   console.log(

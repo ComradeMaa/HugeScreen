@@ -38,6 +38,7 @@ interface EditorState {
   isDraggingHeaderEl: boolean; // 是否正在拖拽顶栏元素（区分一般组件和顶栏拖拽）
   showGrid: boolean;
   snapToGrid: boolean;
+  backgroundPattern: string; // 背景图案：'none' | 'globe-1' 等
 
   setConfig: (config: ScreenConfig) => void;
   setTheme: (theme: ThemeConfig) => void;
@@ -66,6 +67,7 @@ interface EditorState {
   setDraggingHeaderEl: (v: boolean) => void;
   toggleGrid: () => void;
   toggleSnap: () => void;
+  setBackgroundPattern: (pattern: string) => void;
 
   saveConfig: () => string;
   loadConfig: (json: string) => void;
@@ -260,6 +262,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   isDraggingHeaderEl: false,
   showGrid: true,
   snapToGrid: true,
+  backgroundPattern: 'none',
 
   setConfig: (config: ScreenConfig) => set({ config }),
 
@@ -582,6 +585,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   setDraggingHeaderEl: (v: boolean) => set({ isDraggingHeaderEl: v }),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),
   toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
+  setBackgroundPattern: (pattern: string) => set({ backgroundPattern: pattern }),
 
   saveConfig: () => {
     const json = JSON.stringify(get().config, null, 2);

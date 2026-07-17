@@ -1,9 +1,11 @@
-import { Suspense, useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { Suspense, lazy, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
 import { EnergyFlow } from './EnergyFlow';
+// 动态加载 CyberGlobe + Three.js，防止模块错误导致整页白屏
+const CyberGlobe = lazy(() => import('./CyberGlobe').then(m => ({ default: m.CyberGlobe })));
 
 interface ScreenCanvasProps {
   isEditing?: boolean;
@@ -138,6 +140,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     addWidget, moveWidget, swapWidgetLayouts, removeWidget,
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
     setDraggingWidget, setDraggingHeaderEl, isDraggingWidget, isDraggingHeaderEl,
+    backgroundPattern,
   } = useEditorStore();
   const { canvas, grid, header, widgets, theme } = config;
 
@@ -713,6 +716,12 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           ].join(', '),
         }}
       />
+{/* ═══ 3D 赛博地球 ═══ */}
+      {backgroundPattern === 'globe-1' && (
+        <Suspense fallback={null}>
+          <CyberGlobe canvasW={canvas.width} canvasH={canvas.height} />
+        </Suspense>
+      )}
       {/* ═══ 能量脉冲动线 ═══ */}
       <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} />
       {isEditing && <GridOverlay grid={grid} canvasWidth={canvas.width} canvasHeight={canvas.height} />}

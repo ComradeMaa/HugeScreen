@@ -10,9 +10,11 @@
     "./registerWidgets": "./src/registerWidgets.ts"
   },
   "dependencies": {
-    "@hugescreen/shared": "workspace:*",
     "@hugescreen/core": "workspace:*",
-    "@hugescreen/data": "workspace:*"
+    "@hugescreen/data": "workspace:*",
+    "@hugescreen/shared": "workspace:*",
+    "@types/three": "^0.185.1",
+    "three": "^0.185.1"
   },
   "peerDependencies": {
     "echarts": "^5.5.0",

@@ -2,7 +2,7 @@ import { useEditorStore } from '../store/editorStore';
 import { WidgetPalette } from './WidgetPalette';
 import { PropertyInspector } from './PropertyInspector';
 import { useState, useEffect, useCallback } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, ChevronDown } from 'lucide-react';
 
 /**
  * 编辑器浮层
@@ -147,6 +147,9 @@ export function EditorOverlay() {
           {activeTab === 'palette' ? <WidgetPalette /> : <PropertyInspector />}
         </div>
 
+        {/* 背景图案 */}
+        <BackgroundPatternSelector />
+
         {/* 底部操作 */}
         <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.04)] flex-shrink-0">
           <ToolbarActions />
@@ -193,6 +196,44 @@ export function EditorOverlay() {
           transition: 'all 300ms',
         }} />
       </div>
+    </div>
+  );
+}
+
+const BG_PATTERNS = [
+  { value: 'none', label: '无' },
+  { value: 'globe-1', label: '地球-1' },
+];
+
+function BackgroundPatternSelector() {
+  const { backgroundPattern, setBackgroundPattern } = useEditorStore();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.04)] flex-shrink-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-[10px] font-semibold text-textSecondary/50 uppercase tracking-wider mb-1.5 hover:text-textSecondary/70 transition-colors w-full text-left"
+      >
+        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-0' : '-rotate-90'}`} />
+        背景图案
+      </button>
+      {open && (
+        <div className="flex gap-1.5">
+          {BG_PATTERNS.map(p => (
+            <button
+              key={p.value}
+              onClick={() => setBackgroundPattern(p.value)}
+              className={`flex-1 text-[11px] py-1.5 rounded transition-colors ${
+                backgroundPattern === p.value
+                  ? 'bg-accent-cool/15 text-accent-cool ring-1 ring-accent-cool/30'
+                  : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
