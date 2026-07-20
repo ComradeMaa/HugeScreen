@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 interface HeaderTitleProps {
   text?: string;
   fontSize?: string;
@@ -5,11 +7,14 @@ interface HeaderTitleProps {
   fontStyle?: string;
   color?: string;
   textAlign?: string;
+  borderStyle?: string;
 }
+
+const BORDER_ENTRY_MS = 1700; // 边框入场动画总时长
 
 /**
  * 顶栏标题 — HUD 菱形装饰 + 标题文字
- * 支持字号、字重、斜体、颜色、对齐等文字样式属性
+ * 当启用边框时，文字延迟至边框动画完成后才渲染。
  */
 export function HeaderTitle({
   text = '数据监控中心',
@@ -18,7 +23,21 @@ export function HeaderTitle({
   fontStyle = 'normal',
   color = '#ffffff',
   textAlign = 'left',
+  borderStyle,
 }: HeaderTitleProps) {
+  const hasBorder = !!borderStyle && borderStyle !== 'none';
+  const [showText, setShowText] = useState(!hasBorder);
+
+  useEffect(() => {
+    if (!hasBorder) {
+      setShowText(true);
+      return;
+    }
+    setShowText(false);
+    const timer = setTimeout(() => setShowText(true), BORDER_ENTRY_MS);
+    return () => clearTimeout(timer);
+  }, [hasBorder]);
+
   return (
     <div className="flex items-center gap-2.5 h-full px-3" style={{ justifyContent: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start' }}>
       {/* HUD 菱形 */}
@@ -27,12 +46,13 @@ export function HeaderTitle({
         <div className="absolute inset-[3px] bg-accent-cool rotate-45 opacity-25 animate-pulse" />
       </div>
       <span
-        className="tracking-wide truncate"
+        className="tracking-wide truncate transition-opacity duration-300"
         style={{
           fontSize,
           fontWeight,
           fontStyle,
           color,
+          opacity: showText ? 1 : 0,
         }}
       >
         {text}

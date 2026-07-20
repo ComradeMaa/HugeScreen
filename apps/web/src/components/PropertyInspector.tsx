@@ -21,7 +21,15 @@ const PROP_LABELS: Record<string, string> = {
   color: '文字颜色',
   textAlign: '对齐',
   showSeconds: '显示秒',
+  borderStyle: '边框',
 };
+
+/** 顶栏边框样式选项（与一般组件边框独立） */
+const HEADER_BORDER_OPTIONS = [
+  { value: 'none', label: '无' },
+  { value: 'header-style1', label: 'HUD-1' },
+  { value: 'header-style2', label: 'HUD-2' },
+];
 
 /**
  * 属性配置面板
@@ -73,6 +81,7 @@ export function PropertyInspector() {
                 const isBool = typeof defaultValue === 'boolean';
                 const selectOptions = SELECT_OPTIONS[key];
                 const isColor = key === 'color';
+                const isBorderStyle = key === 'borderStyle';
 
                 const update = (newValue: unknown) =>
                   setHeaderSlot(headerSlot.id, headerSlot.elementType, {
@@ -95,6 +104,14 @@ export function PropertyInspector() {
                           onChange={(e) => update(e.target.value)}
                           className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
                       </span>
+                    ) : isBorderStyle ? (
+                      <select value={String(currentValue ?? 'none')}
+                        onChange={(e) => update(e.target.value)}
+                        className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors text-right appearance-none cursor-pointer" >
+                        {HEADER_BORDER_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
                     ) : selectOptions ? (
                       <select value={String(currentValue ?? '')}
                         onChange={(e) => update(e.target.value)}
@@ -641,8 +658,21 @@ function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
       )}
       {style === 'style2' && (
         <>
-          <rect x={PAD+2} y={PAD} width={SIZE-(PAD+2)*2} height={2} rx="1" fill="#FF8C42" />
-          <rect x={PAD+2} y={SIZE-PAD-2} width={SIZE-(PAD+2)*2} height={2} rx="1" fill="#FF8C42" />
+          {/* L corners */}
+          <polyline points={`${PAD},${PAD+5} ${PAD},${PAD} ${PAD+5},${PAD}`} stroke="#00D4FF" strokeWidth="1.5" fill="none" />
+          <polyline points={`${SIZE-PAD-5},${PAD} ${SIZE-PAD},${PAD} ${SIZE-PAD},${PAD+5}`} stroke="#00D4FF" strokeWidth="1.5" fill="none" />
+          <polyline points={`${PAD},${SIZE-PAD-5} ${PAD},${SIZE-PAD} ${PAD+5},${SIZE-PAD}`} stroke="#00D4FF" strokeWidth="1.5" fill="none" />
+          <polyline points={`${SIZE-PAD-5},${SIZE-PAD} ${SIZE-PAD},${SIZE-PAD} ${SIZE-PAD},${SIZE-PAD-5}`} stroke="#00D4FF" strokeWidth="1.5" fill="none" />
+          {/* Top/bottom lines */}
+          <line x1={PAD+8} y1={PAD} x2={SIZE-PAD-8} y2={PAD} stroke="#00D4FF" strokeWidth="1" />
+          <line x1={PAD+8} y1={SIZE-PAD} x2={SIZE-PAD-8} y2={SIZE-PAD} stroke="#00D4FF" strokeWidth="1" />
+          {/* Corner dots */}
+          <circle cx={PAD} cy={PAD} r="1.5" fill="#00D4FF" />
+          <circle cx={SIZE-PAD} cy={PAD} r="1.5" fill="#00D4FF" />
+          <circle cx={PAD} cy={SIZE-PAD} r="1.5" fill="#00D4FF" />
+          <circle cx={SIZE-PAD} cy={SIZE-PAD} r="1.5" fill="#00D4FF" />
+          {/* Center triangle */}
+          <polygon points={`${SIZE/2-3},${PAD} ${SIZE/2},${PAD+3} ${SIZE/2+3},${PAD}`} fill="#00D4FF" opacity="0.6" />
         </>
       )}
     </svg>

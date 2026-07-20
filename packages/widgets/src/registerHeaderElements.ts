@@ -17,6 +17,24 @@ export function registerHeaderElements(): void {
       fontStyle: 'normal',
       color: '#ffffff',
       textAlign: 'left',
+      borderStyle: 'none',
+    },
+  });
+
+  headerElementRegistry.register({
+    type: 'header-long-title',
+    name: '长标题',
+    icon: 'Type',
+    defaultColSpan: 4,
+    component: HeaderTitle,
+    defaultConfig: {
+      text: '实时数据监控中心 · 可视化分析平台',
+      fontSize: '16px',
+      fontWeight: '600',
+      fontStyle: 'normal',
+      color: '#ffffff',
+      textAlign: 'left',
+      borderStyle: 'none',
     },
   });
 

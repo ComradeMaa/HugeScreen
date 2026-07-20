@@ -479,11 +479,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       const def = headerElementRegistry.get(elementType);
       const needCols = def?.defaultColSpan ?? 1;
 
-      // 拒绝：多列组件放在最后一个槽位
-      if (needCols > 1 && idx + needCols > slots.length) return s;
+      // ★ 拒绝：多列组件放在末尾（计入旧多列拆分后扩充的槽位数）
+      const oldSpan = slots[idx].colSpan;
+      const expandedLen = slots.length + (oldSpan > 1 ? oldSpan - 1 : 0);
+      if (needCols > 1 && idx + needCols > expandedLen) return s;
 
       // 先清除旧槽位的合并状态（如果之前有占用多列）
-      const oldSpan = slots[idx].colSpan;
       if (oldSpan > 1) {
         slots[idx] = { ...slots[idx], colSpan: 1, elementType: null, options: {} };
         for (let i = 1; i < oldSpan; i++) {

@@ -5,7 +5,7 @@ import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
 import { EnergyFlow } from './EnergyFlow';
-import { BorderFrame } from '@hugescreen/widgets/borders';
+import { BorderFrame, HeaderBorder1 } from '@hugescreen/widgets/borders';
 // 动态加载 CyberGlobe + Three.js，防止模块错误导致整页白屏
 const CyberGlobe = lazy(() => import('./CyberGlobe').then(m => ({ default: m.CyberGlobe })));
 
@@ -875,6 +875,13 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                     </div>
                   ) : null}
                 </div>
+
+                {/* ═══ 顶栏边框 ═══ */}
+                {slot.elementType && (slot.options as Record<string, unknown>)?.borderStyle
+                  && (slot.options as Record<string, unknown>).borderStyle !== 'none'
+                  && px && (
+                  <HeaderBorder1 width={px.width} height={px.height} />
+                )}
 
                 {isEditing && slot.elementType && !isHeaderSwapTarget && (
                   <button

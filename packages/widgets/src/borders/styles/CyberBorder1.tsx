@@ -76,20 +76,6 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
   return (
     <div className="hs-border" style={{ overflow: 'visible' }}>
       <style>{SVG_CSS}</style>
-      {/* ═══ 发光叠加层 — 能量呼吸 ═══ */}
-      {phase === 'entered' && (
-        <div
-          className="hsb1-glow"
-          style={{
-            position: 'absolute',
-            left: -ox,
-            top: -oy,
-            width: sw,
-            height: sh,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
       <svg
         className={`hsb1-svg${phase === 'entered' ? ' hsb1-breathe' : ''}`}
         width={sw}
