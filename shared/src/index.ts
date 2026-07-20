@@ -86,7 +86,8 @@ export type CompositeLayoutTemplate =
   | '3col'          // 三等列
   | '2x2'           // 2×2 网格 (4 子图)
   | '1top2bottom'   // 上宽下两
-  | '1left2right';  // 左宽右两叠
+  | '1left2right'   // 左宽右两叠
+  | 'topNarrow';    // 上 1/8 窄条 + 下 7/8
 
 export type CompositeSubChartType = 'line-chart' | 'bar-chart' | 'pie-chart' | 'stat-card';
 

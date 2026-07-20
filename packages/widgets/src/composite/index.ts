@@ -12,4 +12,5 @@ export {
   VALID_SUB_TYPES,
   isTemplateViableForSize,
   templateColumns,
+  templateRows,
 } from './types';

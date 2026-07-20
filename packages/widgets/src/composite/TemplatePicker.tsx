@@ -9,27 +9,29 @@ interface TemplatePickerProps {
 /** Thumbnail grid preview for each template using CSS Grid */
 function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) {
   // Map template to a small grid visualization
-  const areas: Record<CompositeLayoutTemplate, { cols: number; cells: { area: string; label: string }[] }> = {
+  const areas: Record<CompositeLayoutTemplate, { cols: number; cells: { area: string; label: string }[]; rows?: string }> = {
     '2col':          { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
     '2row':          { cols: 1, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
     '3col':          { cols: 3, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
     '2x2':           { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }, { area: 'd', label: 'D' }] },
     '1top2bottom':   { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
     '1left2right':   { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
+    'topNarrow':     { cols: 1, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
   };
 
-  const { cols, cells } = areas[template];
+  const { cols, cells, rows } = areas[template];
   // 1top2bottom: first cell spans full width
   // 1left2right: first cell spans full height (2 rows)
   const is1t2b = template === '1top2bottom';
   const is1l2r = template === '1left2right';
+  const isTopNarrow = template === 'topNarrow';
 
   return (
     <div
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gridTemplateRows: is1l2r ? '1fr 1fr' : '1fr 1fr',
+        gridTemplateRows: rows ?? (is1l2r ? '1fr 1fr' : '1fr 1fr'),
         gap: '2px',
         width: '100%',
         aspectRatio: '1 / 1',

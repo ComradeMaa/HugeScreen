@@ -1,7 +1,7 @@
 import { useState, Suspense } from 'react';
 import type { CompositeConfig } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
-import { TEMPLATE_GRID_AREAS, templateColumns } from './types';
+import { TEMPLATE_GRID_AREAS, templateColumns, templateRows } from './types';
 import { useCompositeData } from './useCompositeData';
 import { getCompositeConfig } from './compositeConfigStore';
 
@@ -41,7 +41,7 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
       style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${templateColumns(resolved.layoutTemplate)}, 1fr)`,
-        gridTemplateRows: 'repeat(4, 1fr)',
+        gridTemplateRows: `repeat(${templateRows(resolved.layoutTemplate)}, 1fr)`,
         gridTemplateAreas: TEMPLATE_GRID_AREAS[resolved.layoutTemplate],
         gap: '3px',
       }}

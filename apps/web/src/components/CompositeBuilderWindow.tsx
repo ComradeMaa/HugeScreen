@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { CompositeLayoutTemplate, CompositeSubChartType, CompositeSlotConfig, CompositeConfig } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
 import { useEditorStore } from '../store/editorStore';
-import { TEMPLATE_GRID_AREAS, TEMPLATE_SLOT_COUNTS, templateColumns } from '@hugescreen/widgets/composite';
+import { TEMPLATE_GRID_AREAS, TEMPLATE_SLOT_COUNTS, templateColumns, templateRows } from '@hugescreen/widgets/composite';
 import { TemplatePicker } from '@hugescreen/widgets/composite';
 import { SlotDropZone } from '@hugescreen/widgets/composite';
 import { setCompositeConfig } from '@hugescreen/widgets/composite';
@@ -183,7 +183,7 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
                 style={{
                   display: 'grid',
                   gridTemplateColumns: `repeat(${templateColumns(template)}, 1fr)`,
-                  gridTemplateRows: 'repeat(4, 1fr)',
+                  gridTemplateRows: `repeat(${templateRows(template)}, 1fr)`,
                   gridTemplateAreas: TEMPLATE_GRID_AREAS[template],
                   gap: '6px',
                 }}
