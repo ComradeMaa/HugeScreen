@@ -24,36 +24,67 @@ export class WebSocketAdapter implements DataAdapter {
     return () => this._listeners.delete(cb);
   }
 
+  /** Connect to a WebSocket endpoint. Resolves when the handshake completes, rejects on failure. */
   async connect(config: DataSourceConfig): Promise<void> {
     const url = config.config?.url;
-    if (!url) { console.warn('[WSAdapter] No url provided'); return; }
+    if (!url) {
+      console.warn('[WSAdapter] No url provided');
+      return;
+    }
+
+    // Guard: disconnect any previous connection first
+    if (this._ws || this._connected) {
+      this.disconnect();
+    }
+
     this._url = url;
-    this._connect(url);
-  }
 
-  private _connect(url: string): void {
-    try { this._ws = new WebSocket(url); }
-    catch { console.warn(`[WSAdapter] Failed to create WebSocket for ${url}`); return; }
-
-    this._ws.onopen = () => { this._connected = true; this._reconnectDelay = 1000; };
-
-    this._ws.onmessage = (event: MessageEvent) => {
+    // Return a promise that resolves on open, rejects on error
+    return new Promise<void>((resolve, reject) => {
       try {
-        const json = JSON.parse(event.data);
-        this._data = json;
-        this._listeners.forEach(cb => cb(json));
-      } catch {
-        this._data = event.data;
-        this._listeners.forEach(cb => cb(event.data));
+        this._ws = new WebSocket(url);
+      } catch (err) {
+        console.warn(`[WSAdapter] Failed to create WebSocket for ${url}`);
+        reject(err);
+        return;
       }
-    };
 
-    this._ws.onclose = () => { this._connected = false; this._scheduleReconnect(); };
-    this._ws.onerror = () => { /* onclose will fire next */ };
+      this._ws.onopen = () => {
+        this._connected = true;
+        this._reconnectDelay = 1000;
+        resolve();
+      };
+
+      this._ws.onmessage = (event: MessageEvent) => {
+        try {
+          const json = JSON.parse(event.data);
+          this._data = json;
+          this._listeners.forEach(cb => cb(json));
+        } catch {
+          this._data = event.data;
+          this._listeners.forEach(cb => cb(event.data));
+        }
+      };
+
+      this._ws.onclose = () => {
+        this._connected = false;
+        this._scheduleReconnect();
+      };
+
+      this._ws.onerror = () => {
+        // If not yet connected (handshake phase), reject the connect promise
+        if (!this._connected) {
+          reject(new Error(`[WSAdapter] Connection failed for ${url}`));
+        }
+        // Otherwise, onclose will fire next and trigger reconnect
+      };
+    });
   }
 
   private _scheduleReconnect(): void {
-    this._reconnectTimer = setTimeout(() => this._connect(this._url), this._reconnectDelay);
+    this._reconnectTimer = setTimeout(() => {
+      this.connect({ type: 'websocket', config: { url: this._url }, mapping: {} });
+    }, this._reconnectDelay);
     this._reconnectDelay = Math.min(this._reconnectDelay * 2, this._maxReconnectDelay);
   }
 

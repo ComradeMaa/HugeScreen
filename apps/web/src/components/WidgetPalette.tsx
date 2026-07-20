@@ -137,7 +137,7 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.fillStyle = 'rgba(44,44,52,0.92)';
     ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
 
-  } else if (type === 'composite-chart') {
+  } else if (type.startsWith('composite-')) {
     // 2×2 grid with dashed dividers
     ctx.strokeStyle = 'rgba(0,212,255,0.35)';
     ctx.lineWidth = 0.6;

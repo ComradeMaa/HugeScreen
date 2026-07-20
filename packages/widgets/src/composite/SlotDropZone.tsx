@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import type { CompositeSubChartType } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
 import { VALID_SUB_TYPES } from './types';
@@ -40,6 +40,11 @@ export function SlotDropZone({
   const area = AREA_LABELS[slotIndex] ?? String(slotIndex);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isDraggingOut, setIsDraggingOut] = useState(false);
+
+  // Clean up global delete callback on unmount (abnormal close during drag)
+  useEffect(() => () => {
+    delete (window as any).__hugescreen_compositeSlotDelete;
+  }, []);
 
   // ★ 荧光描边效果 — 与主界面 drop preview 一致
   const glowStyle = isDragOver ? {

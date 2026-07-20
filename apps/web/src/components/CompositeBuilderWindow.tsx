@@ -21,7 +21,13 @@ function createInitialSlots(count: number): CompositeSlotConfig[] {
   }));
 }
 
-let builderCounter = 0;
+/** HMR-safe counter — survives Vite hot reloads via window global */
+function getBuilderCounter(): number {
+  if ((window as any).__hugescreen_builderCounter == null) {
+    (window as any).__hugescreen_builderCounter = 0;
+  }
+  return ++(window as any).__hugescreen_builderCounter;
+}
 
 export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilderWindowProps) {
   const [phase, setPhase] = useState<'template' | 'building'>('template');
@@ -102,9 +108,9 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
     if (!template) return;
     if (!slots.every(s => s.chartType)) return;
 
-    builderCounter++;
-    const typeName = `composite-${builderCounter}`;
-    const displayName = `自定义组件 ${builderCounter}`;
+    const counter = getBuilderCounter();
+    const typeName = `composite-${counter}`;
+    const displayName = `自定义组件 ${counter}`;
     const config: CompositeConfig = { layoutTemplate: template, slots };
 
     setCompositeConfig(typeName, config);
@@ -114,6 +120,7 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
 
   const handleClose = useCallback(() => {
     setCompositeSlotEdit(null);
+    delete (window as any).__hugescreen_compositeSlotDelete;
     onClose();
   }, [onClose, setCompositeSlotEdit]);
 

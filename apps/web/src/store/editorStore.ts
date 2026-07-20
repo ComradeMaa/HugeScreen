@@ -118,7 +118,7 @@ function createDefaultWidgets(slots: ScreenSlot[]): WidgetConfig[] {
  * 删除组件后，尝试将同列相邻组件扩展填充空位。
  * 优先「下方组件上移」，其次「上方组件下扩」。
  */
-function mergeSlotsAfterRemove(widgets: WidgetConfig[], removed: WidgetConfig): WidgetConfig[] {
+function mergeSlotsAfterRemove(widgets: WidgetConfig[], removed: WidgetConfig, gridRows: number): WidgetConfig[] {
   const { col, row, colSpan, rowSpan } = removed.layout;
   const removedRowEnd = row + rowSpan;
 
@@ -132,15 +132,19 @@ function mergeSlotsAfterRemove(widgets: WidgetConfig[], removed: WidgetConfig): 
 
   if (belowIdx !== -1) {
     const below = widgets[belowIdx];
-    const merged: WidgetConfig = {
-      ...below,
-      layout: {
-        ...below.layout,
-        row,
-        rowSpan: rowSpan + below.layout.rowSpan,
-      },
-    };
-    return widgets.map((w, i) => (i === belowIdx ? merged : w));
+    const newRowSpan = rowSpan + below.layout.rowSpan;
+    // Guard: ensure expanded widget stays within grid bounds
+    if (row + newRowSpan <= gridRows) {
+      const merged: WidgetConfig = {
+        ...below,
+        layout: {
+          ...below.layout,
+          row,
+          rowSpan: newRowSpan,
+        },
+      };
+      return widgets.map((w, i) => (i === belowIdx ? merged : w));
+    }
   }
 
   // 尝试找正上方同列等宽的组件 → 下扩填充
@@ -153,14 +157,18 @@ function mergeSlotsAfterRemove(widgets: WidgetConfig[], removed: WidgetConfig): 
 
   if (aboveIdx !== -1) {
     const above = widgets[aboveIdx];
-    const merged: WidgetConfig = {
-      ...above,
-      layout: {
-        ...above.layout,
-        rowSpan: above.layout.rowSpan + rowSpan,
-      },
-    };
-    return widgets.map((w, i) => (i === aboveIdx ? merged : w));
+    const newRowSpan = above.layout.rowSpan + rowSpan;
+    // Guard: ensure expanded widget stays within grid bounds
+    if (above.layout.row + newRowSpan <= gridRows) {
+      const merged: WidgetConfig = {
+        ...above,
+        layout: {
+          ...above.layout,
+          rowSpan: newRowSpan,
+        },
+      };
+      return widgets.map((w, i) => (i === aboveIdx ? merged : w));
+    }
   }
 
   return widgets;
@@ -372,8 +380,17 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
     let widgets = state.config.widgets.filter((w) => w.id !== id);
 
+    // 动态注册的组合组件 → 清理 registry 和 config store
+    if (removed.type.startsWith('composite-')) {
+      // Dynamic import to avoid circular dependency
+      import('@hugescreen/widgets/composite').then(m => {
+        m.deleteCompositeConfig(removed.type);
+      });
+      widgetRegistry.unregister(removed.type);
+    }
+
     // 侧边栏槽位合并：删除后下方/上方同列组件扩展填充
-    widgets = mergeSlotsAfterRemove(widgets, removed);
+    widgets = mergeSlotsAfterRemove(widgets, removed, state.config.grid.rows);
 
     set((s) => ({
       config: { ...s.config, widgets },

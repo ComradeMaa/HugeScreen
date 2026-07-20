@@ -24,21 +24,30 @@ export class RESTAdapter implements DataAdapter {
   }
 
   async connect(config: DataSourceConfig): Promise<void> {
+    // Guard: disconnect any previous connection first to prevent timer/controller leaks
+    if (this._connected || this._timer || this._abortController) {
+      this.disconnect();
+    }
+
     const url = config.config?.url;
     if (!url) {
       console.warn('[RESTAdapter] No url provided');
       return;
     }
 
-    this._connected = true;
-
     const fetchData = async (): Promise<void> => {
+      // Abort any in-flight request before starting a new one
+      if (this._abortController) {
+        this._abortController.abort();
+      }
+      this._abortController = new AbortController();
+      const signal = this._abortController.signal;
+
       try {
-        this._abortController = new AbortController();
         const resp = await fetch(url, {
           method: config.config?.method ?? 'GET',
           headers: config.config?.headers ?? {},
-          signal: this._abortController.signal,
+          signal,
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         let json: unknown = await resp.json();
@@ -65,6 +74,9 @@ export class RESTAdapter implements DataAdapter {
 
     // Initial fetch
     await fetchData();
+
+    // Only mark connected after initial fetch succeeds
+    this._connected = true;
 
     // Poll at interval if configured
     const interval = config.config?.interval;

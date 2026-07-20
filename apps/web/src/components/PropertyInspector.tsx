@@ -143,6 +143,8 @@ export function PropertyInspector() {
   // ─── 组合图表槽位编辑（构建窗口中选中了子图表）───
   if (compositeSlotEdit) {
     const { chartType, options: opts, onUpdate } = compositeSlotEdit;
+    // Check if a canvas widget was displaced
+    const displacedWidget = config.widgets.find(w => w.id === selectedWidgetId);
     return (
       <div className="p-3">
         <div className="flex items-center gap-2 mb-3">
@@ -156,6 +158,11 @@ export function PropertyInspector() {
             槽位配置
           </h2>
         </div>
+        {displacedWidget && (
+          <div className="mb-3 px-2 py-1.5 rounded bg-[rgba(0,212,255,0.04)] border border-[rgba(0,212,255,0.08)] text-[10px] text-textSecondary/50">
+            已暂停编辑画布组件「{displacedWidget.displayName}」— 关闭构建窗口或取消选中槽位后恢复
+          </div>
+        )}
         <div className="space-y-4">
           <FieldGroup label="信息">
             <div className="text-xs text-textSecondary/60 space-y-1">

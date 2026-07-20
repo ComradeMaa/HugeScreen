@@ -6,6 +6,9 @@ import { useState, useEffect, useCallback, lazy } from 'react';
 import { Trash2, ChevronDown } from 'lucide-react';
 import { widgetRegistry } from '@hugescreen/core';
 
+/** Shared lazy component for all dynamically-registered composite widgets */
+const CompositeChartLazy = lazy(() => import('@hugescreen/widgets/composite').then(m => ({ default: m.CompositeChartWidget })));
+
 /**
  * 编辑器浮层
  * 从左侧滑入，包含组件面板和属性面板。
@@ -13,12 +16,17 @@ import { widgetRegistry } from '@hugescreen/core';
  * 支持将画布组件拖入组件池区域来删除。
  */
 export function EditorOverlay() {
-  const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, removeHeaderElement, setDraggingWidget } = useEditorStore();
+  const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, removeHeaderElement, setDraggingWidget, setCompositeSlotEdit } = useEditorStore();
   const [activeTab, setActiveTab] = useState<'palette' | 'inspector'>('palette');
   const [dragOverDelete, setDragOverDelete] = useState(false);
 
   // ─── 组合图表构建窗口 ───
   const [showBuilder, setShowBuilder] = useState(false);
+
+  // Clear compositeSlotEdit when editor is hidden (Escape / close button bypasses builder's handleClose)
+  useEffect(() => {
+    if (!isEditorVisible) setCompositeSlotEdit(null);
+  }, [isEditorVisible, setCompositeSlotEdit]);
 
   const handleBuilderComplete = useCallback((typeName: string, displayName: string) => {
     widgetRegistry.register({
@@ -30,7 +38,7 @@ export function EditorOverlay() {
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 3, rowSpan: 3 },
       maxSize: { colSpan: 8, rowSpan: 6 },
-      component: lazy(() => import('@hugescreen/widgets/composite').then(m => ({ default: m.CompositeChartWidget }))),
+      component: CompositeChartLazy,
       configSchema: { type: 'object', properties: { compositeKey: { type: 'string', title: '组合标识' } } },
       defaultConfig: { compositeKey: typeName },
     });

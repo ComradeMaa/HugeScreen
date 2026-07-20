@@ -6,17 +6,19 @@ import { RESTAdapter } from '@hugescreen/data/adapters/RESTAdapter';
 /**
  * Hook that manages live data subscriptions per composite sub-slot.
  * Returns a map from slotId to the latest data payload.
+ * Only disconnects removed slots; unchanged slots keep their connections.
  */
 export function useCompositeData(slots: CompositeSlotConfig[]): Record<string, unknown> {
   const [liveData, setLiveData] = useState<Record<string, unknown>>({});
   const adaptersRef = useRef<Map<string, RESTAdapter>>(new Map());
   const unsubsRef = useRef<Map<string, () => void>>(new Map());
 
+  // Selective connect/disconnect — only changed slots are affected
   useEffect(() => {
     const adapters = adaptersRef.current;
     const unsubs = unsubsRef.current;
 
-    // Clean up adapters for removed slots
+    // Disconnect adapters for removed slots only
     const currentSlotIds = new Set(slots.map(s => s.id));
     for (const [id, adapter] of adapters) {
       if (!currentSlotIds.has(id)) {
@@ -27,7 +29,7 @@ export function useCompositeData(slots: CompositeSlotConfig[]): Record<string, u
       }
     }
 
-    // Connect new/updated slots with REST data sources
+    // Connect new slots that have REST data sources
     for (const slot of slots) {
       const ds = slot.dataSource;
       if (!ds || ds.type !== 'rest' || adapters.has(slot.id)) continue;
@@ -44,14 +46,17 @@ export function useCompositeData(slots: CompositeSlotConfig[]): Record<string, u
         // Will retry on next poll interval
       });
     }
-
-    return () => {
-      for (const [, adapter] of adapters) { adapter.disconnect(); }
-      adapters.clear();
-      for (const [, unsub] of unsubs) { unsub(); }
-      unsubs.clear();
-    };
   }, [slots]);
+
+  // Full cleanup only on unmount
+  useEffect(() => () => {
+    const adapters = adaptersRef.current;
+    const unsubs = unsubsRef.current;
+    for (const [, adapter] of adapters) { adapter.disconnect(); }
+    adapters.clear();
+    for (const [, unsub] of unsubs) { unsub(); }
+    unsubs.clear();
+  }, []);
 
   return liveData;
 }
