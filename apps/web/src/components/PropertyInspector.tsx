@@ -2,7 +2,104 @@ import { useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetStyle } from '@hugescreen/shared';
+import type { CompositeSubChartType, CompositeConfig } from '@hugescreen/shared';
+import { SUB_CHART_LABELS, TEMPLATE_LABELS, getCompositeConfig } from '@hugescreen/widgets/composite';
 import { ChevronDown, Ban } from 'lucide-react';
+
+/** 供复合槽位编辑时展示的图表专属配置（与画布组件编辑器相同） */
+function SlotChartEditors({
+  chartType,
+  opts,
+  onUpdate,
+}: {
+  chartType: CompositeSubChartType;
+  opts: Record<string, unknown>;
+  onUpdate: (patch: Record<string, unknown>) => void;
+}) {
+  return (
+    <>
+      {/* 折线图 */}
+      {chartType === 'line-chart' && (
+        <>
+          <CollapsibleFieldGroup label="折线" defaultOpen={false}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">平滑曲线</span>
+              <input type="checkbox" checked={!!opts.smooth}
+                onChange={(e) => onUpdate({ smooth: e.target.checked })} className="rounded" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">面积填充</span>
+              <input type="checkbox" checked={!!opts.showArea}
+                onChange={(e) => onUpdate({ showArea: e.target.checked })} className="rounded" />
+            </label>
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+            <LineChartDataEditor
+              xLabels={Array.isArray(opts.xLabels) ? opts.xLabels as string[] : ['周一','周二','周三','周四','周五','周六','周日']}
+              lineSeries={Array.isArray(opts.lineSeries) ? opts.lineSeries as any[] : [{ name: '系列1', data: [120,200,150,80,70,110,130] }]}
+              onChange={(xLabels, lineSeries) => onUpdate({ xLabels, lineSeries })} />
+          </CollapsibleFieldGroup>
+        </>
+      )}
+
+      {/* 柱状图 */}
+      {chartType === 'bar-chart' && (
+        <>
+          <CollapsibleFieldGroup label="柱体" defaultOpen={false}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">条形图</span>
+              <input type="checkbox" checked={opts.direction === 'horizontal'}
+                onChange={(e) => onUpdate({ direction: e.target.checked ? 'horizontal' : 'vertical' })} className="rounded" />
+            </label>
+            <LabelSelectRow label="粗细" value={String(opts.barWidth ?? '50%')}
+              options={['30%','50%','70%','90%']}
+              onChange={(v) => onUpdate({ barWidth: v })} />
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="数值" defaultOpen={false}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">显示数值</span>
+              <input type="checkbox" checked={!!opts.showLabel}
+                onChange={(e) => onUpdate({ showLabel: e.target.checked })} className="rounded" />
+            </label>
+            <LabelSelectRow label="字号" value={String(opts.labelFontSize ?? '10px')}
+              options={['8px','10px','12px','14px','16px','18px','20px']}
+              onChange={(v) => onUpdate({ labelFontSize: v })} />
+            <LabelSelectRow label="字重" value={String(opts.labelFontWeight ?? '600')}
+              options={['400','500','600','700','800']}
+              onChange={(v) => onUpdate({ labelFontWeight: v })} />
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">颜色</span>
+              <span className="flex items-center gap-1.5">
+                <input type="color" value={String(opts.labelColor ?? '#FF8C42')}
+                  onChange={(e) => onUpdate({ labelColor: e.target.value })}
+                  className="w-6 h-6 rounded border border-[rgba(255,255,255,0.06)] bg-transparent cursor-pointer p-0" />
+                <input type="text" value={String(opts.labelColor ?? '#FF8C42')}
+                  onChange={(e) => onUpdate({ labelColor: e.target.value })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </span>
+            </label>
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+            <BarCategoriesEditor
+              categories={Array.isArray(opts.categories) && opts.categories.length > 0
+                ? opts.categories as any[] : [{ name: '类别A', value: 182 }, { name: '类别B', value: 234 }, { name: '类别C', value: 165 }, { name: '类别D', value: 298 }, { name: '类别E', value: 210 }]}
+              onChange={(cats) => onUpdate({ categories: cats })} />
+          </CollapsibleFieldGroup>
+        </>
+      )}
+
+      {/* 饼图 */}
+      {chartType === 'pie-chart' && (
+        <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+          <BarCategoriesEditor
+            categories={Array.isArray(opts.categories) && opts.categories.length > 0
+              ? opts.categories as any[] : [{ name: '类别A', value: 335 }, { name: '类别B', value: 310 }, { name: '类别C', value: 234 }, { name: '类别D', value: 135 }, { name: '类别E', value: 548 }]}
+            onChange={(cats) => onUpdate({ categories: cats })} />
+        </CollapsibleFieldGroup>
+      )}
+    </>
+  );
+}
 
 /** 已知属性 key → 可选值列表（渲染为下拉菜单） */
 const SELECT_OPTIONS: Record<string, string[]> = {
@@ -40,7 +137,40 @@ export function PropertyInspector() {
   const {
     config, selectedWidgetId, selectedHeaderSlotId,
     updateWidget, setHeaderSlot,
+    compositeSlotEdit, setCompositeSlotEdit,
   } = useEditorStore();
+
+  // ─── 组合图表槽位编辑（构建窗口中选中了子图表）───
+  if (compositeSlotEdit) {
+    const { chartType, options: opts, onUpdate } = compositeSlotEdit;
+    return (
+      <div className="p-3">
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => setCompositeSlotEdit(null)}
+            className="text-[11px] text-accent-cool hover:text-accent-cool/70 transition-colors"
+          >
+            ← 返回构建
+          </button>
+          <h2 className="text-sm font-semibold text-textSecondary uppercase tracking-wider">
+            槽位配置
+          </h2>
+        </div>
+        <div className="space-y-4">
+          <FieldGroup label="信息">
+            <div className="text-xs text-textSecondary/60 space-y-1">
+              <div className="flex justify-between py-0.5">
+                <span>类型</span>
+                <span className="font-mono text-accent-cool">{SUB_CHART_LABELS[chartType] ?? chartType}</span>
+              </div>
+            </div>
+          </FieldGroup>
+
+          <SlotChartEditors chartType={chartType} opts={opts} onUpdate={onUpdate} />
+        </div>
+      </div>
+    );
+  }
 
   // ─── 顶栏槽位编辑 ───
   const headerSlot = selectedHeaderSlotId
@@ -210,6 +340,35 @@ export function PropertyInspector() {
             hasPrimary={!!widget.style.title?.primary}
           />
         </CollapsibleFieldGroup>
+
+        {/* ═══ 组合图表 — 只读摘要 ═══ */}
+        {widget.type.startsWith('composite-') && (() => {
+          const comp: CompositeConfig | undefined = getCompositeConfig(widget.type);
+          if (!comp) return null;
+          const slots = comp.slots ?? [];
+          return (
+            <CollapsibleFieldGroup label="组合配置" defaultOpen={true}>
+              <div className="text-xs text-textSecondary/60 space-y-2">
+                <div className="flex justify-between py-0.5">
+                  <span>布局</span>
+                  <span className="font-mono text-accent-cool">
+                    {TEMPLATE_LABELS[comp.layoutTemplate as keyof typeof TEMPLATE_LABELS] ?? comp.layoutTemplate}
+                  </span>
+                </div>
+                <div className="border-t border-[rgba(255,255,255,0.04)] pt-2">
+                  {slots.map((slot: any, i: number) => (
+                    <div key={slot.id} className="flex justify-between py-1">
+                      <span className="text-[11px]">槽位 {String.fromCharCode(65 + i)}</span>
+                      <span className="font-mono text-[11px]">
+                        {SUB_CHART_LABELS[slot.chartType as CompositeSubChartType] ?? slot.chartType}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CollapsibleFieldGroup>
+          );
+        })()}
 
         {/* ═══ 柱状图专属配置 ═══ */}
         {widget.type === 'bar-chart' && (

@@ -5,4 +5,5 @@ export { PieChartWidget } from './charts/PieChartWidget';
 export { registerBuiltinWidgets } from './registerWidgets';
 export { registerHeaderElements } from './registerHeaderElements';
 export { headerElementRegistry } from './header-elements';
+export { CompositeChartWidget } from './composite';
 export type { HeaderElementDefinition } from './header-elements';

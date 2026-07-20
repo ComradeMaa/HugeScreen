@@ -1,1 +1,4 @@
-export { DataSourceManager, type DataAdapter } from './DataSourceManager';
+export { DataSourceManager, dataSourceManager, type DataAdapter } from './DataSourceManager';
+export { StaticAdapter } from './adapters/StaticAdapter';
+export { RESTAdapter } from './adapters/RESTAdapter';
+export { WebSocketAdapter } from './adapters/WebSocketAdapter';

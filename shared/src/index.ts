@@ -78,6 +78,30 @@ export interface WidgetLayout {
   rowSpan: number;
 }
 
+// ─── 组合图表 (Composite Chart) ───
+
+export type CompositeLayoutTemplate =
+  | '2col'          // 两等列
+  | '2row'          // 两等行
+  | '3col'          // 三等列
+  | '2x2'           // 2×2 网格 (4 子图)
+  | '1top2bottom'   // 上宽下两
+  | '1left2right';  // 左宽右两叠
+
+export type CompositeSubChartType = 'line-chart' | 'bar-chart' | 'pie-chart' | 'stat-card';
+
+export interface CompositeSlotConfig {
+  id: string;
+  chartType: CompositeSubChartType;
+  chartOptions: Record<string, unknown>;
+  dataSource?: DataSourceConfig;
+}
+
+export interface CompositeConfig {
+  layoutTemplate: CompositeLayoutTemplate;
+  slots: CompositeSlotConfig[];
+}
+
 // ─── 数据源 ───
 
 export interface DataSourceConfig {

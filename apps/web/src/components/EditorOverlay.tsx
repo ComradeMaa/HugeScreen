@@ -1,8 +1,10 @@
 import { useEditorStore } from '../store/editorStore';
 import { WidgetPalette } from './WidgetPalette';
 import { PropertyInspector } from './PropertyInspector';
-import { useState, useEffect, useCallback } from 'react';
+import { CompositeBuilderWindow } from './CompositeBuilderWindow';
+import { useState, useEffect, useCallback, lazy } from 'react';
 import { Trash2, ChevronDown } from 'lucide-react';
+import { widgetRegistry } from '@hugescreen/core';
 
 /**
  * 编辑器浮层
@@ -14,6 +16,26 @@ export function EditorOverlay() {
   const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, removeHeaderElement, setDraggingWidget } = useEditorStore();
   const [activeTab, setActiveTab] = useState<'palette' | 'inspector'>('palette');
   const [dragOverDelete, setDragOverDelete] = useState(false);
+
+  // ─── 组合图表构建窗口 ───
+  const [showBuilder, setShowBuilder] = useState(false);
+
+  const handleBuilderComplete = useCallback((typeName: string, displayName: string) => {
+    widgetRegistry.register({
+      type: typeName,
+      name: displayName,
+      description: '自定义组合图表',
+      icon: 'LayoutDashboard',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 4 },
+      minSize: { colSpan: 3, rowSpan: 3 },
+      maxSize: { colSpan: 8, rowSpan: 6 },
+      component: lazy(() => import('@hugescreen/widgets/composite').then(m => ({ default: m.CompositeChartWidget }))),
+      configSchema: { type: 'object', properties: { compositeKey: { type: 'string', title: '组合标识' } } },
+      defaultConfig: { compositeKey: typeName },
+    });
+    setShowBuilder(false);
+  }, []);
 
   // 从组件池拿起组件时编辑器面板虚化 + 蓝框
   const [isPaletteDragging, setIsPaletteDragging] = useState(false);
@@ -47,10 +69,11 @@ export function EditorOverlay() {
     }
   }, [isEditorVisible, handleKey]);
 
-  // ─── 接收拖入的画布组件 / 顶栏元素 → 删除 ───
+  // ─── 接收拖入的画布组件 / 顶栏元素 / 组合图表槽位 → 删除 ───
   const handleDeleteDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/widget-id') ||
-        e.dataTransfer.types.includes('application/header-element-id')) {
+        e.dataTransfer.types.includes('application/header-element-id') ||
+        e.dataTransfer.types.includes('application/composite-slot')) {
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
@@ -67,7 +90,14 @@ export function EditorOverlay() {
       setDragOverDelete(false);
       const widgetId = e.dataTransfer.getData('application/widget-id');
       const headerSlotId = e.dataTransfer.getData('application/header-element-id');
-      if (widgetId) {
+      const compositeSlotIdx = e.dataTransfer.getData('application/composite-slot');
+      if (compositeSlotIdx) {
+        e.preventDefault();
+        e.stopPropagation();
+        const fn = (window as any).__hugescreen_compositeSlotDelete as (() => void) | undefined;
+        if (fn) fn();
+        delete (window as any).__hugescreen_compositeSlotDelete;
+      } else if (widgetId) {
         e.preventDefault();
         e.stopPropagation();
         removeWidget(widgetId);
@@ -144,7 +174,7 @@ export function EditorOverlay() {
           onDragLeave={handleDeleteDragLeave}
           onDrop={handleDeleteDrop}
         >
-          {activeTab === 'palette' ? <WidgetPalette /> : <PropertyInspector />}
+          {activeTab === 'palette' ? <WidgetPalette onCreateComposite={() => setShowBuilder(true)} /> : <PropertyInspector />}
         </div>
 
         {/* 背景图案 */}
@@ -199,6 +229,14 @@ export function EditorOverlay() {
           transition: 'all 300ms',
         }} />
       </div>
+
+      {/* ─── 组合图表构建窗口（fixed 定位，独立层级）─── */}
+      {showBuilder && (
+        <CompositeBuilderWindow
+          onClose={() => setShowBuilder(false)}
+          onComplete={handleBuilderComplete}
+        />
+      )}
     </div>
   );
 }

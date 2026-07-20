@@ -1,0 +1,15 @@
+export { CompositeChartWidget } from './CompositeChartWidget';
+export { TemplatePicker } from './TemplatePicker';
+export { SlotDropZone } from './SlotDropZone';
+export { useCompositeData } from './useCompositeData';
+export { setCompositeConfig, getCompositeConfig, deleteCompositeConfig, getAllCompositeKeys } from './compositeConfigStore';
+export {
+  LAYOUT_TEMPLATES,
+  TEMPLATE_SLOT_COUNTS,
+  TEMPLATE_GRID_AREAS,
+  TEMPLATE_LABELS,
+  SUB_CHART_LABELS,
+  VALID_SUB_TYPES,
+  isTemplateViableForSize,
+  templateColumns,
+} from './types';

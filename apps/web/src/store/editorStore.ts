@@ -6,6 +6,7 @@ import type {
   GridConfig,
   ThemeConfig,
   HeaderSlotConfig,
+  CompositeSubChartType,
 } from '@hugescreen/shared';
 import {
   DEFAULT_THEME,
@@ -70,6 +71,18 @@ interface EditorState {
   toggleSnap: () => void;
   setBackgroundPattern: (pattern: string) => void;
   setBackgroundEffect: (effect: string) => void;
+
+  // ─── 组合图表槽位编辑（构建窗口 → 属性面板通信）───
+  compositeSlotEdit: {
+    chartType: CompositeSubChartType;
+    options: Record<string, unknown>;
+    onUpdate: (patch: Record<string, unknown>) => void;
+  } | null;
+  setCompositeSlotEdit: (edit: {
+    chartType: CompositeSubChartType;
+    options: Record<string, unknown>;
+    onUpdate: (patch: Record<string, unknown>) => void;
+  } | null) => void;
 
   saveConfig: () => string;
   loadConfig: (json: string) => void;
@@ -287,6 +300,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   snapToGrid: true,
   backgroundPattern: 'none',
   backgroundEffect: 'energy-flow',
+  compositeSlotEdit: null,
 
   setConfig: (config: ScreenConfig) =>
     set({
@@ -626,8 +640,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       config: { ...s.config, backgroundEffect: effect },
     })),
 
+  setCompositeSlotEdit: (edit) => set({ compositeSlotEdit: edit }),
+
   saveConfig: () => {
-    const json = JSON.stringify(get().config, null, 2);
+    // 过滤会话级临时组件（动态注册的组合图表等）
+    const config = { ...get().config, widgets: get().config.widgets.filter(w => !w.type.startsWith('composite-')) };
+    const json = JSON.stringify(config, null, 2);
     localStorage.setItem('hugescreen-config', json);
     return json;
   },
@@ -662,11 +680,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
 
   exportConfig: () => {
-    const json = JSON.stringify(get().config, null, 2);
+    const config = { ...get().config, widgets: get().config.widgets.filter(w => !w.type.startsWith('composite-')) };
+    const json = JSON.stringify(config, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${get().config.name}.json`;
+    a.href = url; a.download = `${config.name}.json`;
     a.click(); URL.revokeObjectURL(url);
   },
 

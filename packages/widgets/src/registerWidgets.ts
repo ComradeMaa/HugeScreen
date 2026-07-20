@@ -119,6 +119,7 @@ export function registerBuiltinWidgets(): void {
         ],
       },
     },
+
   ]);
 
   console.log(

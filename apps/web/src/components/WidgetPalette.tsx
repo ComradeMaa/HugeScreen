@@ -12,6 +12,8 @@ import {
   Type,
   Clock,
   Globe,
+  LayoutDashboard,
+  Plus,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -24,6 +26,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Type,
   Clock,
   Globe,
+  LayoutDashboard,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -133,6 +136,25 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     // Donut hole
     ctx.fillStyle = 'rgba(44,44,52,0.92)';
     ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+
+  } else if (type === 'composite-chart') {
+    // 2×2 grid with dashed dividers
+    ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+    ctx.lineWidth = 0.6;
+    ctx.setLineDash([3, 3]);
+    // Vertical divider
+    ctx.beginPath(); ctx.moveTo(cx, 10); ctx.lineTo(cx, h - 10); ctx.stroke();
+    // Horizontal divider
+    ctx.beginPath(); ctx.moveTo(10, cy); ctx.lineTo(w - 10, cy); ctx.stroke();
+    ctx.setLineDash([]);
+    // Quadrant labels
+    ctx.fillStyle = 'rgba(0,212,255,0.4)';
+    ctx.font = '7px "Inter","PingFang SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('A', cx / 2, cy / 2 + 2);
+    ctx.fillText('B', cx + cx / 2, cy / 2 + 2);
+    ctx.fillText('C', cx / 2, cy + cy / 2 + 2);
+    ctx.fillText('D', cx + cx / 2, cy + cy / 2 + 2);
 
   } else {
     // Fallback: centered label
@@ -244,7 +266,7 @@ const CATEGORY_LABELS: Record<WidgetCategory, string> = {
  * 组件池面板
  * 像手机主屏幕那样展示组件缩略图，拖入画布即放置。
  */
-export function WidgetPalette() {
+export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () => void }) {
   const grouped = widgetRegistry.getGroupedByCategory();
   const allWidgets = widgetRegistry.getAll();
   const headerElements = headerElementRegistry.getAll();
@@ -276,8 +298,20 @@ export function WidgetPalette() {
       {/* ─── 普通组件 ─── */}
       {Array.from(grouped.entries()).map(([category, widgets]) => (
         <div key={category}>
-          <div className="text-[10px] font-semibold text-textSecondary/40 uppercase tracking-wider mb-2 px-1">
-            {CATEGORY_LABELS[category]}
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-[10px] font-semibold text-textSecondary/40 uppercase tracking-wider">
+              {CATEGORY_LABELS[category]}
+            </span>
+            {/* ★ 图表分类显示"创建组合"入口 */}
+            {category === 'chart' && (
+              <button
+                onClick={() => onCreateComposite?.()}
+                className="flex items-center gap-1 text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors px-1.5 py-0.5 rounded border border-[rgba(0,212,255,0.15)] hover:border-[rgba(0,212,255,0.35)]"
+              >
+                <Plus size={10} />
+                创建组合
+              </button>
+            )}
           </div>
           <div className="space-y-1">
             {widgets.map((widget) => (

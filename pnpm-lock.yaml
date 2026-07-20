@@ -104,6 +104,9 @@ importers:
 
   packages/data:
     dependencies:
+      '@hugescreen/core':
+        specifier: workspace:*
+        version: link:../core
       '@hugescreen/shared':
         specifier: workspace:*
         version: link:../../shared
