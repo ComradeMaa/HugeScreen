@@ -248,6 +248,32 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     };
   }, []);
 
+  // ★ 切换编辑器 → 预览模式时强制重置所有拖拽状态，防止删除组件后提示残留
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalWidgetDrag(false);
+      setLocalHeaderDrag(false);
+      setWidgetDragHint(false);
+      setHeaderDragHint(false);
+      setDropPreview(null);
+      setDragSwap(null);
+      setWidgetOverHeader(false);
+      setHeaderOverWidget(false);
+    }
+  }, [isEditing]);
+
+  // ★ 删除组件后也强制清除拖拽提示（编辑态下点击 × 可能触发微拖拽残留）
+  const prevWidgetCount = useRef(widgets.length);
+  useEffect(() => {
+    if (widgets.length < prevWidgetCount.current) {
+      setLocalWidgetDrag(false);
+      setWidgetDragHint(false);
+      setDropPreview(null);
+      setDragSwap(null);
+    }
+    prevWidgetCount.current = widgets.length;
+  }, [widgets.length]);
+
   // 一般组件拖拽时（palette 新建 / 已有组件移动）是否启用可用区块提示
   const showWidgetSlotsHint = widgetDragHint || (effectiveWidgetDrag && !effectiveHeaderDrag);
   const showHeaderDragHint = effectiveHeaderDrag || headerDragHint; // palette / 已有顶栏拖拽
@@ -690,7 +716,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     <div
       ref={canvasRef}
       className="relative"
-      style={{ width: canvas.width, height: canvas.height, backgroundColor: '#2C2C34' }}
+      style={{ width: canvas.width, height: canvas.height, backgroundColor: backgroundPattern === 'globe-2' ? 'transparent' : '#2C2C34' }}
       onDragOver={isEditing ? handleCanvasDragOver : undefined}
       onDragLeave={isEditing ? handleCanvasDragLeave : undefined}
       onDrop={isEditing ? handleCanvasDrop : undefined}

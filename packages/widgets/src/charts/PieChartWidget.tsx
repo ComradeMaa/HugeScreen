@@ -14,7 +14,7 @@ const DEFAULT_DATA = [
 ];
 const COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#a78bfa', '#60a5fa'];
 
-export function PieChartWidget({ data, categories, donut = true, showLegend = true }: PieChartWidgetProps) {
+export function PieChartWidget({ data, categories, donut = true, showLegend = false }: PieChartWidgetProps) {
   const pd = (categories?.length ? categories : data) ?? DEFAULT_DATA;
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);

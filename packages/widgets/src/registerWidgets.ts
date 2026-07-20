@@ -109,7 +109,7 @@ export function registerBuiltinWidgets(): void {
       },
       defaultConfig: {
         donut: true,
-        showLegend: true,
+        showLegend: false,
         categories: [
           { name: '类别A', value: 335 },
           { name: '类别B', value: 310 },
