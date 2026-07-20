@@ -5,6 +5,8 @@ import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
 import { EnergyFlow } from './EnergyFlow';
+import { LowPolyBg } from './LowPolyBg';
+import { CyberSphere } from './CyberSphere';
 import { BorderFrame, HeaderBorder1 } from '@hugescreen/widgets/borders';
 // 动态加载 CyberGlobe + Three.js，防止模块错误导致整页白屏
 const CyberGlobe = lazy(() => import('./CyberGlobe').then(m => ({ default: m.CyberGlobe })));
@@ -738,10 +740,18 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
           <CyberGlobe canvasW={canvas.width} canvasH={canvas.height} variant="top-down" />
         </Suspense>
       )}
+      {backgroundPattern === 'globe-3' && (
+        <Suspense fallback={null}>
+          <CyberSphere canvasW={canvas.width} canvasH={canvas.height} />
+        </Suspense>
+      )}
       {/* 地球-2（斜平视角）已移至 MainScreen 视口级渲染，不受画布缩放/偏移影响 */}
       {/* ═══ 能量脉冲动线 ═══ */}
       {backgroundEffect === 'energy-flow' && (
         <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} />
+      )}
+      {backgroundEffect === 'low-poly' && (
+        <LowPolyBg canvasW={canvas.width} canvasH={canvas.height} />
       )}
       {isEditing && <GridOverlay grid={grid} canvasWidth={canvas.width} canvasHeight={canvas.height} />}
 
@@ -933,7 +943,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
       )}
 
       {/* ═══ 中心空提示 ═══ */}
-      {isCenterEmpty && (
+      {isEditing && isCenterEmpty && (
         <div
           className="absolute flex items-center justify-center pointer-events-none z-20"
           style={slotToPx(CENTER_SLOT, cellW, cellH, grid.gap)}

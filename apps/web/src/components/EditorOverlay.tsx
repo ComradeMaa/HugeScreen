@@ -253,6 +253,7 @@ const BG_PATTERNS = [
   { value: 'none', label: '纯色' },
   { value: 'globe-1', label: '地球-1' },
   { value: 'globe-2', label: '地球-2' },
+  { value: 'globe-3', label: '地球-3' },
 ];
 
 function BackgroundPatternSelector() {
@@ -268,12 +269,12 @@ function BackgroundPatternSelector() {
         背景图案
       </button>
       {open && (
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {BG_PATTERNS.map(p => (
             <button
               key={p.value}
               onClick={() => setBackgroundPattern(p.value)}
-              className={`flex-1 min-w-[80px] text-[11px] py-1.5 rounded transition-colors whitespace-nowrap ${
+              className={`px-2 text-[11px] py-1.5 rounded transition-colors whitespace-nowrap ${
                 backgroundPattern === p.value
                   ? 'bg-accent-cool/15 text-accent-cool ring-1 ring-accent-cool/30'
                   : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
@@ -291,6 +292,7 @@ function BackgroundPatternSelector() {
 const BG_EFFECTS = [
   { value: 'none', label: '纯色' },
   { value: 'energy-flow', label: 'PCB 流光' },
+  { value: 'low-poly', label: '低多面体' },
 ];
 
 function BackgroundEffectSelector() {

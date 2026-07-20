@@ -122,10 +122,15 @@ export function CyberGlobe({ canvasW, canvasH, variant = 'top-down' }: CyberGlob
       camera.lookAt(0, 0, 0);
     }
 
-    // 半透明球面
+    // 不透明球面（阻止背面穿透）
     const sphereGeo = new THREE.SphereGeometry(1000, 64, 32);
-    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x2C2C34, transparent: true, opacity: 0.30, side: THREE.FrontSide });
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x2C2C34, transparent: false, side: THREE.FrontSide });
     globeGroup.add(new THREE.Mesh(sphereGeo, sphereMat));
+
+    // 背面遮罩（双重保障）
+    const backGeo = new THREE.SphereGeometry(990, 64, 32);
+    const backMat = new THREE.MeshBasicMaterial({ color: 0x1a1a22, side: THREE.BackSide, depthWrite: true });
+    globeGroup.add(new THREE.Mesh(backGeo, backMat));
 
     // 线框
     const wireMat = new THREE.MeshBasicMaterial({ color: 0x00D4FF, wireframe: true, transparent: true, opacity: 0.03 });
