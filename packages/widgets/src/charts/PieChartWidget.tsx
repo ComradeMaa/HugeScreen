@@ -1,23 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useECharts } from './useECharts';
 
-interface PieChartWidgetProps {
-  data?: { name: string; value: number }[];
-  categories?: { name: string; value: number }[];
-  donut?: boolean;
-  showLegend?: boolean;
+interface PieCategory {
+  name: string;
+  value: number;
+  /** 单独控制该类别是否显示引出线 + 标签 */
+  showLabelLine?: boolean;
 }
 
-const DEFAULT_DATA = [
+interface PieChartWidgetProps {
+  data?: PieCategory[];
+  categories?: PieCategory[];
+  donut?: boolean;
+  showLegend?: boolean;
+  /** 左上角颜色图例开关 */
+  showColorLegend?: boolean;
+  /** 图名 — 自定义显示文字 */
+  titleText?: string;
+  /** 图名位置 — 左上角或图表下方 */
+  titlePosition?: 'topLeft' | 'bottom' | 'none';
+}
+
+const DEFAULT_DATA: PieCategory[] = [
   { name: '类别A', value: 335 }, { name: '类别B', value: 310 },
   { name: '类别C', value: 234 }, { name: '类别D', value: 135 }, { name: '类别E', value: 548 },
 ];
 const COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#a78bfa', '#60a5fa'];
 
-export function PieChartWidget({ data, categories, donut = true, showLegend = false }: PieChartWidgetProps) {
+export function PieChartWidget({ data, categories, donut = true, showLegend = false, showColorLegend = true, titleText, titlePosition = 'none' }: PieChartWidgetProps) {
   const pd = (categories?.length ? categories : data) ?? DEFAULT_DATA;
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
+
+  // 是否有任何类别启用了引出线
+  const hasAnyLabelLine = pd.some(d => (d as any).showLabelLine);
 
   useEffect(() => {
     const total = pd.reduce((sum, d) => sum + d.value, 0);
@@ -26,6 +42,12 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
       animation: animated,
       animationDuration: animated ? 800 : 0,
       animationEasing: animated ? 'cubicOut' : undefined,
+      title: (showTitle && titleText) ? {
+        text: titleText,
+        left: isTopLeftTitle ? 'left' : 'center',
+        top: isTopLeftTitle ? 'top' : 'bottom',
+        textStyle: { color: '#E8E8EC', fontSize: 11, fontWeight: 'bold' as const },
+      } : undefined,
       tooltip: {
         trigger: 'item' as const, backgroundColor: '#2C2C34',
         borderColor: 'rgba(255,255,255,0.06)', textStyle: { color: '#E8E8EC', fontSize: 12 },
@@ -40,9 +62,12 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
       } : undefined,
       series: [{
         type: 'pie' as const,
-        radius: donut ? ['45%', '72%'] : ['0%', '70%'],
+        // 有引出线时缩小饼图半径腾空间
+        radius: hasAnyLabelLine
+          ? (donut ? ['38%', '62%'] : ['0%', '58%'])
+          : (donut ? ['45%', '72%'] : ['0%', '70%']),
         center: showLegend ? ['40%', '50%'] : ['50%', '50%'],
-        avoidLabelOverlap: false,
+        avoidLabelOverlap: true,
         startAngle: 90,
         clockwise: false,
         animationType: 'expansion',
@@ -52,7 +77,26 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
         emphasis: {
           label: { show: true, fontSize: 14, fontWeight: 'bold' as const, color: '#ffffff' }, scaleSize: 8,
         },
-        data: (dataOverride ?? pd).map((item, i) => ({ ...item, itemStyle: { color: COLORS[i % COLORS.length] } })),
+        data: (dataOverride ?? pd).map((item, i) => {
+          const showLine = !!(item as any).showLabelLine;
+          return {
+            ...item,
+            itemStyle: { color: COLORS[i % COLORS.length] },
+            label: showLine ? {
+              show: true,
+              position: 'outside' as const,
+              formatter: '{b}: {d}%',
+              color: '#E8E8EC',
+              fontSize: 10,
+            } : { show: false },
+            labelLine: showLine ? {
+              show: true,
+              length: 16,
+              length2: 22,
+              lineStyle: { color: COLORS[i % COLORS.length], width: 1 },
+            } : { show: false },
+          };
+        }),
       }],
     });
 
@@ -60,7 +104,6 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
       setOption(opt(true), true);
     } else {
       setDidInit(true);
-      // 空数组基线 → 真正从空白开始
       setOption(opt(false, []), true);
       let raf1: number, raf2: number;
       raf1 = requestAnimationFrame(() => {
@@ -68,18 +111,23 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(pd), donut, showLegend]);
+  }, [JSON.stringify(pd), donut, showLegend, titleText, titlePosition, showColorLegend, hasAnyLabelLine]);
+
+  const showTitle = !!(titleText && titlePosition !== 'none');
+  const isTopLeftTitle = titlePosition === 'topLeft';
 
   return (
     <div className="relative w-full h-full">
-      <div className="absolute top-1 left-2 z-10 pointer-events-none flex flex-col gap-0.5 max-w-[70%]">
-        {pd.map((d, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-            <span className="text-[9px] text-textSecondary/70 truncate max-w-[60px]" title={d.name}>{d.name}</span>
-          </div>
-        ))}
-      </div>
+      {showColorLegend && (
+        <div className={`absolute ${isTopLeftTitle && showTitle ? 'top-5' : 'top-1'} left-2 z-10 pointer-events-none flex flex-col gap-0.5 max-w-[70%]`}>
+          {pd.map((d, i) => (
+            <div key={i} className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+              <span className="text-[9px] text-textSecondary/70 truncate max-w-[60px]" title={d.name}>{d.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div ref={chartRef} className="w-full h-full" />
     </div>
   );

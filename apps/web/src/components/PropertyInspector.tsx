@@ -90,12 +90,33 @@ function SlotChartEditors({
 
       {/* 饼图 */}
       {chartType === 'pie-chart' && (
-        <CollapsibleFieldGroup label="数据" defaultOpen={false}>
-          <BarCategoriesEditor
-            categories={Array.isArray(opts.categories) && opts.categories.length > 0
-              ? opts.categories as any[] : [{ name: '类别A', value: 335 }, { name: '类别B', value: 310 }, { name: '类别C', value: 234 }, { name: '类别D', value: 135 }, { name: '类别E', value: 548 }]}
-            onChange={(cats) => onUpdate({ categories: cats })} />
-        </CollapsibleFieldGroup>
+        <>
+          <CollapsibleFieldGroup label="图名" defaultOpen={false}>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] text-textSecondary/70">文字</span>
+              <input type="text" value={String(opts.titleText ?? '')}
+                onChange={(e) => onUpdate({ titleText: e.target.value })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
+                placeholder="输入图表名" />
+            </label>
+            <LabelSelectRow label="位置" value={String(opts.titlePosition ?? 'none')}
+              options={['none', 'topLeft', 'bottom']}
+              labels={['无', '左上角', '底部']}
+              onChange={(v) => onUpdate({ titlePosition: v })} />
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">颜色图例</span>
+              <input type="checkbox" checked={opts.showColorLegend !== false}
+                onChange={(e) => onUpdate({ showColorLegend: e.target.checked })} className="rounded" />
+            </label>
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+            <BarCategoriesEditor
+              showLabelLineToggle
+              categories={Array.isArray(opts.categories) && opts.categories.length > 0
+                ? opts.categories as any[] : [{ name: '类别A', value: 335 }, { name: '类别B', value: 310 }, { name: '类别C', value: 234 }, { name: '类别D', value: 135 }, { name: '类别E', value: 548 }]}
+              onChange={(cats) => onUpdate({ categories: cats })} />
+          </CollapsibleFieldGroup>
+        </>
       )}
     </>
   );
@@ -477,18 +498,45 @@ export function PropertyInspector() {
 
         {/* ═══ 饼图专属配置 ═══ */}
         {widget.type === 'pie-chart' && (
-          <CollapsibleFieldGroup label="数据" defaultOpen={false}>
-            <BarCategoriesEditor
-              categories={
-                Array.isArray((widget.options as any).categories) && (widget.options as any).categories.length > 0
-                  ? (widget.options as any).categories
-                  : [{ name: '类别A', value: 335 }, { name: '类别B', value: 310 }, { name: '类别C', value: 234 }, { name: '类别D', value: 135 }, { name: '类别E', value: 548 }]
-              }
-              onChange={(cats) => updateWidget(widget.id, {
-                options: { ...(widget.options as object), categories: cats },
-              })}
-            />
-          </CollapsibleFieldGroup>
+          <>
+            <CollapsibleFieldGroup label="图名" defaultOpen={false}>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] text-textSecondary/70">文字</span>
+                <input type="text" value={String((widget.options as any).titleText ?? '')}
+                  onChange={(e) => updateWidget(widget.id, {
+                    options: { ...(widget.options as object), titleText: e.target.value },
+                  })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
+                  placeholder="输入图表名" />
+              </label>
+              <LabelSelectRow label="位置" value={String((widget.options as any).titlePosition ?? 'none')}
+                options={['none', 'topLeft', 'bottom']}
+                labels={['无', '左上角', '底部']}
+                onChange={(v) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), titlePosition: v },
+                })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">颜色图例</span>
+                <input type="checkbox" checked={(widget.options as any).showColorLegend !== false}
+                  onChange={(e) => updateWidget(widget.id, {
+                    options: { ...(widget.options as object), showColorLegend: e.target.checked },
+                  })} className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="数据" defaultOpen={false}>
+              <BarCategoriesEditor
+                showLabelLineToggle
+                categories={
+                  Array.isArray((widget.options as any).categories) && (widget.options as any).categories.length > 0
+                    ? (widget.options as any).categories
+                    : [{ name: '类别A', value: 335 }, { name: '类别B', value: 310 }, { name: '类别C', value: 234 }, { name: '类别D', value: 135 }, { name: '类别E', value: 548 }]
+                }
+                onChange={(cats) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), categories: cats },
+                })}
+              />
+            </CollapsibleFieldGroup>
+          </>
         )}
 
         {/* ═══ 边框样式 ═══ */}
@@ -552,9 +600,9 @@ function CollapsibleFieldGroup({ label, children, defaultOpen = false }: { label
 }
 
 /** 下拉选择行 */
-interface BarCategory { name: string; value: number; }
+interface BarCategory { name: string; value: number; showLabelLine?: boolean; }
 
-function BarCategoriesEditor({ categories, onChange }: { categories: BarCategory[]; onChange: (cats: BarCategory[]) => void }) {
+function BarCategoriesEditor({ categories, onChange, showLabelLineToggle }: { categories: BarCategory[]; onChange: (cats: BarCategory[]) => void; showLabelLineToggle?: boolean }) {
   const updateCat = (i: number, patch: Partial<BarCategory>) => {
     const next = categories.map((c, j) => (j === i ? { ...c, ...patch } : c));
     onChange(next);
@@ -564,7 +612,7 @@ function BarCategoriesEditor({ categories, onChange }: { categories: BarCategory
     onChange(categories.filter((_, j) => j !== i));
   };
   const addCat = () => {
-    onChange([...categories, { name: `类别${categories.length + 1}`, value: 100 }]);
+    onChange([...categories, { name: `类别${categories.length + 1}`, value: 100, showLabelLine: false }]);
   };
 
   return (
@@ -575,16 +623,27 @@ function BarCategoriesEditor({ categories, onChange }: { categories: BarCategory
             type="text"
             value={cat.name}
             onChange={(e) => updateCat(i, { name: e.target.value })}
-            className="flex-1 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors"
+            className="w-[52px] bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors"
             placeholder="名称"
           />
           <input
             type="number"
             value={cat.value}
             onChange={(e) => updateCat(i, { value: Number(e.target.value) || 0 })}
-            className="w-16 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right"
+            className="w-14 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right"
             placeholder="值"
           />
+          {showLabelLineToggle && (
+            <button
+              onClick={() => updateCat(i, { showLabelLine: !(cat as any).showLabelLine })}
+              className={`text-[10px] px-1 py-0.5 rounded transition-colors flex-shrink-0 ${
+                (cat as any).showLabelLine
+                  ? 'bg-[rgba(0,212,255,0.12)] text-[#00D4FF]'
+                  : 'text-textSecondary/20 hover:text-textSecondary/50'
+              }`}
+              title="引出线标签"
+            >↗</button>
+          )}
           <button
             onClick={() => removeCat(i)}
             disabled={categories.length <= 1}
@@ -700,13 +759,13 @@ function LineChartDataEditor({
   );
 }
 
-function LabelSelectRow({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+function LabelSelectRow({ label, value, options, labels, onChange }: { label: string; value: string; options: string[]; labels?: string[]; onChange: (v: string) => void }) {
   return (
     <label className="flex items-center justify-between">
       <span className="text-[11px] text-textSecondary/70">{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}
         className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors text-right appearance-none cursor-pointer">
-        {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+        {options.map((opt, i) => <option key={opt} value={opt}>{labels?.[i] ?? opt}</option>)}
       </select>
     </label>
   );

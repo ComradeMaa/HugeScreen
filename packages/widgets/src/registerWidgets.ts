@@ -104,12 +104,18 @@ export function registerBuiltinWidgets(): void {
         properties: {
           donut: { type: 'boolean', title: '环形' },
           showLegend: { type: 'boolean', title: '图例' },
+          showColorLegend: { type: 'boolean', title: '颜色图例' },
+          titleText: { type: 'string', title: '图名' },
+          titlePosition: { type: 'string', title: '图名位置', enum: ['none', 'topLeft', 'bottom'] },
           categories: { type: 'array', title: '数据类别' },
         },
       },
       defaultConfig: {
         donut: true,
         showLegend: false,
+        showColorLegend: true,
+        titleText: '',
+        titlePosition: 'none',
         categories: [
           { name: '类别A', value: 335 },
           { name: '类别B', value: 310 },
