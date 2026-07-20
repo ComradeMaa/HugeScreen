@@ -8,6 +8,7 @@ export interface ScreenSlot {
   category: WidgetCategory;
   defaultData?: unknown;
   defaultOptions?: Record<string, unknown>;
+  defaultStyle?: Record<string, unknown>;
 }
 
 /**
@@ -41,6 +42,7 @@ export const DEFAULT_SLOTS: ScreenSlot[] = [
       ],
     },
     defaultOptions: { smooth: true, showArea: true },
+    defaultStyle: { borderStyle: 'style1' },
   },
 
   // ─── 左列 ───

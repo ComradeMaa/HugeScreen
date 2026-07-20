@@ -608,35 +608,35 @@ function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
       {style === 'style1' && (
         <>
           {/* Beveled corners */}
-          <path d={`M${PAD},${PAD+4} L${PAD+4},${PAD}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
-          <path d={`M${SIZE-PAD-4},${PAD} L${SIZE-PAD},${PAD+4}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
-          <path d={`M${SIZE-PAD},${SIZE-PAD-4} L${SIZE-PAD-4},${SIZE-PAD}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
-          <path d={`M${PAD+4},${SIZE-PAD} L${PAD},${SIZE-PAD-4}`} stroke="#FFFFFF" strokeWidth="0.8" fill="none" />
+          <path d={`M${PAD},${PAD+4} L${PAD+4},${PAD}`} stroke="#00D4FF" strokeWidth="0.8" fill="none" />
+          <path d={`M${SIZE-PAD-4},${PAD} L${SIZE-PAD},${PAD+4}`} stroke="#00D4FF" strokeWidth="0.8" fill="none" />
+          <path d={`M${SIZE-PAD},${SIZE-PAD-4} L${SIZE-PAD-4},${SIZE-PAD}`} stroke="#00D4FF" strokeWidth="0.8" fill="none" />
+          <path d={`M${PAD+4},${SIZE-PAD} L${PAD},${SIZE-PAD-4}`} stroke="#00D4FF" strokeWidth="0.8" fill="none" />
           {/* Top line */}
-          <line x1={PAD+6} y1={PAD-0.5} x2={SIZE-PAD-6} y2={PAD-0.5} stroke="#FFFFFF" strokeWidth="0.8" />
+          <line x1={PAD+6} y1={PAD-0.5} x2={SIZE-PAD-6} y2={PAD-0.5} stroke="#00D4FF" strokeWidth="0.8" />
           {/* Top ticks */}
-          <line x1={SIZE-PAD-9} y1={PAD} x2={SIZE-PAD-9} y2={PAD+4} stroke="#FFFFFF" strokeWidth="0.7" />
-          <line x1={SIZE-PAD-12} y1={PAD} x2={SIZE-PAD-12} y2={PAD+4} stroke="#FFFFFF" strokeWidth="0.7" />
-          <line x1={SIZE-PAD-15} y1={PAD} x2={SIZE-PAD-15} y2={PAD+4} stroke="#FFFFFF" strokeWidth="0.7" />
+          <line x1={SIZE-PAD-9} y1={PAD} x2={SIZE-PAD-9} y2={PAD+4} stroke="#00D4FF" strokeWidth="0.7" />
+          <line x1={SIZE-PAD-12} y1={PAD} x2={SIZE-PAD-12} y2={PAD+4} stroke="#00D4FF" strokeWidth="0.7" />
+          <line x1={SIZE-PAD-15} y1={PAD} x2={SIZE-PAD-15} y2={PAD+4} stroke="#00D4FF" strokeWidth="0.7" />
           {/* Bottom V arrows */}
-          <path d={`M${SIZE-PAD-12},${SIZE-PAD} l2,2 l2,-2 l2,2 l2,-2`} stroke="#FFFFFF" strokeWidth="0.7" fill="none" />
+          <path d={`M${SIZE-PAD-12},${SIZE-PAD} l2,2 l2,-2 l2,2 l2,-2`} stroke="#00D4FF" strokeWidth="0.7" fill="none" />
           {/* Bottom line */}
-          <line x1={PAD+6} y1={SIZE-PAD+0.5} x2={SIZE-PAD-14} y2={SIZE-PAD+0.5} stroke="#FFFFFF" strokeWidth="0.8" />
+          <line x1={PAD+6} y1={SIZE-PAD+0.5} x2={SIZE-PAD-14} y2={SIZE-PAD+0.5} stroke="#00D4FF" strokeWidth="0.8" />
           {/* Left cross-lines */}
-          <line x1={PAD} y1={PAD+14} x2={PAD+3} y2={PAD+14} stroke="#FFFFFF" strokeWidth="0.6" />
-          <line x1={PAD} y1={PAD+18} x2={PAD+3} y2={PAD+18} stroke="#FFFFFF" strokeWidth="0.6" />
-          <line x1={PAD} y1={PAD+22} x2={PAD+3} y2={PAD+22} stroke="#FFFFFF" strokeWidth="0.6" />
+          <line x1={PAD} y1={PAD+14} x2={PAD+3} y2={PAD+14} stroke="#00D4FF" strokeWidth="0.6" />
+          <line x1={PAD} y1={PAD+18} x2={PAD+3} y2={PAD+18} stroke="#00D4FF" strokeWidth="0.6" />
+          <line x1={PAD} y1={PAD+22} x2={PAD+3} y2={PAD+22} stroke="#00D4FF" strokeWidth="0.6" />
           {/* Right cross-lines */}
-          <line x1={SIZE-PAD-3} y1={PAD+14} x2={SIZE-PAD} y2={PAD+14} stroke="#FFFFFF" strokeWidth="0.6" />
-          <line x1={SIZE-PAD-3} y1={PAD+18} x2={SIZE-PAD} y2={PAD+18} stroke="#FFFFFF" strokeWidth="0.6" />
-          <line x1={SIZE-PAD-3} y1={PAD+22} x2={SIZE-PAD} y2={PAD+22} stroke="#FFFFFF" strokeWidth="0.6" />
+          <line x1={SIZE-PAD-3} y1={PAD+14} x2={SIZE-PAD} y2={PAD+14} stroke="#00D4FF" strokeWidth="0.6" />
+          <line x1={SIZE-PAD-3} y1={PAD+18} x2={SIZE-PAD} y2={PAD+18} stroke="#00D4FF" strokeWidth="0.6" />
+          <line x1={SIZE-PAD-3} y1={PAD+22} x2={SIZE-PAD} y2={PAD+22} stroke="#00D4FF" strokeWidth="0.6" />
           {/* Inner layer hints */}
-          <line x1={PAD+4} y1={PAD+3} x2={SIZE-PAD-8} y2={PAD+3} stroke="#FFFFFF" strokeWidth="0.5" opacity="0.5" />
-          <line x1={PAD+3} y1={PAD+6} x2={PAD+3} y2={SIZE-PAD-6} stroke="#FFFFFF" strokeWidth="0.5" opacity="0.5" />
+          <line x1={PAD+4} y1={PAD+3} x2={SIZE-PAD-8} y2={PAD+3} stroke="#00D4FF" strokeWidth="0.5" opacity="0.5" />
+          <line x1={PAD+3} y1={PAD+6} x2={PAD+3} y2={SIZE-PAD-6} stroke="#00D4FF" strokeWidth="0.5" opacity="0.5" />
           {/* Bottom-left dots */}
-          <circle cx={PAD+8} cy={SIZE-PAD-1} r={0.6} fill="#FFFFFF" opacity="0.6" />
-          <circle cx={PAD+12} cy={SIZE-PAD-1} r={0.6} fill="#FFFFFF" opacity="0.6" />
-          <circle cx={PAD+16} cy={SIZE-PAD-1} r={0.6} fill="#FFFFFF" opacity="0.6" />
+          <circle cx={PAD+8} cy={SIZE-PAD-1} r={0.6} fill="#00D4FF" opacity="0.6" />
+          <circle cx={PAD+12} cy={SIZE-PAD-1} r={0.6} fill="#00D4FF" opacity="0.6" />
+          <circle cx={PAD+16} cy={SIZE-PAD-1} r={0.6} fill="#00D4FF" opacity="0.6" />
         </>
       )}
       {style === 'style2' && (

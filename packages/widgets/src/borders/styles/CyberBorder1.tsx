@@ -18,7 +18,34 @@ const SVG_CSS = `
 `;
 
 export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height: H }: BorderStyleProps) {
-  const visible = phase !== 'mounting';
+  // ★ 描边入场动画参数
+  const drawProps = (delay: number, dur = 0.7) =>
+    phase === 'entering'
+      ? {
+          animationName: 'hsb1-draw-line',
+          animationDuration: `${dur}s`,
+          animationTimingFunction: 'ease-out',
+          animationDelay: `${delay}s`,
+          animationFillMode: 'both',
+          strokeDasharray: 400,
+          strokeDashoffset: 400,
+        } as React.CSSProperties
+      : phase === 'entered'
+        ? ({ strokeDasharray: 'none', strokeDashoffset: 0 } as React.CSSProperties)
+        : ({ strokeDasharray: 400, strokeDashoffset: 400 } as React.CSSProperties);
+  const glitchProps = (delay: number) =>
+    phase === 'entering'
+      ? ({
+          animationName: 'hsb1-glitch-in',
+          animationDuration: '0.45s',
+          animationTimingFunction: 'steps(1)',
+          animationDelay: `${delay}s`,
+          animationFillMode: 'both',
+          opacity: 0,
+        } as React.CSSProperties)
+      : phase === 'mounting'
+        ? ({ opacity: 0 } as React.CSSProperties)
+        : undefined;
 
   // ★ 等比例缩放 + 大区块贴边补偿
   //    SVG viewBox=1920×1080，主外框位于 x≈40..1880, y≈40..1020
@@ -47,10 +74,24 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
   const oy = needFixY ? (FRAME_T / VB_H) * sh - OUTSET : 0;
 
   return (
-    <div className="hs-border" style={{ opacity: visible ? 1 : 0, overflow: 'visible' }}>
+    <div className="hs-border" style={{ overflow: 'visible' }}>
       <style>{SVG_CSS}</style>
+      {/* ═══ 发光叠加层 — 能量呼吸 ═══ */}
+      {phase === 'entered' && (
+        <div
+          className="hsb1-glow"
+          style={{
+            position: 'absolute',
+            left: -ox,
+            top: -oy,
+            width: sw,
+            height: sh,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       <svg
-        className="hsb1-svg"
+        className={`hsb1-svg${phase === 'entered' ? ' hsb1-breathe' : ''}`}
         width={sw}
         height={sh}
         viewBox="0 0 1920 1080"
@@ -65,7 +106,7 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
         }}
       >
         {/* ========== 最外层主框（粗线 4px） ========== */}
-        <g stroke="#ffffff" strokeWidth="4" fill="none" strokeLinecap="square">
+        <g style={drawProps(0, 1.2) as React.CSSProperties} stroke="#00D4FF" strokeWidth="4" fill="none" strokeLinecap="square">
           <path d="M 40 140 L 40 80 L 80 40 L 360 40" />
           <path d="M 1700 40 L 1840 40 L 1880 80 L 1880 50 L 1900 30" />
           <path d="M 1880 140 L 1880 220 L 1860 240 L 1860 300 L 1880 320" />
@@ -78,7 +119,7 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
         </g>
 
         {/* ========== 第二层内边框（中粗线 2.5px） ========== */}
-        <g stroke="#ffffff" strokeWidth="2.5" fill="none" strokeLinecap="square">
+        <g style={drawProps(0.25, 0.65) as React.CSSProperties} stroke="#00D4FF" strokeWidth="2.5" fill="none" strokeLinecap="square">
           <path d="M 90 100 L 90 80 L 110 60 L 950 60" />
           <path d="M 1060 60 L 1790 60 L 1820 90 L 1820 115" />
           <path d="M 1850 190 L 1850 215 L 1835 230 L 1835 305 L 1850 320" />
@@ -92,19 +133,22 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
         </g>
 
         {/* ========== 内部装饰细线（1px） ========== */}
-        <g stroke="#ffffff" strokeWidth="1" fill="none" strokeLinecap="square">
+        <g style={drawProps(0.45, 0.65) as React.CSSProperties} stroke="#00D4FF" strokeWidth="1" fill="none" strokeLinecap="square">
           {/* 顶部梯形长条（三层嵌套） */}
           <path d="M 400 40 L 1000 40 L 1040 80 L 440 80 Z" />
           <path d="M 420 52 L 980 52 L 1010 72 L 450 72 Z" />
           <path d="M 435 60 L 965 60 L 990 70 L 460 70 Z" />
 
-          {/* 顶部6个斜空心矩形刻度 */}
-          <path d="M 1070 40 L 1094 40 L 1124 80 L 1100 80 Z" />
-          <path d="M 1124 40 L 1148 40 L 1178 80 L 1154 80 Z" />
-          <path d="M 1178 40 L 1202 40 L 1232 80 L 1208 80 Z" />
-          <path d="M 1232 40 L 1256 40 L 1286 80 L 1262 80 Z" />
-          <path d="M 1286 40 L 1310 40 L 1340 80 L 1316 80 Z" />
-          <path d="M 1340 40 L 1364 40 L 1394 80 L 1370 80 Z" />
+
+          {/* 顶部6个斜空心矩形刻度 — 故障闪烁 */}
+          <g className="hsb1-ticks" style={glitchProps(1.3)}>
+            <path d="M 1070 40 L 1094 40 L 1124 80 L 1100 80 Z" />
+            <path d="M 1124 40 L 1148 40 L 1178 80 L 1154 80 Z" />
+            <path d="M 1178 40 L 1202 40 L 1232 80 L 1208 80 Z" />
+            <path d="M 1232 40 L 1256 40 L 1286 80 L 1262 80 Z" />
+            <path d="M 1286 40 L 1310 40 L 1340 80 L 1316 80 Z" />
+            <path d="M 1340 40 L 1364 40 L 1394 80 L 1370 80 Z" />
+          </g>
 
           {/* 顶部右短横条凸起 */}
           <path d="M 1420 50 L 1600 50 L 1600 65 L 1420 65 Z" />
@@ -175,27 +219,27 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
           <line x1="1880" y1="540" x2="1900" y2="540" />
           <line x1="1880" y1="800" x2="1910" y2="800" />
 
-          {/* 底部三组刻度 */}
-          <g>
+          {/* 底部三组刻度 — 故障闪烁 */}
+          <g className="hsb1-glitch-item" style={glitchProps(1.45)}>
             <path d="M 250 950 L 310 950 L 310 968 L 250 968 Z" />
             <line x1="280" y1="968" x2="280" y2="1005" />
-            <circle cx="262" cy="938" r="2" fill="#ffffff" stroke="none" />
-            <circle cx="280" cy="938" r="2" fill="#ffffff" stroke="none" />
-            <circle cx="298" cy="938" r="2" fill="#ffffff" stroke="none" />
+            <circle cx="262" cy="938" r="2" fill="#00D4FF" stroke="none" />
+            <circle cx="280" cy="938" r="2" fill="#00D4FF" stroke="none" />
+            <circle cx="298" cy="938" r="2" fill="#00D4FF" stroke="none" />
             <rect x="260" y="956" width="6" height="6" />
             <rect x="294" y="956" width="6" height="6" />
             <path d="M 320 950 L 380 950 L 380 968 L 320 968 Z" />
             <line x1="350" y1="968" x2="350" y2="1005" />
-            <circle cx="332" cy="938" r="2" fill="#ffffff" stroke="none" />
-            <circle cx="350" cy="938" r="2" fill="#ffffff" stroke="none" />
-            <circle cx="368" cy="938" r="2" fill="#ffffff" stroke="none" />
+            <circle cx="332" cy="938" r="2" fill="#00D4FF" stroke="none" />
+            <circle cx="350" cy="938" r="2" fill="#00D4FF" stroke="none" />
+            <circle cx="368" cy="938" r="2" fill="#00D4FF" stroke="none" />
             <rect x="330" y="956" width="6" height="6" />
             <rect x="364" y="956" width="6" height="6" />
             <path d="M 390 950 L 450 950 L 450 968 L 390 968 Z" />
             <line x1="420" y1="968" x2="420" y2="1005" />
-            <circle cx="402" cy="938" r="2" fill="#ffffff" stroke="none" />
-            <circle cx="420" cy="938" r="2" fill="#ffffff" stroke="none" />
-            <circle cx="438" cy="938" r="2" fill="#ffffff" stroke="none" />
+            <circle cx="402" cy="938" r="2" fill="#00D4FF" stroke="none" />
+            <circle cx="420" cy="938" r="2" fill="#00D4FF" stroke="none" />
+            <circle cx="438" cy="938" r="2" fill="#00D4FF" stroke="none" />
             <rect x="400" y="956" width="6" height="6" />
             <rect x="434" y="956" width="6" height="6" />
           </g>
@@ -205,8 +249,8 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
           <path d="M 495 942 L 825 942 L 860 962 L 495 962 Z" />
           <path d="M 510 950 L 810 950 L 840 960 L 510 960 Z" />
 
-          {/* 底部锯齿箭头组（5个） */}
-          <g>
+          {/* 底部锯齿箭头组（5个） — 故障闪烁 */}
+          <g className="hsb1-glitch-item" style={glitchProps(1.6)}>
             <path d="M 920 930 L 960 970 L 920 970 L 940 950 L 920 930 Z" />
             <path d="M 980 930 L 1020 970 L 980 970 L 1000 950 L 980 930 Z" />
             <path d="M 1040 930 L 1080 970 L 1040 970 L 1060 950 L 1040 930 Z" />
@@ -228,7 +272,7 @@ export function CyberBorder1({ phase, isSelected: _isSelected, width: W, height:
         </g>
 
         {/* ========== 中等过渡线（2px） ========== */}
-        <g stroke="#ffffff" strokeWidth="2" fill="none" strokeLinecap="square">
+        <g style={drawProps(0.6, 0.6) as React.CSSProperties} stroke="#00D4FF" strokeWidth="2" fill="none" strokeLinecap="square">
           <path d="M 40 170 L 40 200" />
           <path d="M 40 590 L 40 600" />
           <path d="M 1880 440 L 1880 540" />

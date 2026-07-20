@@ -35,7 +35,7 @@ export interface BorderStyleProps {
   height: number;
 }
 
-const ENTRY_DURATION_MS = 1200; // 入场动画最长持续时间（逐段描边需要更长时间）
+const ENTRY_DURATION_MS = 2200; // 描边(~1.3s) + 故障闪烁(~0.45s)
 
 /**
  * BorderFrame — 边框宿主容器。

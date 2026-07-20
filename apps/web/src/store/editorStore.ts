@@ -96,6 +96,7 @@ function createDefaultWidgets(slots: ScreenSlot[]): WidgetConfig[] {
     animation: { enabled: true },
     style: {
       title: { primary: { text: slot.label } },
+      ...(slot.defaultStyle as object),
     },
   }));
 }
