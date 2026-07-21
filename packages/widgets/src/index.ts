@@ -6,4 +6,5 @@ export { registerBuiltinWidgets } from './registerWidgets';
 export { registerHeaderElements } from './registerHeaderElements';
 export { headerElementRegistry } from './header-elements';
 export { CompositeChartWidget } from './composite';
+export { CyberMapWidget } from './geo';
 export type { HeaderElementDefinition } from './header-elements';

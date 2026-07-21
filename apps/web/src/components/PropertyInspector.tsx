@@ -258,6 +258,92 @@ function SlotChartEditors({
   );
 }
 
+/** 地图钉类型编辑器 */
+function PinTypeEditor({ pinTypes, onChange }: { pinTypes: any[]; onChange: (pts: any[]) => void }) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors';
+  const icons = ['circle', 'diamond', 'pin', 'square', 'triangle', 'hex'] as const;
+  const iconLabels: Record<string, string> = { circle: '圆形', diamond: '菱形', pin: '图钉', square: '方形', triangle: '三角', hex: '六边形' };
+  const colors = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#c084fc', '#fbbf24'];
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={() => onChange([...pinTypes, { id: 'pt_' + Date.now(), name: '', icon: 'circle', color: '#00D4FF' }])}
+        className="w-full text-[11px] py-1.5 rounded border border-[rgba(0,212,255,0.15)] text-accent-cool/70 hover:text-accent-cool transition-colors"
+      >+ 添加类型</button>
+      {pinTypes.map((pt: any, i: number) => (
+        <div key={pt.id ?? i} className="flex items-center gap-1.5 flex-wrap p-1.5 rounded bg-surface-base/50">
+          <input type="text" value={pt.name ?? ''} placeholder="名称"
+            onChange={(e) => { const next = [...pinTypes]; next[i] = { ...pt, name: e.target.value }; onChange(next); }}
+            className={`${inputCls} flex-1 min-w-0 w-16`} />
+          <div className="flex gap-0.5">
+            {icons.map((ic) => (
+              <button key={ic} title={iconLabels[ic]}
+                onClick={() => { const next = [...pinTypes]; next[i] = { ...pt, icon: ic }; onChange(next); }}
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-[15px] leading-none transition-colors ${pt.icon === ic ? 'bg-accent-cool/15 text-accent-cool' : 'text-textSecondary/30 hover:text-textSecondary/60'}`}
+              >{ic === 'circle' ? '●' : ic === 'diamond' ? '◆' : ic === 'pin' ? '📍' : ic === 'square' ? '■' : ic === 'triangle' ? '▲' : '⬢'}</button>
+            ))}
+          </div>
+          <div className="flex gap-0.5">
+            {colors.map((c) => (
+              <button key={c}
+                onClick={() => { const next = [...pinTypes]; next[i] = { ...pt, color: c }; onChange(next); }}
+                className="w-4 h-4 rounded-full border transition-colors"
+                style={{ backgroundColor: c, borderColor: pt.color === c ? '#fff' : 'rgba(255,255,255,0.1)' }} />
+            ))}
+          </div>
+          <button
+            onClick={() => onChange(pinTypes.filter((_: any, j: number) => j !== i))}
+            className="text-textSecondary/30 hover:text-negative text-sm leading-none px-0.5"
+          >×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 地图钉实例编辑器 */
+function PinInstanceEditor({ pinInstances, pinTypes, onChange }: { pinInstances: any[]; pinTypes: any[]; onChange: (pis: any[]) => void }) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors';
+
+  return (
+    <div className="space-y-2">
+      {pinTypes.length === 0 && (
+        <p className="text-[10px] text-textSecondary/40">请先添加地图钉类型</p>
+      )}
+      <button
+        onClick={() => onChange([...pinInstances, { id: 'pi_' + Date.now(), pinTypeId: pinTypes[0]?.id ?? '', lat: 32.2, lng: 119.4 }])}
+        disabled={pinTypes.length === 0}
+        className="w-full text-[11px] py-1.5 rounded border border-[rgba(0,212,255,0.15)] text-accent-cool/70 hover:text-accent-cool transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >+ 添加实例</button>
+      {pinInstances.map((pi: any, i: number) => {
+        const pt = pinTypes.find((t: any) => t.id === pi.pinTypeId);
+        return (
+          <div key={pi.id ?? i} className="flex items-center gap-1 flex-wrap p-1.5 rounded bg-surface-base/50">
+            <select value={pi.pinTypeId ?? ''}
+              onChange={(e) => { const next = [...pinInstances]; next[i] = { ...pi, pinTypeId: e.target.value }; onChange(next); }}
+              className={`${inputCls} flex-1 min-w-0`}>
+              {pinTypes.map((t: any) => (
+                <option key={t.id} value={t.id}>{t.icon === 'circle' ? '●' : t.icon === 'diamond' ? '◆' : t.icon === 'pin' ? '📍' : t.icon === 'square' ? '■' : t.icon === 'triangle' ? '▲' : '⬢'} {t.name || '(未命名)'}</option>
+              ))}
+            </select>
+            <input type="number" step="0.001" value={pi.lat ?? 0} placeholder="纬度"
+              onChange={(e) => { const next = [...pinInstances]; next[i] = { ...pi, lat: Number(e.target.value) }; onChange(next); }}
+              className={`${inputCls} w-16 font-mono`} />
+            <input type="number" step="0.001" value={pi.lng ?? 0} placeholder="经度"
+              onChange={(e) => { const next = [...pinInstances]; next[i] = { ...pi, lng: Number(e.target.value) }; onChange(next); }}
+              className={`${inputCls} w-16 font-mono`} />
+            <button
+              onClick={() => onChange(pinInstances.filter((_: any, j: number) => j !== i))}
+              className="text-textSecondary/30 hover:text-negative text-sm leading-none px-0.5"
+            >×</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** 已知属性 key → 可选值列表（渲染为下拉菜单） */
 const SELECT_OPTIONS: Record<string, string[]> = {
   fontSize:  ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '40px', '48px', '56px', '64px', '72px'],
@@ -295,6 +381,7 @@ export function PropertyInspector() {
     config, selectedWidgetId, selectedHeaderSlotId,
     updateWidget, setHeaderSlot,
     compositeSlotEdit, setCompositeSlotEdit,
+    pinEditWidgetId, setPinEditWidgetId, selectWidget,
   } = useEditorStore();
 
   // ─── 组合图表槽位编辑（构建窗口中选中了子图表）───
@@ -828,6 +915,65 @@ export function PropertyInspector() {
             <ColorSwatchRow label="数值颜色" value={((widget.options as Record<string, unknown>).valueColor as string) ?? "#FFFFFF"} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), valueColor: c } })} />
             <ColorSwatchRow label="单位颜色" value={((widget.options as Record<string, unknown>).suffixColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), suffixColor: c } })} />
           </CollapsibleFieldGroup>
+        )}
+
+        {/* ═══ 赛博地图专属配置 ═══ */}
+        {widget.type === 'cyber-map' && (
+          <>
+            <CollapsibleFieldGroup label="地图配置" defaultOpen={true}>
+              <label className="flex items-center justify-between mt-1">
+                <span className="text-[11px] text-textSecondary/70">厚度</span>
+                <input type="range" min={1} max={20} value={Number((widget.options as Record<string, unknown>).thickness ?? 3)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), thickness: Number(e.target.value) } })}
+                  className="w-24" />
+                <span className="text-[11px] text-textSecondary/50 w-6 text-right font-mono">{(widget.options as Record<string, unknown>).thickness as number ?? 3}</span>
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">显示网格</span>
+                <input type="checkbox" checked={Boolean((widget.options as Record<string, unknown>).showGrid ?? true)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showGrid: e.target.checked } })} />
+              </label>
+            </CollapsibleFieldGroup>
+
+            {/* ═══ 地图钉类型 ═══ */}
+            <CollapsibleFieldGroup label="地图钉类型" defaultOpen={false}>
+              <PinTypeEditor
+                pinTypes={(widget.options as Record<string, unknown>).pinTypes as any[] ?? []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), pinTypes: pts } })}
+              />
+            </CollapsibleFieldGroup>
+
+            {/* ═══ 地图钉实例 ═══ */}
+            <CollapsibleFieldGroup label="地图钉实例" defaultOpen={false}>
+              <PinInstanceEditor
+                pinInstances={(widget.options as Record<string, unknown>).pinInstances as any[] ?? []}
+                pinTypes={(widget.options as Record<string, unknown>).pinTypes as any[] ?? []}
+                onChange={(pis) => updateWidget(widget.id, { options: { ...(widget.options as object), pinInstances: pis } })}
+              />
+            </CollapsibleFieldGroup>
+
+            {/* ═══ 编辑地图钉按钮 ═══ */}
+            <div className="mt-2">
+              {pinEditWidgetId === widget.id ? (
+                <button
+                  onClick={() => setPinEditWidgetId(null)}
+                  className="w-full text-[11px] py-1.5 rounded border border-accent-cool/50 text-accent-cool bg-accent-cool/5 hover:bg-accent-cool/10 transition-colors"
+                >
+                  ✓ 完成编辑
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    selectWidget(widget.id);
+                    setPinEditWidgetId(widget.id);
+                  }}
+                  className="w-full text-[11px] py-1.5 rounded border border-[rgba(0,212,255,0.25)] text-accent-cool hover:bg-accent-cool/5 transition-colors"
+                >
+                  ✏ 编辑地图钉位置
+                </button>
+              )}
+            </div>
+          </>
         )}
 
         {/* ═══ 数据源 ═══ */}

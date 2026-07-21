@@ -14,6 +14,7 @@ import {
   Globe,
   Image,
   LayoutDashboard,
+  Map,
   Plus,
   Trash2,
   type LucideIcon,
@@ -31,6 +32,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Globe,
   Image,
   LayoutDashboard,
+  Map,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -198,6 +200,37 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.fillText('B', cx + cx / 2, cy / 2 + 2);
     ctx.fillText('C', cx / 2, cy + cy / 2 + 2);
     ctx.fillText('D', cx + cx / 2, cy + cy / 2 + 2);
+
+  } else if (type === 'cyber-map') {
+    // Map outline with grid and pin
+    ctx.strokeStyle = 'rgba(0,212,255,0.55)';
+    ctx.lineWidth = 1;
+    // Irregular polygon (simplified map shape)
+    ctx.beginPath();
+    ctx.moveTo(16, 20); ctx.lineTo(28, 14); ctx.lineTo(50, 12); ctx.lineTo(70, 16);
+    ctx.lineTo(90, 22); ctx.lineTo(104, 28); ctx.lineTo(100, 48); ctx.lineTo(88, 55);
+    ctx.lineTo(62, 58); ctx.lineTo(40, 55); ctx.lineTo(22, 48); ctx.lineTo(12, 36);
+    ctx.closePath();
+    ctx.stroke();
+    // Offset outline (thickness effect)
+    ctx.strokeStyle = 'rgba(0,212,255,0.2)';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(17, 19); ctx.lineTo(29, 13); ctx.lineTo(51, 11); ctx.lineTo(71, 15);
+    ctx.lineTo(91, 21); ctx.lineTo(105, 29); ctx.lineTo(101, 49); ctx.lineTo(89, 56);
+    ctx.lineTo(61, 59); ctx.lineTo(39, 56); ctx.lineTo(21, 49); ctx.lineTo(11, 37);
+    ctx.closePath();
+    ctx.stroke();
+    // Grid cross lines
+    ctx.strokeStyle = 'rgba(0,212,255,0.1)';
+    ctx.lineWidth = 0.4;
+    ctx.beginPath(); ctx.moveTo(cx, 8); ctx.lineTo(cx, h - 8); ctx.moveTo(8, cy); ctx.lineTo(w - 8, cy); ctx.stroke();
+    // Pin dot
+    ctx.fillStyle = '#FF8C42';
+    ctx.beginPath(); ctx.arc(60, 30, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#FF8C42';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.arc(60, 30, 5, 0, Math.PI * 2); ctx.stroke();
 
   } else {
     // Fallback: centered label

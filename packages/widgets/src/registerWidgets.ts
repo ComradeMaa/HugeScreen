@@ -234,6 +234,32 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    // ─── 赛博地图 ───
+    {
+      type: 'cyber-map',
+      name: '赛博地图',
+      description: '3D 赛博风格行政区划地图，支持地图钉配置',
+      icon: 'Map',
+      category: '3d',
+      defaultSize: { colSpan: 6, rowSpan: 6 },
+      minSize: { colSpan: 3, rowSpan: 3 },
+      maxSize: { colSpan: 12, rowSpan: 12 },
+      component: lazy(() => import('./geo/CyberMapWidget').then(m => ({ default: m.CyberMapWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          thickness: { type: 'number', title: '厚度' },
+          showGrid: { type: 'boolean', title: '显示网格' },
+        },
+      },
+      defaultConfig: {
+        thickness: 3,
+        showGrid: true,
+        pinTypes: [],
+        pinInstances: [],
+      },
+    },
+
   ]);
 
   console.log(

@@ -95,6 +95,10 @@ interface EditorState {
     onUpdateDataSource?: (ds: DataSourceConfig) => void;
   } | null) => void;
 
+  // ─── 地图钉编辑模式 ───
+  pinEditWidgetId: string | null;
+  setPinEditWidgetId: (id: string | null) => void;
+
   saveConfig: () => string;
   loadConfig: (json: string) => void;
   exportConfig: () => void;
@@ -347,6 +351,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   backgroundPattern: 'none',
   backgroundEffect: 'energy-flow',
   compositeSlotEdit: null,
+  pinEditWidgetId: null,
 
   setConfig: (config: ScreenConfig) => {
     registerCustomComponents(config);
@@ -690,6 +695,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     })),
 
   setCompositeSlotEdit: (edit) => set({ compositeSlotEdit: edit }),
+  setPinEditWidgetId: (id) => set({ pinEditWidgetId: id }),
 
   addCustomComponent: (def) => {
     registerCustomComponent(def);

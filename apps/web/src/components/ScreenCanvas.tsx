@@ -41,7 +41,7 @@ function WidgetBody({ widget, Comp, defaultConfig }: {
     updateWidget(widget.id, { options: { ...currentOpts, ...merged } });
   }, [JSON.stringify(liveProps), widget.id, widget.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} />;
+  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} widgetId={widget.id} dataSource={widget.dataSource} onUpdate={(patch: Record<string, unknown>) => updateWidget(widget.id, { options: { ...widget.options as Record<string, unknown>, ...patch } })} />;
 }
 
 /** 只保留数据字段，排除外观/开关字段 */
@@ -200,6 +200,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     setDraggingWidget, setDraggingHeaderEl, isDraggingWidget, isDraggingHeaderEl,
     backgroundPattern,
     backgroundEffect,
+    pinEditWidgetId,
   } = useEditorStore();
   const { canvas, grid, header, widgets, theme } = config;
 
@@ -534,6 +535,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   }, []);
 
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    // 地图钉编辑模式下禁用画布拖拽
+    if (pinEditWidgetId !== null) return;
     if (e.dataTransfer.types.includes('application/header-element-type') ||
         e.dataTransfer.types.includes('application/header-element-id')) return;
 
@@ -591,6 +594,8 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   // ═══ 拖拽生命周期 ═══
   const handleWidgetDragStart = useCallback((e: React.DragEvent, id: string) => {
     if (!isEditing) { e.preventDefault(); return; }
+    // 地图钉编辑模式下禁用 widget 拖拽
+    if (pinEditWidgetId !== null) { e.preventDefault(); return; }
 
     // 防御性清理上一次拖拽残留
     doDragCleanup();

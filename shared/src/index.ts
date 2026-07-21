@@ -112,6 +112,24 @@ export interface CustomComponentDef {
   defaultSize?: { colSpan: number; rowSpan: number };
 }
 
+// ─── 地图钉 (Map Pins) ───
+
+export type MapPinIcon = 'circle' | 'diamond' | 'pin' | 'square' | 'triangle' | 'hex';
+
+export interface MapPinType {
+  id: string;
+  name: string;            // 图例显示名，如"数据中心"
+  icon: MapPinIcon;
+  color?: string;          // 默认 #00D4FF
+}
+
+export interface MapPinInstance {
+  id: string;
+  pinTypeId: string;       // 引用 PinType.id
+  lat: number;
+  lng: number;
+}
+
 // ─── 数据源 ───
 
 export interface DataSourceConfig {
