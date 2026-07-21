@@ -2,12 +2,10 @@ import { useEditorStore } from '../store/editorStore';
 import { WidgetPalette } from './WidgetPalette';
 import { PropertyInspector } from './PropertyInspector';
 import { CompositeBuilderWindow } from './CompositeBuilderWindow';
-import { useState, useEffect, useCallback, lazy } from 'react';
+import type { CompositeConfig } from '@hugescreen/shared';
+import { useState, useEffect, useCallback } from 'react';
 import { Trash2, ChevronDown } from 'lucide-react';
-import { widgetRegistry } from '@hugescreen/core';
-
-/** Shared lazy component for all dynamically-registered composite widgets */
-const CompositeChartLazy = lazy(() => import('@hugescreen/widgets/composite').then(m => ({ default: m.CompositeChartWidget })));
+// 自定义组合组件的注册由 store.addCustomComponent → registerCustomComponent 统一处理
 
 /**
  * 编辑器浮层
@@ -16,7 +14,7 @@ const CompositeChartLazy = lazy(() => import('@hugescreen/widgets/composite').th
  * 支持将画布组件拖入组件池区域来删除。
  */
 export function EditorOverlay() {
-  const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, removeHeaderElement, setDraggingWidget, setCompositeSlotEdit } = useEditorStore();
+  const { isEditorVisible, isDraggingWidget, hideEditor, removeWidget, removeHeaderElement, setDraggingWidget, setCompositeSlotEdit, addCustomComponent } = useEditorStore();
   const [activeTab, setActiveTab] = useState<'palette' | 'inspector'>('palette');
   const [dragOverDelete, setDragOverDelete] = useState(false);
 
@@ -28,22 +26,10 @@ export function EditorOverlay() {
     if (!isEditorVisible) setCompositeSlotEdit(null);
   }, [isEditorVisible, setCompositeSlotEdit]);
 
-  const handleBuilderComplete = useCallback((typeName: string, displayName: string) => {
-    widgetRegistry.register({
-      type: typeName,
-      name: displayName,
-      description: '自定义组合图表',
-      icon: 'LayoutDashboard',
-      category: 'chart',
-      defaultSize: { colSpan: 4, rowSpan: 4 },
-      minSize: { colSpan: 3, rowSpan: 3 },
-      maxSize: { colSpan: 8, rowSpan: 6 },
-      component: CompositeChartLazy,
-      configSchema: { type: 'object', properties: { compositeKey: { type: 'string', title: '组合标识' } } },
-      defaultConfig: { compositeKey: typeName },
-    });
+  const handleBuilderComplete = useCallback((typeName: string, displayName: string, composite: CompositeConfig) => {
+    addCustomComponent({ type: typeName, displayName, composite });
     setShowBuilder(false);
-  }, []);
+  }, [addCustomComponent]);
 
   // 从组件池拿起组件时编辑器面板虚化 + 蓝框
   const [isPaletteDragging, setIsPaletteDragging] = useState(false);

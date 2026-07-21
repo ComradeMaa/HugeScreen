@@ -5,6 +5,7 @@ import type { WidgetStyle } from '@hugescreen/shared';
 import type { CompositeSubChartType, CompositeConfig } from '@hugescreen/shared';
 import { SUB_CHART_LABELS, TEMPLATE_LABELS, getCompositeConfig } from '@hugescreen/widgets/composite';
 import { ChevronDown, Ban } from 'lucide-react';
+import { DataSourceEditor } from './DataSourceEditor';
 
 /** 供复合槽位编辑时展示的图表专属配置（与画布组件编辑器相同） */
 function SlotChartEditors({
@@ -88,6 +89,68 @@ function SlotChartEditors({
         </>
       )}
 
+      {/* 柱线组合图 */}
+      {chartType === 'bar-line-chart' && (
+        <CollapsibleFieldGroup label="柱线" defaultOpen={false}>
+          <label className="flex items-center justify-between">
+            <span className="text-[11px] text-textSecondary/70">平滑曲线</span>
+            <input type="checkbox" checked={!!opts.smooth}
+              onChange={(e) => onUpdate({ smooth: e.target.checked })} className="rounded" />
+          </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">面积填充</span>
+            <input type="checkbox" checked={!!opts.showArea}
+              onChange={(e) => onUpdate({ showArea: e.target.checked })} className="rounded" />
+          </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">显示数值</span>
+            <input type="checkbox" checked={!!opts.showLabel}
+              onChange={(e) => onUpdate({ showLabel: e.target.checked })} className="rounded" />
+          </label>
+          <LabelSelectRow label="柱宽" value={String(opts.barWidth ?? '50%')}
+            options={['30%','50%','70%','90%']}
+            onChange={(v) => onUpdate({ barWidth: v })} />
+        </CollapsibleFieldGroup>
+      )}
+
+      {/* 统计卡 */}
+      {chartType === 'stat-card' && (
+        <CollapsibleFieldGroup label="统计卡" defaultOpen={false}>
+          <label className="flex items-center justify-between">
+            <span className="text-[11px] text-textSecondary/70">占比环</span>
+            <input type="checkbox" checked={!!opts.showRing}
+              onChange={(e) => onUpdate({ showRing: e.target.checked })} className="rounded" />
+          </label>
+          {!!opts.showRing && (
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">占比(%)</span>
+              <input type="number" value={Number(opts.ringPercent ?? 0)}
+                onChange={(e) => onUpdate({ ringPercent: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+          )}
+          <label className="flex flex-col gap-1 mt-2">
+            <span className="text-[11px] text-textSecondary/70">数据名</span>
+            <input type="text" value={String(opts.title ?? '')}
+              onChange={(e) => onUpdate({ title: e.target.value })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
+              placeholder="指标名称" />
+          </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">数值</span>
+            <input type="number" value={Number(opts.value ?? 0)}
+              onChange={(e) => onUpdate({ value: Number(e.target.value) })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+          </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">单位</span>
+            <input type="text" value={String(opts.suffix ?? '')}
+              onChange={(e) => onUpdate({ suffix: e.target.value })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+          </label>
+        </CollapsibleFieldGroup>
+      )}
+
       {/* 饼图 */}
       {chartType === 'pie-chart' && (
         <>
@@ -163,7 +226,7 @@ export function PropertyInspector() {
 
   // ─── 组合图表槽位编辑（构建窗口中选中了子图表）───
   if (compositeSlotEdit) {
-    const { chartType, options: opts, onUpdate } = compositeSlotEdit;
+    const { chartType, options: opts, onUpdate, dataSource, onUpdateDataSource } = compositeSlotEdit;
     // Check if a canvas widget was displaced
     const displacedWidget = config.widgets.find(w => w.id === selectedWidgetId);
     return (
@@ -195,6 +258,16 @@ export function PropertyInspector() {
           </FieldGroup>
 
           <SlotChartEditors chartType={chartType} opts={opts} onUpdate={onUpdate} />
+
+          {onUpdateDataSource && (
+            <CollapsibleFieldGroup label="数据源" defaultOpen={false}>
+              <DataSourceEditor
+                dataSource={dataSource}
+                chartType={chartType}
+                onChange={onUpdateDataSource}
+              />
+            </CollapsibleFieldGroup>
+          )}
         </div>
       </div>
     );
@@ -538,6 +611,81 @@ export function PropertyInspector() {
             </CollapsibleFieldGroup>
           </>
         )}
+
+        {/* ═══ 柱线组合图专属配置 ═══ */}
+        {widget.type === 'bar-line-chart' && (
+          <CollapsibleFieldGroup label="柱线" defaultOpen={false}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">平滑曲线</span>
+              <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).smooth}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), smooth: e.target.checked } })}
+                className="rounded" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">面积填充</span>
+              <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showArea}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showArea: e.target.checked } })}
+                className="rounded" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">显示数值</span>
+              <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showLabel}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLabel: e.target.checked } })}
+                className="rounded" />
+            </label>
+            <LabelSelectRow label="柱宽" value={String((widget.options as Record<string, unknown>).barWidth ?? '50%')}
+              options={['30%','50%','70%','90%']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), barWidth: v } })} />
+          </CollapsibleFieldGroup>
+        )}
+
+        {/* ═══ 统计卡专属配置 ═══ */}
+        {widget.type === 'stat-card' && (
+          <CollapsibleFieldGroup label="统计卡" defaultOpen={false}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">占比环</span>
+              <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showRing}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showRing: e.target.checked } })}
+                className="rounded" />
+            </label>
+            {!!(widget.options as Record<string, unknown>).showRing && (
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">占比(%)</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).ringPercent ?? 0)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), ringPercent: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+            )}
+            <label className="flex flex-col gap-1 mt-2">
+              <span className="text-[11px] text-textSecondary/70">数据名</span>
+              <input type="text" value={String((widget.options as Record<string, unknown>).title ?? '')}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), title: e.target.value } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
+                placeholder="指标名称" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">数值</span>
+              <input type="number" value={Number((widget.options as Record<string, unknown>).value ?? 0)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), value: Number(e.target.value) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">单位</span>
+              <input type="text" value={String((widget.options as Record<string, unknown>).suffix ?? '')}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), suffix: e.target.value } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+          </CollapsibleFieldGroup>
+        )}
+
+        {/* ═══ 数据源 ═══ */}
+        <CollapsibleFieldGroup label="数据源" defaultOpen={false}>
+          <DataSourceEditor
+            dataSource={widget.dataSource}
+            chartType={widget.type}
+            onChange={(ds) => updateWidget(widget.id, { dataSource: ds })}
+          />
+        </CollapsibleFieldGroup>
 
         {/* ═══ 边框样式 ═══ */}
         <CollapsibleFieldGroup label="边框" defaultOpen={false}>

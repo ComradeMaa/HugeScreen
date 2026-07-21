@@ -1,0 +1,9 @@
+# 每行一个接口路径（相对 PROBE_BASE_URL）。# 开头为注释，空行忽略。
+# 也可直接作为命令行参数传入：node scripts/probe-api.mjs /api/foo
+
+/health
+/api/dashboard
+/api/dashboard/five_g_user_status
+/api/dashboard/user_data
+/api/dashboard/idc_data
+/api/dashboard/other_data

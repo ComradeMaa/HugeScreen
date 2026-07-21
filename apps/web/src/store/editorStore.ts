@@ -7,6 +7,8 @@ import type {
   ThemeConfig,
   HeaderSlotConfig,
   CompositeSubChartType,
+  CustomComponentDef,
+  DataSourceConfig,
 } from '@hugescreen/shared';
 import {
   DEFAULT_THEME,
@@ -14,6 +16,7 @@ import {
 } from '@hugescreen/shared';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
+import { registerCustomComponent, unregisterCustomComponent } from '@hugescreen/widgets/composite';
 import { generateId } from '../utils/id';
 import { DEFAULT_SLOTS, DEFAULT_GRID as LAYOUT_GRID, findSlotAt, type ScreenSlot } from './defaultLayout';
 
@@ -55,6 +58,10 @@ interface EditorState {
   selectWidget: (id: string | null) => void;
   duplicateWidget: (id: string) => void;
 
+  // ─── 自定义组合组件（持久化定义 + 主动删除）───
+  addCustomComponent: (def: CustomComponentDef) => void;
+  deleteCustomComponent: (type: string) => void;
+
   // 顶栏槽位管理
   setHeaderSlot: (slotId: string, elementType: string | null, options?: Record<string, unknown>) => void;
   removeHeaderElement: (slotId: string) => void;
@@ -77,11 +84,15 @@ interface EditorState {
     chartType: CompositeSubChartType;
     options: Record<string, unknown>;
     onUpdate: (patch: Record<string, unknown>) => void;
+    dataSource?: DataSourceConfig;
+    onUpdateDataSource?: (ds: DataSourceConfig) => void;
   } | null;
   setCompositeSlotEdit: (edit: {
     chartType: CompositeSubChartType;
     options: Record<string, unknown>;
     onUpdate: (patch: Record<string, unknown>) => void;
+    dataSource?: DataSourceConfig;
+    onUpdateDataSource?: (ds: DataSourceConfig) => void;
   } | null) => void;
 
   saveConfig: () => string;
@@ -293,9 +304,17 @@ function createInitialConfig(): ScreenConfig {
     theme: { ...DEFAULT_THEME },
     backgroundPattern: 'none',
     backgroundEffect: 'energy-flow',
+    customComponents: [],
   };
 }
 
+/** 遍历 config.customComponents，把自定义组合组件重新注册到组件池（加载/setConfig 时调用） */
+function registerCustomComponents(config: ScreenConfig): void {
+  for (const def of config.customComponents ?? []) {
+    registerCustomComponent(def);
+  }
+}
+
 export const useEditorStore = create<EditorState>()((set, get) => ({
   config: createInitialConfig(),
   currentBreakpoint: 'desktop',
@@ -310,12 +329,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   backgroundEffect: 'energy-flow',
   compositeSlotEdit: null,
 
-  setConfig: (config: ScreenConfig) =>
+  setConfig: (config: ScreenConfig) => {
+    registerCustomComponents(config);
     set({
       config,
       backgroundPattern: config.backgroundPattern ?? 'none',
       backgroundEffect: config.backgroundEffect ?? 'energy-flow',
-    }),
+    });
+  },
 
   setTheme: (theme: ThemeConfig) =>
     set((s) => ({ config: { ...s.config, theme } })),
@@ -380,14 +401,6 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
     let widgets = state.config.widgets.filter((w) => w.id !== id);
 
-    // 动态注册的组合组件 → 清理 registry 和 config store
-    if (removed.type.startsWith('composite-')) {
-      // Dynamic import to avoid circular dependency
-      import('@hugescreen/widgets/composite').then(m => {
-        m.deleteCompositeConfig(removed.type);
-      });
-      widgetRegistry.unregister(removed.type);
-    }
 
     // 侧边栏槽位合并：删除后下方/上方同列组件扩展填充
     widgets = mergeSlotsAfterRemove(widgets, removed, state.config.grid.rows);
@@ -659,9 +672,32 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setCompositeSlotEdit: (edit) => set({ compositeSlotEdit: edit }),
 
+  addCustomComponent: (def) => {
+    registerCustomComponent(def);
+    set((s) => {
+      const existing = s.config.customComponents ?? [];
+      const customComponents = existing.some((c) => c.type === def.type)
+        ? existing.map((c) => (c.type === def.type ? def : c))
+        : [...existing, def];
+      return { config: { ...s.config, customComponents } };
+    });
+  },
+
+  deleteCustomComponent: (type) => {
+    unregisterCustomComponent(type);
+    // 方案 b：级联删除画布上所有该类型实例
+    set((s) => ({
+      config: {
+        ...s.config,
+        widgets: s.config.widgets.filter((w) => w.type !== type),
+        customComponents: (s.config.customComponents ?? []).filter((c) => c.type !== type),
+      },
+      selectedWidgetId: null,
+    }));
+  },
+
   saveConfig: () => {
-    // 过滤会话级临时组件（动态注册的组合图表等）
-    const config = { ...get().config, widgets: get().config.widgets.filter(w => !w.type.startsWith('composite-')) };
+    const config = get().config;
     const json = JSON.stringify(config, null, 2);
     localStorage.setItem('hugescreen-config', json);
     return json;
@@ -688,6 +724,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
               : w,
           );
       }
+      registerCustomComponents(raw as ScreenConfig);
       set({
         config: raw as ScreenConfig,
         backgroundPattern: (raw as ScreenConfig).backgroundPattern ?? 'none',
@@ -697,7 +734,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   },
 
   exportConfig: () => {
-    const config = { ...get().config, widgets: get().config.widgets.filter(w => !w.type.startsWith('composite-')) };
+    const config = get().config;
     const json = JSON.stringify(config, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

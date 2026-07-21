@@ -4,12 +4,77 @@ import { CANONICAL_SLOTS, CENTER_SLOT, findSlotAt } from '../store/defaultLayout
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
+import { useWidgetData } from '../hooks/useWidgetData';
 import { EnergyFlow } from './EnergyFlow';
 import { LowPolyBg } from './LowPolyBg';
 import { CyberSphere } from './CyberSphere';
 import { BorderFrame, HeaderBorder1 } from '@hugescreen/widgets/borders';
 // 动态加载 CyberGlobe + Three.js，防止模块错误导致整页白屏
 const CyberGlobe = lazy(() => import('./CyberGlobe').then(m => ({ default: m.CyberGlobe })));
+
+/** 组件主体：注入实时数据（liveProps 以最高优先级覆盖静态默认值与用户配置）。
+ *  当 liveProps 有内容时，自动把数据字段同步回 widget.options，保证属性面板显示最新数据。 */
+function WidgetBody({ widget, Comp, defaultConfig }: {
+  widget: WidgetConfig;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Comp: any;
+  defaultConfig: Record<string, unknown>;
+}) {
+  const updateWidget = useEditorStore((s) => s.updateWidget);
+  const liveProps = useWidgetData(widget);
+  const lastSyncedRef = useRef<string>('');
+
+  // 当实时数据到来时，回写数据字段到 widget.options（避免覆盖样式/开关等外观字段）
+  useEffect(() => {
+    if (!liveProps || Object.keys(liveProps).length === 0) return;
+    const liveStr = JSON.stringify(liveProps);
+    // Only sync when REST data actually changed — don't overwrite user edits on re-render
+    if (liveStr === lastSyncedRef.current) return;
+    lastSyncedRef.current = liveStr;
+    const currentOpts = widget.options as Record<string, unknown>;
+    const dataFields = pickDataFields(liveProps, widget.type);
+    if (Object.keys(dataFields).length === 0) return;
+    // Merge: keep existing per-item metadata (like showLabelLine) from current options
+    const merged = mergePreservingMeta(dataFields, currentOpts, widget.type);
+    updateWidget(widget.id, { options: { ...currentOpts, ...merged } });
+  }, [JSON.stringify(liveProps), widget.id, widget.type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} />;
+}
+
+/** 只保留数据字段，排除外观/开关字段 */
+function pickDataFields(props: Record<string, unknown>, chartType: string): Record<string, unknown> {
+  const dataKeys: Record<string, string[]> = {
+    "pie-chart": ["categories"],
+    "line-chart": ["xLabels", "lineSeries"],
+    "bar-chart": ["categories"],
+    "bar-line-chart": ["xLabels", "mixedSeries"],
+    "stat-card": ["title", "value", "suffix", "ringPercent"],
+  };
+  const keys = dataKeys[chartType] ?? Object.keys(props);
+  const out: Record<string, unknown> = {};
+  for (const k of keys) { if (k in props) out[k] = props[k]; }
+  return out;
+}
+
+/** 合并新数据时保留已有 per-item 元数据（如 showLabelLine） */
+function mergePreservingMeta(newData: Record<string, unknown>, currentOpts: Record<string, unknown>, chartType: string): Record<string, unknown> {
+  const merged = { ...newData };
+  // For categories-based charts, preserve showLabelLine from current options
+  if ((chartType === "pie-chart" || chartType === "bar-chart") && Array.isArray(newData.categories) && Array.isArray(currentOpts.categories)) {
+    const oldCats = currentOpts.categories as Array<Record<string, unknown>>;
+    merged.categories = (newData.categories as Array<Record<string, unknown>>).map((item, i) => {
+      const oldItem = oldCats[i] as Record<string, unknown> | undefined;
+      if (oldItem && oldItem.showLabelLine !== undefined) {
+        return { ...item, showLabelLine: oldItem.showLabelLine };
+      }
+      return item;
+    });
+  }
+  return merged;
+}
+
+
 
 interface ScreenCanvasProps {
   isEditing?: boolean;
@@ -1053,7 +1118,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
             <div className="flex-1 min-h-0 w-full">
               {Comp ? (
                 <Suspense fallback={<div className="flex items-center justify-center h-full text-textSecondary/20 text-xs">...</div>}>
-                  <Comp {...(def?.defaultConfig ?? {})} {...(widget.options as object)} />
+                  <WidgetBody widget={widget} Comp={Comp} defaultConfig={def?.defaultConfig ?? {}} />
                 </Suspense>
               ) : (
                 <div className="flex items-center justify-center h-full text-textSecondary/20 text-xs">{widget.displayName}</div>

@@ -25,6 +25,21 @@ export function registerBuiltinWidgets(): void {
       defaultConfig: { title: '指标', value: 0, format: 'number' },
     },
 
+    // ─── HUD 环形仪表（暂时隐藏）───
+    // {
+    //   type: 'hud-gauge',
+    //   name: 'HUD 仪表',
+    //   description: '7 层同心 HUD 环形进度指示器',
+    //   icon: 'Gauge',
+    //   category: 'stat',
+    //   defaultSize: { colSpan: 2, rowSpan: 2 },
+    //   minSize: { colSpan: 1, rowSpan: 1 },
+    //   maxSize: { colSpan: 3, rowSpan: 3 },
+    //   component: lazy(() => import('./stat-card/HudGauge').then(m => ({ default: m.HudGauge }))),
+    //   configSchema: { type: 'object', properties: { percent: { type: 'number', title: '百分比' }, label: { type: 'string', title: '副标题' } } },
+    //   defaultConfig: { percent: 98, label: 'CHONGDIANJINXIN' },
+    // },
+
     // ─── 折线图 ───
     {
       type: 'line-chart',
@@ -84,6 +99,41 @@ export function registerBuiltinWidgets(): void {
           { name: '类别C', value: 165 },
           { name: '类别D', value: 298 },
           { name: '类别E', value: 210 },
+        ],
+      },
+    },
+
+    // ─── 柱线组合图（双 Y 轴）───
+    {
+      type: 'bar-line-chart',
+      name: '柱线组合图',
+      description: '柱状 + 折线双 Y 轴',
+      icon: 'BarChart3',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 4 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 6 },
+      component: lazy(() => import('./charts/BarLineChartWidget').then(m => ({ default: m.BarLineChartWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          smooth: { type: 'boolean', title: '平滑曲线' },
+          showArea: { type: 'boolean', title: '面积填充' },
+          barWidth: { type: 'string', title: '柱宽' },
+          showLabel: { type: 'boolean', title: '显示数值' },
+          xLabels: { type: 'array', title: 'X轴标签' },
+          mixedSeries: { type: 'array', title: '混合系列' },
+        },
+      },
+      defaultConfig: {
+        smooth: true,
+        showArea: false,
+        barWidth: '50%',
+        showLabel: false,
+        xLabels: ['2020', '2021', '2022', '2023', '2024', '2025'],
+        mixedSeries: [
+          { name: '带宽', unit: 'T', type: 'bar', data: [0.6, 1.1, 1.8, 2.4, 3.2, 3.9] },
+          { name: '机柜数', unit: '个', type: 'line', data: [120, 230, 410, 620, 850, 1080] },
         ],
       },
     },

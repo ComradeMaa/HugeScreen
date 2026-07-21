@@ -5,12 +5,11 @@ import { useEditorStore } from '../store/editorStore';
 import { TEMPLATE_GRID_AREAS, TEMPLATE_SLOT_COUNTS, templateColumns, templateRows } from '@hugescreen/widgets/composite';
 import { TemplatePicker } from '@hugescreen/widgets/composite';
 import { SlotDropZone } from '@hugescreen/widgets/composite';
-import { setCompositeConfig } from '@hugescreen/widgets/composite';
 import { generateId } from '../utils/id';
 
 interface CompositeBuilderWindowProps {
   onClose: () => void;
-  onComplete: (typeName: string, displayName: string) => void;
+  onComplete: (typeName: string, displayName: string, composite: CompositeConfig) => void;
 }
 
 function createInitialSlots(count: number): CompositeSlotConfig[] {
@@ -62,6 +61,12 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
           s.id === slotId ? { ...s, chartOptions: { ...s.chartOptions, ...patch } } : s
         ));
       },
+      dataSource: slot.dataSource,
+      onUpdateDataSource: (ds) => {
+        setSlots(prev => prev.map(s =>
+          s.id === slotId ? { ...s, dataSource: ds } : s
+        ));
+      },
     });
   }, [slots, setCompositeSlotEdit]);
 
@@ -82,6 +87,12 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
         onUpdate: (patch: Record<string, unknown>) => {
           setSlots(prev => prev.map(s =>
             s.id === newSlotId ? { ...s, chartOptions: { ...s.chartOptions, ...patch } } : s
+          ));
+        },
+        dataSource: undefined,
+        onUpdateDataSource: (ds) => {
+          setSlots(prev => prev.map(s =>
+            s.id === newSlotId ? { ...s, dataSource: ds } : s
           ));
         },
       });
@@ -109,13 +120,12 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
     if (!slots.every(s => s.chartType)) return;
 
     const counter = getBuilderCounter();
-    const typeName = `composite-${counter}`;
+    const typeName = `composite-${generateId()}`;
     const displayName = `自定义组件 ${counter}`;
     const config: CompositeConfig = { layoutTemplate: template, slots };
 
-    setCompositeConfig(typeName, config);
     setCompositeSlotEdit(null);
-    onComplete(typeName, displayName);
+    onComplete(typeName, displayName, config);
   }, [template, slots, onComplete, setCompositeSlotEdit]);
 
   const handleClose = useCallback(() => {

@@ -14,8 +14,10 @@ import {
   Globe,
   LayoutDashboard,
   Plus,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
+import { useEditorStore } from '../store/editorStore';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   TrendingUp,
@@ -136,6 +138,23 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     // Donut hole
     ctx.fillStyle = 'rgba(44,44,52,0.92)';
     ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+
+  } else if (type === 'bar-line-chart') {
+    const bars = [[20, 52], [38, 44], [56, 38], [74, 30]];
+    bars.forEach(([x, top]) => {
+      ctx.fillStyle = 'rgba(0,212,255,0.6)';
+      roundRect(ctx, x - 5, top, 10, 60 - top, 2);
+      ctx.fill();
+    });
+    const pts = [[20, 30], [38, 24], [56, 18], [74, 12]];
+    ctx.strokeStyle = '#FF8C42';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke();
+    ctx.fillStyle = '#FF8C42';
+    pts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); });
 
   } else if (type.startsWith('composite-')) {
     // 2×2 grid with dashed dividers
@@ -260,6 +279,7 @@ const CATEGORY_LABELS: Record<WidgetCategory, string> = {
   '3d': '3D 组件',
   media: '媒体',
   decorator: '装饰',
+  custom: '自定义',
 };
 
 /**
@@ -270,7 +290,8 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
   const grouped = widgetRegistry.getGroupedByCategory();
   const allWidgets = widgetRegistry.getAll();
   const headerElements = headerElementRegistry.getAll();
-
+  const deleteCustomComponent = useEditorStore((s) => s.deleteCustomComponent);
+  const instances = useEditorStore((s) => s.config.widgets);
   if (allWidgets.length === 0 && headerElements.length === 0) {
     return (
       <div className="p-4 text-center text-xs text-textSecondary/50 py-12">
@@ -315,7 +336,17 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
           </div>
           <div className="space-y-1">
             {widgets.map((widget) => (
-              <PaletteItem key={widget.type} widget={widget} />
+              <PaletteItem
+                key={widget.type}
+                widget={widget}
+                onDelete={category === 'custom' ? () => {
+                  const count = instances.filter((w) => w.type === widget.type).length;
+                  const msg = count > 0
+                    ? `删除自定义组件「${widget.name}」？画布上有 ${count} 个实例将一并删除。`
+                    : `删除自定义组件「${widget.name}」？`;
+                  if (window.confirm(msg)) deleteCustomComponent(widget.type);
+                } : undefined}
+              />
             ))}
           </div>
         </div>
@@ -324,7 +355,7 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
   );
 }
 
-function PaletteItem({ widget }: { widget: WidgetDefinition }) {
+function PaletteItem({ widget, onDelete }: { widget: WidgetDefinition; onDelete?: () => void }) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/widget-type', widget.type);
     e.dataTransfer.effectAllowed = 'copy';
@@ -360,6 +391,18 @@ function PaletteItem({ widget }: { widget: WidgetDefinition }) {
       <div className="text-[9px] text-textSecondary/20 font-mono flex-shrink-0 bg-surface-base/50 px-1 py-0.5 rounded">
         {widget.defaultSize.colSpan}×{widget.defaultSize.rowSpan}
       </div>
+
+      {onDelete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          onDragStart={(e) => e.stopPropagation()}
+          draggable={false}
+          title="删除自定义组件"
+          className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded text-textSecondary/40 hover:text-negative hover:bg-negative/10 transition-colors"
+        >
+          <Trash2 size={13} />
+        </button>
+      )}
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CompositeSlotConfig } from '@hugescreen/shared';
 import { RESTAdapter } from '@hugescreen/data/adapters/RESTAdapter';
+import { mapData } from '@hugescreen/data/transform';
 // WebSocket adapter available for future use
 
 /**
  * Hook that manages live data subscriptions per composite sub-slot.
- * Returns a map from slotId to the latest data payload.
- * Only disconnects removed slots; unchanged slots keep their connections.
+ * Returns a map from slotId to the latest data payload (already mapped to the
+ * sub-chart's prop shape via mapData). Only disconnects removed slots; unchanged
+ * slots keep their connections.
  */
 export function useCompositeData(slots: CompositeSlotConfig[]): Record<string, unknown> {
   const [liveData, setLiveData] = useState<Record<string, unknown>>({});
@@ -38,7 +40,10 @@ export function useCompositeData(slots: CompositeSlotConfig[]): Record<string, u
       adapters.set(slot.id, adapter);
 
       const unsub = adapter.onData((data) => {
-        setLiveData(prev => ({ ...prev, [slot.id]: data }));
+        setLiveData(prev => ({
+          ...prev,
+          [slot.id]: mapData(data, slot.chartType, slot.dataSource?.mapping ?? {}),
+        }));
       });
       unsubs.set(slot.id, unsub);
 

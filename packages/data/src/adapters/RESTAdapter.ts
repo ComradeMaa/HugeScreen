@@ -1,10 +1,28 @@
 import type { DataSourceConfig } from '@hugescreen/shared';
 import type { DataAdapter } from '../DataSourceManager';
+import { getByPath } from '../transform/jsonPath';
 
 /**
  * REST adapter — fetches from a URL and optionally polls at an interval.
  * Stores latest data; use a listener pattern for updates.
  */
+/** Strip corrupted token prefixes, return clean Authorization header */
+function normalizeAuthHeader(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === 'authorization') {
+      let t = v.trim();
+      const ai = t.toLowerCase().indexOf('authorization:');
+      if (ai !== -1) t = t.slice(ai + 14).trim();
+      if (t.toLowerCase().startsWith('bearer ')) t = t.slice(7);
+      if (t) out[k] = 'Bearer ' + t;
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 export type RESTDataCallback = (data: unknown) => void;
 
 export class RESTAdapter implements DataAdapter {
@@ -44,24 +62,20 @@ export class RESTAdapter implements DataAdapter {
       const signal = this._abortController.signal;
 
       try {
+        // Normalize headers — clean any token corruption from earlier bugs
+        const rawHeaders = config.config?.headers ?? {};
+        const cleanHeaders = normalizeAuthHeader(rawHeaders);
         const resp = await fetch(url, {
           method: config.config?.method ?? 'GET',
-          headers: config.config?.headers ?? {},
+          headers: cleanHeaders,
           signal,
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         let json: unknown = await resp.json();
 
-        // Apply jsonPath extraction
-        if (config.config?.jsonPath && json && typeof json === 'object') {
-          const parts = config.config.jsonPath.split('.');
-          for (const part of parts) {
-            if (json && typeof json === 'object' && part in (json as Record<string, unknown>)) {
-              json = (json as Record<string, unknown>)[part];
-            } else {
-              json = null; break;
-            }
-          }
+        // Apply jsonPath extraction (supports dot + array index, e.g. items[0].value)
+        if (config.config?.jsonPath) {
+          json = getByPath(json, config.config.jsonPath) ?? null;
         }
 
         this._data = json;

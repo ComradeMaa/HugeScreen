@@ -59,6 +59,7 @@ export const TEMPLATE_LABELS: Record<CompositeLayoutTemplate, string> = {
 export const SUB_CHART_LABELS: Record<CompositeSubChartType, string> = {
   'line-chart': '折线图',
   'bar-chart': '柱状图',
+  'bar-line-chart': '柱线组合图',
   'pie-chart': '饼图',
   'stat-card': '统计卡',
 };
@@ -67,6 +68,7 @@ export const SUB_CHART_LABELS: Record<CompositeSubChartType, string> = {
 export const VALID_SUB_TYPES: CompositeSubChartType[] = [
   'line-chart',
   'bar-chart',
+  'bar-line-chart',
   'pie-chart',
   'stat-card',
 ];

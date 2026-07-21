@@ -25,6 +25,7 @@ export interface ScreenConfig {
   theme: ThemeConfig;
   backgroundPattern?: string;
   backgroundEffect?: string;
+  customComponents?: CustomComponentDef[];
 }
 
 export interface CanvasConfig {
@@ -69,7 +70,7 @@ export interface WidgetConfig {
   style: WidgetStyle;
 }
 
-export type WidgetCategory = 'stat' | 'chart' | 'table' | '3d' | 'media' | 'decorator';
+export type WidgetCategory = 'stat' | 'chart' | 'table' | '3d' | 'media' | 'decorator' | 'custom';
 
 export interface WidgetLayout {
   col: number;
@@ -89,7 +90,7 @@ export type CompositeLayoutTemplate =
   | '1left2right'   // 左宽右两叠
   | 'topNarrow';    // 上 1/8 窄条 + 下 7/8
 
-export type CompositeSubChartType = 'line-chart' | 'bar-chart' | 'pie-chart' | 'stat-card';
+export type CompositeSubChartType = 'line-chart' | 'bar-chart' | 'bar-line-chart' | 'pie-chart' | 'stat-card';
 
 export interface CompositeSlotConfig {
   id: string;
@@ -101,6 +102,14 @@ export interface CompositeSlotConfig {
 export interface CompositeConfig {
   layoutTemplate: CompositeLayoutTemplate;
   slots: CompositeSlotConfig[];
+}
+
+/** 自定义组合组件定义 — 随 ScreenConfig 持久化，加载时重新注册到组件池 */
+export interface CustomComponentDef {
+  type: string;          // 唯一类型标识，形如 composite-xxxx
+  displayName: string;   // 显示名，如「自定义组件 1」
+  composite: CompositeConfig;
+  defaultSize?: { colSpan: number; rowSpan: number };
 }
 
 // ─── 数据源 ───

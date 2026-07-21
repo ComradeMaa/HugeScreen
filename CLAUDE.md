@@ -63,7 +63,10 @@ HugeScreen/
 
 ## 核心数据模型
 
+
+
 ```typescript
+
 // 大屏完整配置
 interface ScreenConfig {
   id: string;
