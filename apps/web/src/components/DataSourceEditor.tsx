@@ -90,6 +90,8 @@ function extractBearerFromString(a) {
   return s;
 }
 
+const [staticDraft, setStaticDraft] = useState<string | null>(null);
+
 const mappingRows = Object.entries(mapping);
 
   async function testConnection() {
@@ -215,15 +217,26 @@ const mappingRows = Object.entries(mapping);
           <span className="text-[11px] text-textSecondary/70">静态数据（JSON，可选）</span>
           <textarea
             rows={4}
-            defaultValue={ds.staticData != null ? JSON.stringify(ds.staticData, null, 2) : ''}
+            value={staticDraft !== null ? staticDraft : (ds.staticData != null ? JSON.stringify(ds.staticData, null, 2) : '')}
+            onChange={(e) => setStaticDraft(e.target.value)}
             placeholder="留空则使用组件下方的数据编辑器"
-            onBlur={(e) => {
-              const t = e.target.value.trim();
-              if (!t) { onChange({ ...ds, staticData: undefined }); return; }
-              try { onChange({ ...ds, staticData: JSON.parse(t) }); }
-              catch { /* 解析失败保持原值 */ }
-            }}
             className={`${inputCls} font-mono resize-y`} />
+          <button
+            onClick={() => {
+              const t = (staticDraft !== null ? staticDraft : (ds.staticData != null ? JSON.stringify(ds.staticData, null, 2) : '')).trim();
+              if (!t) { onChange({ ...ds, staticData: undefined }); setStaticDraft(null); return; }
+              try {
+                const parsed = JSON.parse(t);
+                onChange({ ...ds, staticData: parsed });
+                setStaticDraft(null);
+              } catch (e) {
+                alert('JSON 解析失败: ' + (e instanceof Error ? e.message : e));
+              }
+            }}
+            className="w-full text-[11px] py-1.5 rounded border border-[rgba(0,212,255,0.25)] text-accent-cool hover:bg-accent-cool/5 transition-colors"
+          >
+            ✓ 应用静态数据
+          </button>
         </label>
       )}
     </div>

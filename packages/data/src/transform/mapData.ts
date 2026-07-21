@@ -9,9 +9,18 @@ import { getByPath } from './jsonPath';
  *
  * mapping 允许覆盖源路径与字段名，例如：
  *   { series: 'data.list', name: 'label', value: 'count' }
- * 未配置时使用与本项目测试接口一致的默认字段名。
+ * 未配置时自动探测对象内第一个数组（兼容 series / data / items / list 等键名）。
  */
 export type FieldMapping = Record<string, string>;
+
+/** 在对象中找到第一个数组值的键名，没有则返回 null */
+function findArrayKey(obj: unknown): string | null {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (Array.isArray(v)) return k;
+  }
+  return null;
+}
 
 function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
@@ -40,10 +49,10 @@ export function mapData(
   }
 }
 
-/** 饼图：series:[{name,value}] → categories:[{name,value}] */
+/** 饼图：自动识别数据数组 → categories:[{name,value}] */
 function mapPie(raw: unknown, m: FieldMapping): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  const src = asArray(getByPath(raw, m.categories || m.series || 'series'));
+  const src = resolveSrc(raw, m, 'categories', 'series');
   const nameKey = m.name || 'name';
   const valueKey = m.value || 'value';
   const categories = src.map((it) => {
@@ -55,12 +64,12 @@ function mapPie(raw: unknown, m: FieldMapping): Record<string, unknown> {
   return out;
 }
 
-/** 折线图：{categories:[年份], series:[{name,data}]} → {xLabels, lineSeries} */
+/** 折线图：自动识别 categories + series → {xLabels, lineSeries} */
 function mapLine(raw: unknown, m: FieldMapping): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  const labels = asArray(getByPath(raw, m.xLabels || m.categories || 'categories')).map(String);
+  const labels = resolveSrc(raw, m, 'xLabels', 'categories').map(String);
   if (labels.length) out.xLabels = labels;
-  const series = asArray(getByPath(raw, m.series || 'series')).map((s) => {
+  const series = resolveSrc(raw, m, 'series', 'series').map((s) => {
     const r = asRecord(s);
     return {
       name: String(r[m.name || 'name'] ?? ''),
@@ -72,11 +81,11 @@ function mapLine(raw: unknown, m: FieldMapping): Record<string, unknown> {
   return out;
 }
 
-/** 柱状图：优先 [{name,value}]；否则退回 {categories:[标签], series:[{name,data}]} */
+/** 柱状图：自动识别数据数组 → categories:[{name,value}] */
 function mapBar(raw: unknown, m: FieldMapping): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const valueKey = m.value || 'value';
-  const direct = asArray(getByPath(raw, m.categories || m.series || 'series'));
+  const direct = resolveSrc(raw, m, 'categories', 'series');
   const isDirect = direct.length > 0 && direct.every((it) => asRecord(it)[valueKey] !== undefined);
   if (isDirect) {
     out.categories = direct.map((it) => {
@@ -84,8 +93,9 @@ function mapBar(raw: unknown, m: FieldMapping): Record<string, unknown> {
       return { name: String(r[m.name || 'name'] ?? ''), value: toNum(r[valueKey]) };
     });
   } else {
-    const labels = asArray(getByPath(raw, m.xLabels || 'categories')).map(String);
-    const first = asRecord(asArray(getByPath(raw, m.series || 'series'))[0]);
+    const labels = resolveSrc(raw, m, 'xLabels', 'categories').map(String);
+    const seriesArr = resolveSrc(raw, m, 'series', 'series');
+    const first = asRecord(seriesArr[0]);
     const data = asArray(first[m.data || 'data']).map((v) => toNum(v));
     if (labels.length && data.length) {
       out.categories = labels.map((n, i) => ({ name: n, value: data[i] ?? 0 }));
@@ -95,12 +105,12 @@ function mapBar(raw: unknown, m: FieldMapping): Record<string, unknown> {
   return out;
 }
 
-/** 柱线组合图：{categories, series:[{name,unit,type,data}]} → {xLabels, mixedSeries} */
+/** 柱线组合图：自动识别 categories + series → {xLabels, mixedSeries} */
 function mapBarLine(raw: unknown, m: FieldMapping): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  const labels = asArray(getByPath(raw, m.xLabels || m.categories || 'categories')).map(String);
+  const labels = resolveSrc(raw, m, 'xLabels', 'categories').map(String);
   if (labels.length) out.xLabels = labels;
-  const series = asArray(getByPath(raw, m.series || 'series')).map((s) => {
+  const series = resolveSrc(raw, m, 'series', 'series').map((s) => {
     const r = asRecord(s);
     return {
       name: String(r[m.name || 'name'] ?? ''),
@@ -133,4 +143,34 @@ function applyTitle(raw: unknown, m: FieldMapping, out: Record<string, unknown>)
   if (!m.title) return;
   const t = getByPath(raw, m.title);
   if (t != null) out.titleText = String(t);
+}
+
+/**
+ * 通用数据源解析 — 按优先级从 raw 中取出数组：
+ *   1. mapping 里指定的路径（如 mapping.categories = 'data.items'）
+ *   2. 若 raw 本身就是数组且未指定 mapping → 直接用 raw
+ *   3. 若 raw 是对象 → 用 autoKey 或 fallbackKey 在对象内找数组
+ *   4. 都找不到 → 返回空数组
+ */
+function resolveSrc(
+  raw: unknown,
+  m: FieldMapping,
+  mapKey: string,
+  fallbackKey: string,
+): unknown[] {
+  const path = (m as Record<string, string>)[mapKey];
+  if (path) return asArray(getByPath(raw, path) ?? []);
+
+  // Bare array — treat directly as data
+  if (Array.isArray(raw)) return raw as unknown[];
+
+  // Object — try fallback key first, then auto-detect
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const byFallback = getByPath(raw, fallbackKey);
+    if (Array.isArray(byFallback)) return byFallback as unknown[];
+    const autoKey = findArrayKey(raw);
+    if (autoKey) return asArray(getByPath(raw, autoKey) ?? []);
+  }
+
+  return [];
 }
