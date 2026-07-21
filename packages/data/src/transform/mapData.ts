@@ -36,6 +36,7 @@ export function mapData(
     case 'bar-chart': return mapBar(raw, mapping);
     case 'bar-line-chart': return mapBarLine(raw, mapping);
     case 'stat-card': return mapStat(raw, mapping);
+    case 'text-widget': return mapText(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -126,6 +127,15 @@ function mapStat(raw: unknown, m: FieldMapping): Record<string, unknown> {
   if (suffix != null) out.suffix = String(suffix);
   const ring = getByPath(raw, m.ring || 'occupancy_rate');
   if (ring != null) out.ringPercent = toNum(ring);
+  return out;
+}
+
+/** 文本组件：仅提取 text 字段，不引入外观配置 */
+function mapText(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (typeof raw === 'string') return { text: raw };
+  const out: Record<string, unknown> = {};
+  const txt = getByPath(raw, m.text || 'text');
+  if (txt != null) out.text = String(txt);
   return out;
 }
 

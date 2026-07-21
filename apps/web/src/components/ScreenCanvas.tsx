@@ -25,8 +25,10 @@ function WidgetBody({ widget, Comp, defaultConfig }: {
   const lastSyncedRef = useRef<string>('');
 
   // 当实时数据到来时，回写数据字段到 widget.options（避免覆盖样式/开关等外观字段）
+  // ★ static 数据源不需要同步——options 本身就是真源
   useEffect(() => {
     if (!liveProps || Object.keys(liveProps).length === 0) return;
+    if (widget.dataSource?.type === 'static') return;
     const liveStr = JSON.stringify(liveProps);
     // Only sync when REST data actually changed — don't overwrite user edits on re-render
     if (liveStr === lastSyncedRef.current) return;
@@ -50,6 +52,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "bar-chart": ["categories"],
     "bar-line-chart": ["xLabels", "mixedSeries"],
     "stat-card": ["title", "value", "suffix", "ringPercent"],
+    "text-widget": ["text"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};

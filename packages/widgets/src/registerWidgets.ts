@@ -176,6 +176,38 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    // ─── 文本 ───
+    {
+      type: 'text-widget',
+      name: '文本',
+      description: '自定义文字显示',
+      icon: 'Type',
+      category: 'decorator',
+      defaultSize: { colSpan: 2, rowSpan: 1 },
+      minSize: { colSpan: 1, rowSpan: 1 },
+      maxSize: { colSpan: 6, rowSpan: 3 },
+      component: lazy(() => import('./decorators/TextWidget').then(m => ({ default: m.TextWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', title: '文字内容' },
+          fontSize: { type: 'string', title: '字号' },
+          fontWeight: { type: 'string', title: '字重' },
+          fontStyle: { type: 'string', title: '斜体' },
+          color: { type: 'string', title: '颜色' },
+          textAlign: { type: 'string', title: '对齐' },
+        },
+      },
+      defaultConfig: {
+        text: '输入文字',
+        fontSize: '16px',
+        fontWeight: '400',
+        fontStyle: 'normal',
+        color: '#E8E8EC',
+        textAlign: 'center',
+      },
+    },
+
   ]);
 
   console.log(

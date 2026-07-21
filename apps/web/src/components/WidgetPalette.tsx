@@ -156,6 +156,16 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.fillStyle = '#FF8C42';
     pts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); });
 
+  } else if (type === 'text-widget') {
+    // Text lines
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '14px "Inter","PingFang SC",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Aa', cx, cy + 4);
+    ctx.strokeStyle = 'rgba(0,212,255,0.25)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(12, h - 10); ctx.lineTo(w - 12, h - 10); ctx.stroke();
+
   } else if (type.startsWith('composite-')) {
     // 2×2 grid with dashed dividers
     ctx.strokeStyle = 'rgba(0,212,255,0.35)';

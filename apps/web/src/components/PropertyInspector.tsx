@@ -641,6 +641,44 @@ export function PropertyInspector() {
           </CollapsibleFieldGroup>
         )}
 
+        {/* ═══ 文本专属配置 ═══ */}
+        {widget.type === 'text-widget' && (
+          <CollapsibleFieldGroup label="文本" defaultOpen={true}>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] text-textSecondary/70">文字内容</span>
+              <textarea rows={3} value={String((widget.options as any).text ?? '')}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), text: e.target.value } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors resize-y"
+                placeholder="输入文字" />
+            </label>
+            <LabelSelectRow label="字号" value={String((widget.options as any).fontSize ?? '16px')}
+              options={['12px','14px','16px','18px','20px','24px','28px','32px','40px','48px']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), fontSize: v } })} />
+            <LabelSelectRow label="字重" value={String((widget.options as any).fontWeight ?? '400')}
+              options={['300','400','500','600','700','800']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), fontWeight: v } })} />
+            <LabelSelectRow label="斜体" value={String((widget.options as any).fontStyle ?? 'normal')}
+              options={['normal','italic']}
+              labels={['否','是']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), fontStyle: v } })} />
+            <LabelSelectRow label="对齐" value={String((widget.options as any).textAlign ?? 'center')}
+              options={['left','center','right']}
+              labels={['左','中','右']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), textAlign: v } })} />
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">颜色</span>
+              <span className="flex items-center gap-1.5">
+                <input type="color" value={String((widget.options as any).color ?? '#E8E8EC')}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), color: e.target.value } })}
+                  className="w-6 h-6 rounded border border-[rgba(255,255,255,0.06)] bg-transparent cursor-pointer p-0" />
+                <input type="text" value={String((widget.options as any).color ?? '#E8E8EC')}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), color: e.target.value } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </span>
+            </label>
+          </CollapsibleFieldGroup>
+        )}
+
         {/* ═══ 统计卡专属配置 ═══ */}
         {widget.type === 'stat-card' && (
           <CollapsibleFieldGroup label="统计卡" defaultOpen={false}>
