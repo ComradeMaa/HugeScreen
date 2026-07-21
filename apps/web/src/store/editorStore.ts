@@ -309,7 +309,8 @@ function createInitialConfig(): ScreenConfig {
 }
 
 /** 遍历 config.customComponents，把自定义组合组件重新注册到组件池（加载/setConfig 时调用） */
-function registerCustomComponents(config: ScreenConfig): void {
+function registerCustomComponents(config: ScreenConfig): void {
+  console.log("[registerCustomComponents] customComponents count:", (config.customComponents ?? []).length, (config.customComponents ?? []).map(c => c.type));
   for (const def of config.customComponents ?? []) {
     registerCustomComponent(def);
   }

@@ -53,21 +53,32 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
     if (!slot || !slot.chartType) return;
 
     setSelectedSlotId(slotId);
-    setCompositeSlotEdit({
+    const editCfg: any = {
       chartType: slot.chartType as CompositeSubChartType,
       options: { ...slot.chartOptions },
-      onUpdate: (patch: Record<string, unknown>) => {
-        setSlots(prev => prev.map(s =>
-          s.id === slotId ? { ...s, chartOptions: { ...s.chartOptions, ...patch } } : s
-        ));
-      },
       dataSource: slot.dataSource,
-      onUpdateDataSource: (ds) => {
-        setSlots(prev => prev.map(s =>
-          s.id === slotId ? { ...s, dataSource: ds } : s
-        ));
-      },
-    });
+    };
+    editCfg.onUpdate = (patch: Record<string, unknown>) => {
+      setSlots(prev => {
+        const next = prev.map(s =>
+          s.id === slotId ? { ...s, chartOptions: { ...s.chartOptions, ...patch } } : s
+        );
+        const updated = next.find(sl => sl.id === slotId);
+        if (updated) {
+          editCfg.options = { ...updated.chartOptions };
+          setCompositeSlotEdit({ ...editCfg });
+        }
+        return next;
+      });
+    };
+    editCfg.onUpdateDataSource = (ds: any) => {
+      setSlots(prev => prev.map(s =>
+        s.id === slotId ? { ...s, dataSource: ds } : s
+      ));
+      editCfg.dataSource = ds;
+      setCompositeSlotEdit({ ...editCfg });
+    };
+    setCompositeSlotEdit(editCfg);
   }, [slots, setCompositeSlotEdit]);
 
   const handleSlotDrop = useCallback((slotIndex: number, chartType: CompositeSubChartType) => {
@@ -81,21 +92,32 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
     if (newSlotId) {
       const defCfg = widgetRegistry.get(chartType)?.defaultConfig ?? {};
       setSelectedSlotId(newSlotId);
-      setCompositeSlotEdit({
+      const editCfg2: any = {
         chartType,
         options: { ...defCfg },
-        onUpdate: (patch: Record<string, unknown>) => {
-          setSlots(prev => prev.map(s =>
-            s.id === newSlotId ? { ...s, chartOptions: { ...s.chartOptions, ...patch } } : s
-          ));
-        },
         dataSource: undefined,
-        onUpdateDataSource: (ds) => {
-          setSlots(prev => prev.map(s =>
-            s.id === newSlotId ? { ...s, dataSource: ds } : s
-          ));
-        },
-      });
+      };
+      editCfg2.onUpdate = (patch: Record<string, unknown>) => {
+        setSlots(prev => {
+          const next = prev.map(s =>
+            s.id === newSlotId ? { ...s, chartOptions: { ...s.chartOptions, ...patch } } : s
+          );
+          const updated = next.find(sl => sl.id === newSlotId);
+          if (updated) {
+            editCfg2.options = { ...updated.chartOptions };
+            setCompositeSlotEdit({ ...editCfg2 });
+          }
+          return next;
+        });
+      };
+      editCfg2.onUpdateDataSource = (ds: any) => {
+        setSlots(prev => prev.map(s =>
+          s.id === newSlotId ? { ...s, dataSource: ds } : s
+        ));
+        editCfg2.dataSource = ds;
+        setCompositeSlotEdit({ ...editCfg2 });
+      };
+      setCompositeSlotEdit(editCfg2);
     }
   }, [slots, setCompositeSlotEdit]);
 
