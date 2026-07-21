@@ -53,6 +53,7 @@ export function ViewerScreen() {
   }, [setConfig, loadConfig]);
 
   // ═══ 等比例缩放 ═══
+  // 首次加载后 loading→false 时容器尺寸可能切换，需重算
   useEffect(() => {
     const calc = () => {
       if (!containerRef.current) return;
@@ -63,7 +64,7 @@ export function ViewerScreen() {
     calc();
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
-  }, [config.canvas]);
+  }, [config.canvas, loading]);
 
   // 居中偏移
   const offset = useMemo(() => {

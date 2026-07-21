@@ -176,6 +176,32 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    // ─── 图片 ───
+    {
+      type: 'image-widget',
+      name: '图片',
+      description: '本地图片展示',
+      icon: 'Image',
+      category: 'decorator',
+      defaultSize: { colSpan: 2, rowSpan: 2 },
+      minSize: { colSpan: 1, rowSpan: 1 },
+      maxSize: { colSpan: 6, rowSpan: 6 },
+      component: lazy(() => import('./decorators/ImageWidget').then(m => ({ default: m.ImageWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          src: { type: 'string', title: '图片数据' },
+          opacity: { type: 'number', title: '透明度' },
+          fit: { type: 'string', title: '填充方式', enum: ['contain', 'cover', 'fill'] },
+        },
+      },
+      defaultConfig: {
+        src: '',
+        opacity: 1,
+        fit: 'contain',
+      },
+    },
+
     // ─── 文本 ───
     {
       type: 'text-widget',

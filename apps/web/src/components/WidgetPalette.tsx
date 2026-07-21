@@ -12,6 +12,7 @@ import {
   Type,
   Clock,
   Globe,
+  Image,
   LayoutDashboard,
   Plus,
   Trash2,
@@ -28,6 +29,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Type,
   Clock,
   Globe,
+  Image,
   LayoutDashboard,
 };
 
@@ -155,6 +157,18 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.stroke();
     ctx.fillStyle = '#FF8C42';
     pts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); });
+
+  } else if (type === 'image-widget') {
+    // Image frame with mountain icon
+    ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 6, 8, w - 12, h - 16, 4); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,212,255,0.25)';
+    ctx.beginPath();
+    ctx.moveTo(cx - 10, h - 12); ctx.lineTo(cx - 4, h - 24); ctx.lineTo(cx + 3, h - 18);
+    ctx.lineTo(cx + 6, h - 22); ctx.lineTo(cx + 12, h - 12); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(0,212,255,0.6)';
+    ctx.beginPath(); ctx.arc(cx - 4, h - 24, 2, 0, Math.PI * 2); ctx.fill();
 
   } else if (type === 'text-widget') {
     // Text lines

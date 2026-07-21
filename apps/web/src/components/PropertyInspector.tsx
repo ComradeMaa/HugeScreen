@@ -641,6 +641,45 @@ export function PropertyInspector() {
           </CollapsibleFieldGroup>
         )}
 
+        {/* ═══ 图片专属配置 ═══ */}
+        {widget.type === 'image-widget' && (
+          <CollapsibleFieldGroup label="图片" defaultOpen={true}>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG)</span>
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    updateWidget(widget.id, { options: { ...(widget.options as object), src: reader.result } });
+                  };
+                  reader.readAsDataURL(file);
+                }}
+                className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
+            </label>
+            {(widget.options as any).src && (
+              <button
+                onClick={() => updateWidget(widget.id, { options: { ...(widget.options as object), src: undefined } })}
+                className="text-[11px] text-negative/60 hover:text-negative mt-1"
+              >移除图片</button>
+            )}
+            <LabelSelectRow label="填充方式" value={String((widget.options as any).fit ?? 'contain')}
+              options={['contain','cover','fill']}
+              labels={['适配','裁剪','拉伸']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), fit: v } })} />
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">透明度</span>
+              <input type="range" min="0.1" max="1" step="0.05"
+                value={Number((widget.options as any).opacity ?? 1)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), opacity: Number(e.target.value) } })}
+                className="w-24" />
+            </label>
+          </CollapsibleFieldGroup>
+        )}
+
         {/* ═══ 文本专属配置 ═══ */}
         {widget.type === 'text-widget' && (
           <CollapsibleFieldGroup label="文本" defaultOpen={true}>
