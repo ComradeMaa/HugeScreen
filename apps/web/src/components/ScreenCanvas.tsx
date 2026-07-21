@@ -21,6 +21,7 @@ function WidgetBody({ widget, Comp, defaultConfig }: {
   defaultConfig: Record<string, unknown>;
 }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
+  const pinEditWidgetId = useEditorStore((s) => s.pinEditWidgetId);
   const liveProps = useWidgetData(widget);
   const lastSyncedRef = useRef<string>('');
 
@@ -41,7 +42,7 @@ function WidgetBody({ widget, Comp, defaultConfig }: {
     updateWidget(widget.id, { options: { ...currentOpts, ...merged } });
   }, [JSON.stringify(liveProps), widget.id, widget.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} widgetId={widget.id} dataSource={widget.dataSource} onUpdate={(patch: Record<string, unknown>) => updateWidget(widget.id, { options: { ...widget.options as Record<string, unknown>, ...patch } })} />;
+  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={(patch: Record<string, unknown>) => updateWidget(widget.id, { options: { ...widget.options as Record<string, unknown>, ...patch } })} />;
 }
 
 /** 只保留数据字段，排除外观/开关字段 */

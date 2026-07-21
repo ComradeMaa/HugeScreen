@@ -62,7 +62,7 @@ export function CyberMapWidget({
   const boundsRef = useRef(bounds);
   boundsRef.current = bounds;
 
-  const dragRef = useRef<{ pinId: string } | null>(null);
+  const dragRef = useRef<{ pinId: string; offsetX: number; offsetY: number } | null>(null);
 
   // ═══ 加载 GeoJSON ═══
   const loadGeoJson = useCallback(async () => {
@@ -305,26 +305,46 @@ export function CyberMapWidget({
     if (!pinEditMode) return;
     e.stopPropagation();
     e.preventDefault();
-    dragRef.current = { pinId };
+
+    const sc = sceneRef.current;
+    if (!sc || !bounds) return;
+
+    const rect = sc.renderer.domElement.getBoundingClientRect();
+    const cw = rect.width;
+    const ch = rect.height;
+
+    // 当前鼠标 → 世界坐标
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const mouseWorld = screenToWorld(mx, my, sc.camera, cw, ch,
+      new THREE.Vector3(0, 1, 0), thickness ?? 3);
+    if (!mouseWorld) return;
+
+    // 钉当前世界坐标
+    const pin = pinInstances.find(p => p.id === pinId);
+    if (!pin) return;
+    const pinWorld = lngLatToWorld(pin.lng, pin.lat, bounds);
+    pinWorld.y = thickness ?? 3;
+
+    // 世界空间偏移
+    const off = new THREE.Vector3().subVectors(pinWorld, mouseWorld);
+    dragRef.current = { pinId, offsetX: off.x, offsetY: off.z };
 
     const onMove = (ev: MouseEvent) => {
       if (!dragRef.current || dragRef.current.pinId !== pinId) return;
-      const sc = sceneRef.current;
-      if (!sc || !bounds) return;
-      const cw = threeRef.current?.clientWidth ?? 400;
-      const ch = threeRef.current?.clientHeight ?? 300;
-      const rect = sc.renderer.domElement.getBoundingClientRect();
-      const sx = ev.clientX - rect.left;
-      const sy = ev.clientY - rect.top;
-
-      // 与 Y=thickness 平面求交（地图顶面）
-      const pt = screenToWorld(sx, sy, sc.camera, cw, ch,
+      const sc2 = sceneRef.current;
+      if (!sc2 || !bounds) return;
+      const r2 = sc2.renderer.domElement.getBoundingClientRect();
+      const sx = ev.clientX - r2.left;
+      const sy = ev.clientY - r2.top;
+      const pt = screenToWorld(sx, sy, sc2.camera, r2.width, r2.height,
         new THREE.Vector3(0, 1, 0), thickness ?? 3);
       if (!pt) return;
 
+      // 目标 = 鼠标 + 偏移
       const [lng, lat] = xzToLngLat(
-        pt.x / bounds.scale + bounds.centerX,
-        pt.z / bounds.scale + bounds.centerZ,
+        (pt.x + dragRef.current.offsetX) / bounds.scale + bounds.centerX,
+        (pt.z + dragRef.current.offsetY) / bounds.scale + bounds.centerZ,
       );
       if (onUpdate) {
         onUpdate({ pinInstances: pinInstances.map(pi =>
