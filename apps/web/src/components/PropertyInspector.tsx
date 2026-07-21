@@ -148,6 +148,8 @@ function SlotChartEditors({
               onChange={(e) => onUpdate({ suffix: e.target.value })}
               className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
           </label>
+          <ColorSwatchRow label="数值颜色" value={opts.valueColor ?? "#FFFFFF"} colors={PRESET_VALUE_COLORS} onChange={(c) => onUpdate({ valueColor: c })} />
+          <ColorSwatchRow label="单位颜色" value={opts.suffixColor ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ suffixColor: c })} />
         </CollapsibleFieldGroup>
       )}
 
@@ -675,6 +677,8 @@ export function PropertyInspector() {
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), suffix: e.target.value } })}
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
             </label>
+            <ColorSwatchRow label="数值颜色" value={((widget.options as Record<string, unknown>).valueColor as string) ?? "#FFFFFF"} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), valueColor: c } })} />
+            <ColorSwatchRow label="单位颜色" value={((widget.options as Record<string, unknown>).suffixColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), suffixColor: c } })} />
           </CollapsibleFieldGroup>
         )}
 
@@ -714,6 +718,26 @@ export function PropertyInspector() {
         </FieldGroup>
       </div>
     </div>
+  );
+}
+
+/** 预设颜色色块选择器 */
+const PRESET_VALUE_COLORS = ["#FFFFFF", "#00D4FF", "#FF8C42", "#34d399"];
+const PRESET_SUFFIX_COLORS = ["#9E9EA8", "#00D4FF", "#FF8C42", "#34d399"];
+
+function ColorSwatchRow({ label, value, colors, onChange }: { label: string; value: string; colors: string[]; onChange: (c: string) => void }) {
+  return (
+    <label className="flex items-center justify-between mt-2">
+      <span className="text-[11px] text-textSecondary/70">{label}</span>
+      <div className="flex gap-1">
+        {colors.map((c) => (
+          <button key={c} onClick={() => onChange(c)}
+            className="w-5 h-5 rounded-full border-2 transition-colors"
+            style={{ backgroundColor: c, borderColor: value === c ? "#00D4FF" : "rgba(255,255,255,0.1)" }}
+          />
+        ))}
+      </div>
+    </label>
   );
 }
 

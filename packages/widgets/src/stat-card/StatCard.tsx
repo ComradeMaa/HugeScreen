@@ -17,6 +17,10 @@ interface StatCardProps {
   ringPercent?: number;
   /** 占比环颜色 */
   ringColor?: string;
+  /** 数值颜色 */
+  valueColor?: string;
+  /** 单位颜色 */
+  suffixColor?: string;
 }
 
 /**
@@ -37,6 +41,8 @@ export function StatCard({
   showRing = false,
   ringPercent = 0,
   ringColor = '#00D4FF',
+  valueColor = '#FFFFFF',
+  suffixColor = '#9E9EA8',
 }: StatCardProps) {
   const [animatedValue, setAnimatedValue] = useState(0);
   const animRef = useRef<number>();
@@ -83,13 +89,13 @@ export function StatCard({
           <span className="text-textSecondary/60 font-mono flex-shrink-0" style={{ fontSize: 'clamp(9px, 11cqh, 18px)' }}>{prefix}</span>
         )}
         <span
-          className="font-semibold text-white font-mono tracking-tight tabular-nums leading-none truncate"
-          style={{ fontSize: 'clamp(16px, 26cqh, 46px)' }}
+          className="font-semibold font-mono tracking-tight tabular-nums leading-none truncate"
+          style={{ fontSize: 'clamp(16px, 26cqh, 46px)', color: valueColor }}
         >
           {formattedValue}
         </span>
         {suffix && (
-          <span className="text-textSecondary/60 font-mono flex-shrink-0" style={{ fontSize: 'clamp(9px, 11cqh, 18px)' }}>{suffix}</span>
+          <span className="font-mono flex-shrink-0" style={{ fontSize: 'clamp(9px, 11cqh, 18px)', color: suffixColor }}>{suffix}</span>
         )}
       </div>
 
@@ -170,12 +176,7 @@ function formatValue(
     case 'percent':
       return num.toFixed(decimals) + '%';
     case 'number':
-    default: {
-      if (num >= 10000) {
-        const wan = num / 10000;
-        return wan.toFixed(1) + '万';
-      }
+    default:
       return num.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    }
   }
 }
