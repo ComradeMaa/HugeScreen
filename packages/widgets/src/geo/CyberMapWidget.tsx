@@ -49,6 +49,7 @@ export function CyberMapWidget({
   const [loadState, setLoadState] = useState<LoadState>('empty');
   const [errorMsg, setErrorMsg] = useState('');
   const [geoFeatures, setGeoFeatures] = useState<any[]>([]);
+  const [sceneVersion, setSceneVersion] = useState(0);
   const [bounds, setBounds] = useState<ReturnType<typeof computeRegionBounds> | null>(null);
 
   const sceneRef = useRef<{
@@ -254,6 +255,7 @@ export function CyberMapWidget({
     animate();
 
     sceneRef.current = { renderer, scene, camera, mapGroup, running };
+    setSceneVersion(v => v + 1);
 
     // ── ResizeObserver ──
     const ro = new ResizeObserver(() => {
@@ -292,7 +294,7 @@ export function CyberMapWidget({
       const s = worldToScreen(pos, camera, cw, ch);
       return { ...pi, screenX: s.x, screenY: s.y };
     });
-  }, [pinInstances, bounds, thickness]);
+  }, [pinInstances, bounds, thickness, sceneVersion]);
 
   const pinTypeMap = useMemo(() => {
     const m: Record<string, MapPinType> = {};
