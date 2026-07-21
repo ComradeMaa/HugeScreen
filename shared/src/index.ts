@@ -90,7 +90,7 @@ export type CompositeLayoutTemplate =
   | '1left2right'   // 左宽右两叠
   | 'topNarrow';    // 上 1/8 窄条 + 下 7/8
 
-export type CompositeSubChartType = 'line-chart' | 'bar-chart' | 'bar-line-chart' | 'pie-chart' | 'stat-card';
+export type CompositeSubChartType = 'line-chart' | 'bar-chart' | 'bar-line-chart' | 'pie-chart' | 'stat-card' | 'text-widget' | 'image-widget';
 
 export interface CompositeSlotConfig {
   id: string;

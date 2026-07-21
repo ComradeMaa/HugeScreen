@@ -153,6 +153,77 @@ function SlotChartEditors({
         </CollapsibleFieldGroup>
       )}
 
+      {/* 文本 */}
+      {chartType === 'text-widget' && (
+        <CollapsibleFieldGroup label="文本" defaultOpen={true}>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-textSecondary/70">文字内容</span>
+            <textarea rows={3} value={String(opts.text ?? '')}
+              onChange={(e) => onUpdate({ text: e.target.value })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors resize-y"
+              placeholder="输入文字" />
+          </label>
+          <LabelSelectRow label="字号" value={String(opts.fontSize ?? '16px')}
+            options={['12px','14px','16px','18px','20px','24px','28px','32px','40px','48px']}
+            onChange={(v) => onUpdate({ fontSize: v })} />
+          <LabelSelectRow label="字重" value={String(opts.fontWeight ?? '400')}
+            options={['300','400','500','600','700','800']}
+            onChange={(v) => onUpdate({ fontWeight: v })} />
+          <LabelSelectRow label="斜体" value={String(opts.fontStyle ?? 'normal')}
+            options={['normal','italic']} labels={['否','是']}
+            onChange={(v) => onUpdate({ fontStyle: v })} />
+          <LabelSelectRow label="对齐" value={String(opts.textAlign ?? 'center')}
+            options={['left','center','right']} labels={['左','中','右']}
+            onChange={(v) => onUpdate({ textAlign: v })} />
+          <label className="flex items-center justify-between">
+            <span className="text-[11px] text-textSecondary/70">颜色</span>
+            <span className="flex items-center gap-1.5">
+              <input type="color" value={String(opts.color ?? '#E8E8EC')}
+                onChange={(e) => onUpdate({ color: e.target.value })}
+                className="w-6 h-6 rounded border border-[rgba(255,255,255,0.06)] bg-transparent cursor-pointer p-0" />
+              <input type="text" value={String(opts.color ?? '#E8E8EC')}
+                onChange={(e) => onUpdate({ color: e.target.value })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </span>
+          </label>
+        </CollapsibleFieldGroup>
+      )}
+
+      {/* 图片 */}
+      {chartType === 'image-widget' && (
+        <CollapsibleFieldGroup label="图片" defaultOpen={true}>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG)</span>
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => onUpdate({ src: reader.result });
+                reader.readAsDataURL(file);
+              }}
+              className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
+          </label>
+          {opts.src && (
+            <button onClick={() => onUpdate({ src: undefined })}
+              className="text-[11px] text-negative/60 hover:text-negative mt-1"
+            >移除图片</button>
+          )}
+          <LabelSelectRow label="填充方式" value={String(opts.fit ?? 'contain')}
+            options={['contain','cover','fill']} labels={['适配','裁剪','拉伸']}
+            onChange={(v) => onUpdate({ fit: v })} />
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">透明度</span>
+            <input type="range" min="0.1" max="1" step="0.05"
+              value={Number(opts.opacity ?? 1)}
+              onChange={(e) => onUpdate({ opacity: Number(e.target.value) })}
+              className="w-24" />
+          </label>
+        </CollapsibleFieldGroup>
+      )}
+
       {/* 饼图 */}
       {chartType === 'pie-chart' && (
         <>

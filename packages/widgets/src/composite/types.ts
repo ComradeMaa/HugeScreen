@@ -62,6 +62,8 @@ export const SUB_CHART_LABELS: Record<CompositeSubChartType, string> = {
   'bar-line-chart': '柱线组合图',
   'pie-chart': '饼图',
   'stat-card': '统计卡',
+  'text-widget': '文本',
+  'image-widget': '图片',
 };
 
 /** Valid sub-chart types (only regular widgets, no header elements) */
@@ -71,6 +73,8 @@ export const VALID_SUB_TYPES: CompositeSubChartType[] = [
   'bar-line-chart',
   'pie-chart',
   'stat-card',
+  'text-widget',
+  'image-widget',
 ];
 
 /** Check if a template fits within the given grid dimensions */
