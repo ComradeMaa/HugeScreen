@@ -213,6 +213,9 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetCon
     const defColSpan = def?.defaultSize?.colSpan ?? ex.colSpan;
 
     // ── 可分割判定 ──
+    const defMinRowSpan = def?.minSize?.rowSpan ?? 1;
+    const defMinColSpan = def?.minSize?.colSpan ?? 1;
+
     // 条件 A：组件被 merge 扩大过（rowSpan/colSpan > 默认）
     const isExpanded = ex.rowSpan > defRowSpan || ex.colSpan > defColSpan;
     // 条件 B：组件布局跨越多个标准槽位（swap 后常见：中心组件换到侧栏 2×4）
@@ -220,17 +223,28 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetCon
     const spansMultipleSlots = canonicalSlot
       ? (ex.colSpan * ex.rowSpan > canonicalSlot.colSpan * canonicalSlot.rowSpan)
       : false;
+    // 条件 C：组件当前尺寸大于注册最小尺寸（默认尺寸较大的组件允许被新组件截断）
+    const isAboveMin = ex.rowSpan > defMinRowSpan || ex.colSpan > defMinColSpan;
 
-    // 两种条件都不满足 → 不可截断
-    if (!isExpanded && !spansMultipleSlots) return existing;
+    // 三种条件都不满足 → 不可截断
+    if (!isExpanded && !spansMultipleSlots && !isAboveMin) return existing;
 
-    // 最小阈值：非扩大但跨多槽位 → 用标准槽位尺寸；扩大 → 用组件默认尺寸
-    const minRowSpan = (!isExpanded && spansMultipleSlots)
-      ? (canonicalSlot?.rowSpan ?? defRowSpan)
-      : defRowSpan;
-    const minColSpan = (!isExpanded && spansMultipleSlots)
-      ? (canonicalSlot?.colSpan ?? defColSpan)
-      : defColSpan;
+    // 最小阈值：
+    //   扩大过 → 用组件默认尺寸
+    //   跨多槽位 → 用标准槽位尺寸
+    //   仅超过最小尺寸 → 用组件注册的 minSize
+    let minRowSpan: number;
+    let minColSpan: number;
+    if (isExpanded) {
+      minRowSpan = defRowSpan;
+      minColSpan = defColSpan;
+    } else if (spansMultipleSlots) {
+      minRowSpan = canonicalSlot?.rowSpan ?? defRowSpan;
+      minColSpan = canonicalSlot?.colSpan ?? defColSpan;
+    } else {
+      minRowSpan = defMinRowSpan;
+      minColSpan = defMinColSpan;
+    }
 
     const incRowEnd = inc.row + inc.rowSpan;
     const exRowEnd = ex.row + ex.rowSpan;
@@ -255,8 +269,12 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetCon
     // ═══ 场景 III：新组件在中间 → 旧组件保留最上方部分 ═══
     if (inc.row > ex.row && incRowEnd < exRowEnd) {
       const topRowSpan = inc.row - ex.row;
-      if (topRowSpan >= minRowSpan) {
+      const bottomRowSpan = exRowEnd - incRowEnd;
+      if (topRowSpan >= minRowSpan || topRowSpan >= bottomRowSpan) {
         return { ...existing, layout: { ...ex, rowSpan: topRowSpan } };
+      }
+      if (bottomRowSpan > 0) {
+        return { ...existing, layout: { ...ex, row: incRowEnd, rowSpan: bottomRowSpan } };
       }
     }
 
@@ -308,14 +326,14 @@ function createInitialConfig(): ScreenConfig {
   };
 }
 
-/** 遍历 config.customComponents，把自定义组合组件重新注册到组件池（加载/setConfig 时调用） */
+/** 遍历 config.customComponents，把自定义组合组件重新注册到组件池（加载/setConfig 时调用） */
 function registerCustomComponents(config: ScreenConfig): void {
-  console.log("[registerCustomComponents] customComponents count:", (config.customComponents ?? []).length, (config.customComponents ?? []).map(c => c.type));
-  for (const def of config.customComponents ?? []) {
-    registerCustomComponent(def);
-  }
-}
-
+  console.log("[registerCustomComponents] customComponents count:", (config.customComponents ?? []).length, (config.customComponents ?? []).map(c => c.type));
+  for (const def of config.customComponents ?? []) {
+    registerCustomComponent(def);
+  }
+}
+
 export const useEditorStore = create<EditorState>()((set, get) => ({
   config: createInitialConfig(),
   currentBreakpoint: 'desktop',
@@ -673,30 +691,30 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setCompositeSlotEdit: (edit) => set({ compositeSlotEdit: edit }),
 
-  addCustomComponent: (def) => {
-    registerCustomComponent(def);
-    set((s) => {
-      const existing = s.config.customComponents ?? [];
-      const customComponents = existing.some((c) => c.type === def.type)
-        ? existing.map((c) => (c.type === def.type ? def : c))
-        : [...existing, def];
-      return { config: { ...s.config, customComponents } };
-    });
-  },
-
-  deleteCustomComponent: (type) => {
-    unregisterCustomComponent(type);
-    // 方案 b：级联删除画布上所有该类型实例
-    set((s) => ({
-      config: {
-        ...s.config,
-        widgets: s.config.widgets.filter((w) => w.type !== type),
-        customComponents: (s.config.customComponents ?? []).filter((c) => c.type !== type),
-      },
-      selectedWidgetId: null,
-    }));
-  },
-
+  addCustomComponent: (def) => {
+    registerCustomComponent(def);
+    set((s) => {
+      const existing = s.config.customComponents ?? [];
+      const customComponents = existing.some((c) => c.type === def.type)
+        ? existing.map((c) => (c.type === def.type ? def : c))
+        : [...existing, def];
+      return { config: { ...s.config, customComponents } };
+    });
+  },
+
+  deleteCustomComponent: (type) => {
+    unregisterCustomComponent(type);
+    // 方案 b：级联删除画布上所有该类型实例
+    set((s) => ({
+      config: {
+        ...s.config,
+        widgets: s.config.widgets.filter((w) => w.type !== type),
+        customComponents: (s.config.customComponents ?? []).filter((c) => c.type !== type),
+      },
+      selectedWidgetId: null,
+    }));
+  },
+
   saveConfig: () => {
     const config = get().config;
     const json = JSON.stringify(config, null, 2);

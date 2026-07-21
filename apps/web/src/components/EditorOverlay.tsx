@@ -318,6 +318,7 @@ function ToolbarActions() {
   const { saveConfig, exportConfig, importConfig, config } = useEditorStore();
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'done' | 'error'>('idle');
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const handlePublish = async () => {
     setPublishStatus('publishing');
@@ -327,12 +328,16 @@ function ToolbarActions() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
-      if (!res.ok) throw new Error(`${res.status}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text.slice(0, 80)}`);
+      }
       const data = await res.json();
       setPublishedUrl(data.url);
       setPublishStatus('done');
-    } catch {
+    } catch (e: unknown) {
       setPublishStatus('error');
+      setPublishError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -385,7 +390,7 @@ function ToolbarActions() {
             : 'bg-accent-cool/10 text-accent-cool hover:bg-accent-cool/15'
         }`}
       >
-        {publishStatus === 'publishing' ? '发布中...' : publishStatus === 'error' ? '发布失败，重试' : '发布大屏'}
+        {publishStatus === 'publishing' ? '发布中...' : publishStatus === 'error' ? `发布失败: ${publishError || '重试'}` : '发布大屏'}
       </button>
     </div>
   );
