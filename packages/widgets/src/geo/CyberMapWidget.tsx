@@ -365,6 +365,88 @@ export function CyberMapWidget({
 
   // ═══ 钉图标 ═══
   const renderPinIcon = (icon: string, color: string, size = 24) => {
+    // A 字基站 + 两侧信号波纹
+    if (icon === 'tower') {
+      const s = size;
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24"
+          style={{ filter: `drop-shadow(0 0 3px ${color})`, overflow: 'visible' }}>
+          <style>{`
+            @keyframes signalWave {
+              0% { opacity: 0.8; transform: scale(0.5); }
+              100% { opacity: 0; transform: scale(1.4); }
+            }
+            @keyframes towerBlink {
+              0%, 100% { opacity: 0.8; }
+              50% { opacity: 1; }
+            }
+          `}</style>
+          {/* A 字塔架 */}
+          <line x1="12" y1="4" x2="6" y2="22" stroke={color} strokeWidth="1" strokeLinecap="round" />
+          <line x1="12" y1="4" x2="18" y2="22" stroke={color} strokeWidth="1" strokeLinecap="round" />
+          <line x1="8" y1="13" x2="16" y2="13" stroke={color} strokeWidth="0.5" opacity="0.5" />
+          <line x1="9" y1="17" x2="15" y2="17" stroke={color} strokeWidth="0.5" opacity="0.3" />
+          {/* 塔顶光点 */}
+          <circle cx="12" cy="4" r="1.8" fill={color}
+            style={{ animation: 'towerBlink 2s ease-in-out infinite' }} />
+          {/* 左侧信号波纹 — 从塔顶发出，向外扩散 */}
+          <g transform="translate(12, 4)" style={{ animation: 'signalWave 1.6s ease-out 0s infinite', transformOrigin: '12px 4px' }}>
+            <path d="M-3,-2 Q-7,-6 -5,-10" fill="none" stroke={color} strokeWidth="1" strokeLinecap="round" />
+          </g>
+          <g transform="translate(12, 4)" style={{ animation: 'signalWave 1.6s ease-out 0.4s infinite', transformOrigin: '12px 4px' }}>
+            <path d="M-1.5,-2 Q-6,-6 -4,-11" fill="none" stroke={color} strokeWidth="0.8" strokeLinecap="round" />
+          </g>
+          <g transform="translate(12, 4)" style={{ animation: 'signalWave 1.6s ease-out 0.8s infinite', transformOrigin: '12px 4px' }}>
+            <path d="M0,-2 Q-5,-7 -3,-12" fill="none" stroke={color} strokeWidth="0.6" strokeLinecap="round" />
+          </g>
+          {/* 右侧信号波纹 */}
+          <g transform="translate(12, 4)" style={{ animation: 'signalWave 1.6s ease-out 0.2s infinite', transformOrigin: '12px 4px' }}>
+            <path d="M3,-2 Q7,-6 5,-10" fill="none" stroke={color} strokeWidth="1" strokeLinecap="round" />
+          </g>
+          <g transform="translate(12, 4)" style={{ animation: 'signalWave 1.6s ease-out 0.6s infinite', transformOrigin: '12px 4px' }}>
+            <path d="M1.5,-2 Q6,-6 4,-11" fill="none" stroke={color} strokeWidth="0.8" strokeLinecap="round" />
+          </g>
+          <g transform="translate(12, 4)" style={{ animation: 'signalWave 1.6s ease-out 1s infinite', transformOrigin: '12px 4px' }}>
+            <path d="M0,-2 Q5,-7 3,-12" fill="none" stroke={color} strokeWidth="0.6" strokeLinecap="round" />
+          </g>
+        </svg>
+      );
+    }
+
+    // 脉冲环：CSS 动画 SVG，同心圆扩散 + 中心光点
+    if (icon === 'pulse') {
+      const s = size;
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24"
+          style={{ filter: `drop-shadow(0 0 3px ${color})`, overflow: 'visible' }}>
+          <style>{`
+            @keyframes pinPulse1 {
+              0% { r: 2; opacity: 0.9; }
+              100% { r: 22; opacity: 0; }
+            }
+            @keyframes pinPulse2 {
+              0% { r: 2; opacity: 0.7; }
+              100% { r: 22; opacity: 0; }
+            }
+            @keyframes pinBlink {
+              0%, 100% { opacity: 0.7; }
+              50% { opacity: 1; }
+            }
+          `}</style>
+          {/* 扩散环 */}
+          <circle cx="12" cy="12" r="2" fill="none" stroke={color} strokeWidth="1.4"
+            style={{ animation: 'pinPulse1 2s ease-out 0s infinite' }} />
+          <circle cx="12" cy="12" r="2" fill="none" stroke={color} strokeWidth="1.1"
+            style={{ animation: 'pinPulse2 2s ease-out 0.67s infinite' }} />
+          <circle cx="12" cy="12" r="2" fill="none" stroke={color} strokeWidth="0.8"
+            style={{ animation: 'pinPulse2 2s ease-out 1.33s infinite' }} />
+          {/* 中心光点 */}
+          <circle cx="12" cy="12" r="2" fill={color}
+            style={{ animation: 'pinBlink 2s ease-in-out infinite' }} />
+        </svg>
+      );
+    }
+
     const d = PIN_ICON_PATHS[icon as keyof typeof PIN_ICON_PATHS] ?? PIN_ICON_PATHS.circle;
     return (
       <svg width={size} height={size} viewBox="0 0 24 24"
@@ -436,10 +518,10 @@ export function CyberMapWidget({
               className="absolute transform -translate-x-1/2 -translate-y-1/2"
               style={{ left: pin.screenX, top: pin.screenY, cursor: pinEditMode ? 'grab' : undefined, zIndex: pinEditMode ? 20 : 10 }}
               onMouseDown={(e) => handlePinMouseDown(e, pin.id)}>
-              {renderPinIcon(pt.icon, pt.color ?? '#00D4FF', pinEditMode ? 28 : 20)}
+              {renderPinIcon(pt.icon, pt.color ?? '#FF8C42', pinEditMode ? 36 : 28)}
               {pinEditMode && (
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#00D4FF]"
-                  style={{ boxShadow: '0 0 4px #00D4FF' }} />
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#FF8C42]"
+                  style={{ boxShadow: '0 0 4px #FF8C42' }} />
               )}
             </div>
           );
@@ -452,7 +534,7 @@ export function CyberMapWidget({
           style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
           {pinTypes.map((pt) => (
             <div key={pt.id} className="flex items-center gap-1.5">
-              {renderPinIcon(pt.icon, pt.color ?? '#00D4FF', 12)}
+              {renderPinIcon(pt.icon, pt.color ?? '#FF8C42', 16)}
               <span className="text-[10px] text-textSecondary/80 leading-none">{pt.name}</span>
             </div>
           ))}

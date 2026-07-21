@@ -8,6 +8,8 @@ export const PIN_ICON_PATHS: Record<MapPinIcon, string> = {
   square: 'M2 2h20v20H2z',
   triangle: 'M12 2l10 20H2z',
   hex: 'M12 2l9.5 5.5v11L12 24l-9.5-5.5v-11z',
+  pulse: 'M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z',
+  tower: 'M12 22l-6-10 3-2v-4h2v2l-1.5 1 3 5 3-5-1.5-1v-2h2v4l3 2z',
 };
 
 /** 图标标签 */
@@ -18,6 +20,8 @@ export const PIN_ICON_LABELS: Record<MapPinIcon, string> = {
   square: '方形',
   triangle: '三角',
   hex: '六边形',
+  pulse: '脉冲',
+  tower: '基站',
 };
 
 /** 预设颜色 */

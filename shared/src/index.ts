@@ -114,7 +114,7 @@ export interface CustomComponentDef {
 
 // ─── 地图钉 (Map Pins) ───
 
-export type MapPinIcon = 'circle' | 'diamond' | 'pin' | 'square' | 'triangle' | 'hex';
+export type MapPinIcon = 'circle' | 'diamond' | 'pin' | 'square' | 'triangle' | 'hex' | 'pulse' | 'tower';
 
 export interface MapPinType {
   id: string;
