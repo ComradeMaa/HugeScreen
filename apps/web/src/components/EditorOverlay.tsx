@@ -319,6 +319,7 @@ function ToolbarActions() {
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'done' | 'error'>('idle');
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const handlePublish = async () => {
     setPublishStatus('publishing');
@@ -361,10 +362,12 @@ function ToolbarActions() {
       <div className="text-[10px] text-textSecondary/40 px-1">{config.name}</div>
       <div className="flex gap-1">
         <button
-          onClick={saveConfig}
-          className="flex-1 text-[11px] py-1.5 rounded bg-surface-hover hover:bg-surface-hover/80 text-textSecondary hover:text-text transition-colors"
+          onClick={() => { saveConfig(); setSaved(true); setTimeout(() => setSaved(false), 2000); }}
+          className={`flex-1 text-[11px] py-1.5 rounded transition-colors ${
+            saved ? 'bg-positive/15 text-positive' : 'bg-surface-hover hover:bg-surface-hover/80 text-textSecondary hover:text-text'
+          }`}
         >
-          保存
+          {saved ? '已保存 ✓' : '保存'}
         </button>
         <button
           onClick={exportConfig}

@@ -743,6 +743,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
               : w,
           );
       }
+      console.log("[loadConfig] customComponents from localStorage:", (raw.customComponents ?? []).length, (raw.customComponents ?? []).map(c => c.type));
       registerCustomComponents(raw as ScreenConfig);
       set({
         config: raw as ScreenConfig,
