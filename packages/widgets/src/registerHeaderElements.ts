@@ -2,6 +2,9 @@ import { headerElementRegistry } from './header-elements';
 import { HeaderTitle } from './header-elements/HeaderTitle';
 import { HeaderDateTime } from './header-elements/HeaderDateTime';
 import { MiniGlobe } from './header-elements/MiniGlobe';
+import { SpectrumBar } from './header-elements/SpectrumBar';
+import { SignalTower } from './header-elements/PulseRing';
+import { MiniWireSphere } from './header-elements/MiniWireSphere';
 
 export function registerHeaderElements(): void {
   headerElementRegistry.register({
@@ -53,6 +56,35 @@ export function registerHeaderElements(): void {
     icon: 'Globe',
     defaultColSpan: 1,
     component: MiniGlobe,
+    defaultConfig: {},
+  });
+
+  // ─── 装饰组件（纯视觉，无数据功能）───
+
+  headerElementRegistry.register({
+    type: 'spectrum-bar',
+    name: '频谱跳动',
+    icon: 'BarChart3',
+    defaultColSpan: 1,
+    component: SpectrumBar,
+    defaultConfig: {},
+  });
+
+  headerElementRegistry.register({
+    type: 'signal-tower',
+    name: '信号塔',
+    icon: 'LayoutDashboard',
+    defaultColSpan: 1,
+    component: SignalTower,
+    defaultConfig: {},
+  });
+
+  headerElementRegistry.register({
+    type: 'wire-sphere',
+    name: '线框球',
+    icon: 'Globe',
+    defaultColSpan: 1,
+    component: MiniWireSphere,
     defaultConfig: {},
   });
 

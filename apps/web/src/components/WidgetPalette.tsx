@@ -262,6 +262,68 @@ function createHeaderThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.fillStyle = 'rgba(0,212,255,0.5)';
     ctx.beginPath(); ctx.arc(gx - 4, gy - 5, 1.2, 0, Math.PI * 2); ctx.fill();
 
+  } else if (type === 'spectrum-bar') {
+    // 5 bars with varying heights
+    const barW = 3, gap = 2.5;
+    const barXs = [18, 25, 32, 39, 46].map(x => cx - 16 + x * 0.8);
+    const barHs = [22, 14, 30, 18, 26];
+    barXs.forEach((bx, i) => {
+      const bh = barHs[i];
+      const by = h - 10 - bh;
+      ctx.fillStyle = `rgba(0,212,255,${0.3 + i * 0.08})`;
+      roundRect(ctx, bx, by, barW, bh, 1.5);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(0,212,255,0.5)';
+      ctx.beginPath(); ctx.arc(bx + barW / 2, by, 1.2, 0, Math.PI * 2); ctx.fill();
+    });
+
+  } else if (type === 'signal-tower') {
+    // A-shaped tower
+    ctx.strokeStyle = 'rgba(0,212,255,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - 14, h - 8); ctx.lineTo(cx, 8); ctx.lineTo(cx + 14, h - 8); ctx.stroke();
+    // Cross bars
+    ctx.strokeStyle = 'rgba(0,212,255,0.2)';
+    ctx.lineWidth = 0.5;
+    for (let t = 0.3; t < 1; t += 0.25) {
+      const y = 8 + (h - 16) * t;
+      const lx = cx - 14 * (1 - t);
+      const rx = cx + 14 * (1 - t);
+      ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(rx, y); ctx.stroke();
+    }
+    // Pulse dot at top
+    ctx.fillStyle = 'rgba(0,212,255,0.6)';
+    ctx.beginPath(); ctx.arc(cx, 8, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, 8, 5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+  } else if (type === 'wire-sphere') {
+    // Icosahedron-like wireframe
+    const gr = 13;
+    // Outer circles
+    ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.arc(cx, cy, gr, 0, Math.PI * 2); ctx.stroke();
+    // Diagonal lines (suggesting facets)
+    ctx.strokeStyle = 'rgba(0,212,255,0.2)';
+    ctx.lineWidth = 0.4;
+    for (let a = 0; a < Math.PI; a += Math.PI / 5) {
+      const x1 = cx + Math.cos(a) * gr;
+      const y1 = cy + Math.sin(a) * gr;
+      const x2 = cx + Math.cos(a + Math.PI * 0.6) * gr * 0.6;
+      const y2 = cy + Math.sin(a + Math.PI * 0.6) * gr * 0.6;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    // Vertex dots
+    ctx.fillStyle = 'rgba(0,212,255,0.6)';
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 5) {
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * gr, cy + Math.sin(a) * gr * 0.55, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
   } else {
     ctx.font = '11px "Inter","PingFang SC",sans-serif';
     ctx.fillStyle = '#00D4FF';
@@ -290,7 +352,7 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
   const grouped = widgetRegistry.getGroupedByCategory();
   const allWidgets = widgetRegistry.getAll();
   const headerElements = headerElementRegistry.getAll();
-  const deleteCustomComponent = useEditorStore((s) => s.deleteCustomComponent);
+  const deleteCustomComponent = useEditorStore((s) => s.deleteCustomComponent);
   const instances = useEditorStore((s) => s.config.widgets);
   if (allWidgets.length === 0 && headerElements.length === 0) {
     return (
