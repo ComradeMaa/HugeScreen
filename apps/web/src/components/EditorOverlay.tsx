@@ -4,7 +4,7 @@ import { PropertyInspector } from './PropertyInspector';
 import { CompositeBuilderWindow } from './CompositeBuilderWindow';
 import type { CompositeConfig } from '@hugescreen/shared';
 import { useState, useEffect, useCallback } from 'react';
-import { Trash2, ChevronDown } from 'lucide-react';
+import { Trash2, ChevronDown, Copy, Check, QrCode } from 'lucide-react';
 // 自定义组合组件的注册由 store.addCustomComponent → registerCustomComponent 统一处理
 
 /**
@@ -320,9 +320,36 @@ function ToolbarActions() {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [showPublishedList, setShowPublishedList] = useState(false);
+  const [publishedList, setPublishedList] = useState<{ id: string; name: string; createdAt: string }[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+
+  // 构建绝对 URL
+  const fullUrl = publishedUrl
+    ? `${window.location.origin}${publishedUrl}`
+    : null;
+
+  // 生成二维码（动态导入，按需加载）
+  useEffect(() => {
+    if (fullUrl) {
+      setQrDataUrl(null);
+      import('qrcode').then(QRCode => {
+        QRCode.toDataURL(fullUrl, {
+          width: 160,
+          margin: 2,
+          color: { dark: '#00D4FF', light: '#2C2C34' },
+        })
+          .then(setQrDataUrl)
+          .catch(() => setQrDataUrl(null));
+      });
+    }
+  }, [fullUrl]);
 
   const handlePublish = async () => {
     setPublishStatus('publishing');
+    setQrDataUrl(null);
     try {
       const res = await fetch('/api/view', {
         method: 'POST',
@@ -342,24 +369,100 @@ function ToolbarActions() {
     }
   };
 
+  const loadPublishedList = async () => {
+    setListLoading(true);
+    try {
+      const res = await fetch('/api/views');
+      if (res.ok) {
+        const list = await res.json();
+        setPublishedList(list);
+      }
+    } catch { /* ignore */ }
+    setListLoading(false);
+  };
+
+  const handleDeletePublished = async (id: string) => {
+    try {
+      const res = await fetch(`/api/view/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setPublishedList(prev => prev.filter(item => item.id !== id));
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleCopyUrl = async () => {
+    if (fullUrl) {
+      try {
+        await navigator.clipboard.writeText(fullUrl);
+      } catch {
+        // 回退：选中文本手动复制
+        const input = document.createElement('input');
+        input.value = fullUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // ─── 发布成功态 ───
   if (publishStatus === 'done' && publishedUrl) {
     return (
-      <div className="flex flex-col gap-1.5">
-        <div className="text-[10px] text-accent-cool/70 px-1">发布成功</div>
-        <div className="flex items-center gap-1 bg-surface-base rounded p-1.5">
-          <span className="text-[10px] text-accent-cool font-mono truncate flex-1 select-all">{publishedUrl}</span>
-          <button
-            onClick={() => { setPublishStatus('idle'); setPublishedUrl(null); }}
-            className="text-[10px] text-textSecondary/50 hover:text-text px-1 flex-shrink-0"
-          >×</button>
+      <div className="flex flex-col gap-2">
+        {/* 成功提示 */}
+        <div className="flex items-center gap-1.5 px-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-positive" />
+          <span className="text-[10px] text-positive/80 font-semibold">发布成功</span>
         </div>
+
+        {/* URL 显示 */}
+        <div className="bg-surface-base rounded p-2 flex flex-col gap-1.5">
+          <div className="text-[9px] text-textSecondary/50 uppercase tracking-wider">大屏链接</div>
+          <span className="text-[10px] text-accent-cool font-mono break-all select-all leading-relaxed">
+            {fullUrl}
+          </span>
+          <button
+            onClick={handleCopyUrl}
+            className={`flex items-center justify-center gap-1 text-[10px] py-1.5 rounded transition-colors ${
+              copied
+                ? 'bg-positive/15 text-positive'
+                : 'bg-surface-hover text-textSecondary hover:text-text'
+            }`}
+          >
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {copied ? '已复制' : '复制链接'}
+          </button>
+        </div>
+
+        {/* QR 码 */}
+        {qrDataUrl && (
+          <div className="bg-surface-base rounded p-2 flex flex-col items-center gap-1.5">
+            <div className="text-[9px] text-textSecondary/50 uppercase tracking-wider self-start">扫码查看</div>
+            <img src={qrDataUrl} alt="QR Code" className="w-32 h-32 rounded" />
+            <span className="text-[9px] text-textSecondary/30">手机扫描二维码打开大屏</span>
+          </div>
+        )}
+
+        {/* 返回 */}
+        <button
+          onClick={() => { setPublishStatus('idle'); setPublishedUrl(null); setQrDataUrl(null); }}
+          className="text-[10px] text-textSecondary/50 hover:text-textSecondary py-1 transition-colors"
+        >
+          ← 返回
+        </button>
       </div>
     );
   }
 
+  // ─── 默认态 ───
   return (
     <div className="flex flex-col gap-1.5">
       <div className="text-[10px] text-textSecondary/40 px-1">{config.name}</div>
+
+      {/* 保存 / 导出 / 导入 */}
       <div className="flex gap-1">
         <button
           onClick={() => { saveConfig(); setSaved(true); setTimeout(() => setSaved(false), 2000); }}
@@ -382,6 +485,8 @@ function ToolbarActions() {
           导入
         </button>
       </div>
+
+      {/* 发布按钮 */}
       <button
         onClick={handlePublish}
         disabled={publishStatus === 'publishing'}
@@ -389,12 +494,73 @@ function ToolbarActions() {
           publishStatus === 'publishing'
             ? 'bg-surface-hover/50 text-textSecondary/30 cursor-wait'
             : publishStatus === 'error'
-            ? 'bg-negative/10 text-negative/80 hover:bg-negative/15'
-            : 'bg-accent-cool/10 text-accent-cool hover:bg-accent-cool/15'
+              ? 'bg-negative/10 text-negative/80 hover:bg-negative/15'
+              : 'bg-accent-cool/10 text-accent-cool hover:bg-accent-cool/15'
         }`}
       >
-        {publishStatus === 'publishing' ? '发布中...' : publishStatus === 'error' ? `发布失败: ${publishError || '重试'}` : '发布大屏'}
+        {publishStatus === 'publishing'
+          ? '发布中...'
+          : publishStatus === 'error'
+            ? `发布失败: ${publishError || '重试'}`
+            : '发布大屏'}
       </button>
+
+      {/* 已发布列表 */}
+      <div className="border-t border-[rgba(255,255,255,0.04)] pt-1.5">
+        <button
+          onClick={() => {
+            const next = !showPublishedList;
+            setShowPublishedList(next);
+            if (next) loadPublishedList();
+          }}
+          className="flex items-center gap-1 text-[10px] font-semibold text-textSecondary/50 uppercase tracking-wider hover:text-textSecondary/70 transition-colors w-full text-left"
+        >
+          <ChevronDown size={12} className={`transition-transform ${showPublishedList ? 'rotate-0' : '-rotate-90'}`} />
+          已发布大屏
+        </button>
+        {showPublishedList && (
+          <div className="mt-1.5 max-h-40 overflow-y-auto">
+            {listLoading ? (
+              <div className="text-[10px] text-textSecondary/30 px-1 py-2">加载中...</div>
+            ) : publishedList.length === 0 ? (
+              <div className="text-[10px] text-textSecondary/30 px-1 py-2">暂无发布记录</div>
+            ) : (
+              publishedList.map(item => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-1.5 px-1.5 py-1.5 rounded hover:bg-surface-hover/50 group transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-textSecondary truncate">{item.name}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[9px] text-textSecondary/30 font-mono">{item.id}</span>
+                      <span className="text-[9px] text-textSecondary/20">
+                        {new Date(item.createdAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      window.open(`/viewer?id=${item.id}`, '_blank');
+                    }}
+                    className="text-[9px] text-accent-cool/50 hover:text-accent-cool opacity-0 group-hover:opacity-100 transition-all px-1"
+                    title="在新标签页打开"
+                  >
+                    查看
+                  </button>
+                  <button
+                    onClick={() => handleDeletePublished(item.id)}
+                    className="text-textSecondary/20 hover:text-negative/60 opacity-0 group-hover:opacity-100 transition-all"
+                    title="删除"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -20,6 +20,7 @@
 | 动效 | Framer Motion + CSS Animations | 2D 过渡和微动效 |
 | 桌面端 | Electron + electron-vite | 桌面应用打包 |
 | 测试 | Vitest + Playwright | 单元 + E2E |
+| 服务端 | Express 4 | 静态文件 + REST API 一体化 |
 | 包管理 | pnpm | monorepo workspace |
 
 ## 项目结构
@@ -54,6 +55,8 @@ HugeScreen/
 │       └── transform/             #   数据转换管道
 ├── apps/
 │   ├── web/                       # Web 版入口 (Vite SPA)
+│   │   ├── server.mjs             #   一体化生产服务器 (Express)
+│   │   └── views.json             #   已发布大屏配置持久化文件
 │   └── desktop/                   # Electron 封装
 ├── shared/                        # 共享类型、常量、工具函数
 ├── pnpm-workspace.yaml
@@ -212,6 +215,71 @@ ECharts Three.js       CSS/Canvas
 - UI: Inter / PingFang SC
 - 数据: JetBrains Mono (等宽)
 
+## 发布与部署架构
+
+### 核心概念：发布 = 快照固化
+
+编辑器生成的 ScreenConfig 通过 `POST /api/view` 保存到服务器后，生成唯一的 8 字符 ID。
+**发布后的配置不可原地修改** — 需修改则重新发布，生成新 ID 和新 URL，旧 URL 保持不变。
+
+```
+编辑器（各用户独立）        服务器              展示端（只读）
+───────────────────       ──────              ─────────────
+用户 A 编辑 → 发布 ──→  views.json ──→  /viewer?id=aaa (永不变)
+用户 B 编辑 → 发布 ──→  views.json ──→  /viewer?id=bbb (永不变)
+用户 A 修改 → 重新发布 ──→  views.json ──→  /viewer?id=ccc (新版本)
+```
+
+### 部署架构
+
+```
+企业内部服务器
+┌────────────────────────────────────────────┐
+│  server.mjs (Express)                       │
+│                                             │
+│  静态文件: dist/                             │
+│    index.html  → 编辑器 SPA                  │
+│    viewer.html → 展示器 SPA                  │
+│                                             │
+│  API:                                       │
+│    POST   /api/view      保存配置 ( → 快照)   │
+│    GET    /api/view/:id  获取配置             │
+│    DELETE /api/view/:id  删除配置             │
+│    GET    /api/views     列出所有配置          │
+│                                             │
+│  存储: views.json (文件持久化)                 │
+└────────────────┬───────────────────────────┘
+                 │ 内网 HTTP
+    ┌────────────┼────────────┐
+    ▼            ▼            ▼
+ 编辑工作站    大屏电视     平板/手机
+ (拖拽编辑)   (全屏展示)    (移动查看)
+```
+
+### 使用流程
+
+```
+1. 一次性部署：pnpm build → 上传 dist/ + server.mjs → node server.mjs
+   服务器启动后打印可访问 URL，此后无需再上传文件。
+
+2. 日常使用：
+   编辑 — 浏览器打开服务器地址，Ctrl+E 编辑，拖拽设计大屏
+   发布 — 点击「发布大屏」，复制返回的 URL
+   展示 — 任意设备浏览器打开 URL，全屏只读渲染
+
+3. 修改内容：
+   打开编辑器 → 调整 → 重新点击「发布」→ 生成新 ID 和新 URL
+   旧 URL 继续可用（已部署的展示端不受影响）
+```
+
+### server.mjs 设计
+
+- 框架：Express（零额外中间件依赖）
+- 端口：3001（`PORT` 环境变量可覆盖）
+- 静态文件：`express.static('dist')` + SPA fallback
+- 存储：内存 Map + `views.json` 文件双写
+- URL 格式：`/viewer?id=xxx`（clean URL）
+
 ## 开发阶段
 
 ### 第一期：基础框架
@@ -229,13 +297,22 @@ REST/WS 适配器 → 数据配置 UI → 转换管道 → 数字滚动 → 图�
 ### 第五期：响应式 + 桌面端
 断点系统 → 移动端简化 → Electron → 全屏模式 → 性能优化 → 轮播
 
+### 第六期：发布与部署
+Express 一体化服务器 → 静态文件服务 → 发布快照 API → 跨设备展示 → QR 码分享
+
 ## 开发命令
 
 ```bash
-pnpm dev              # 启动 Web 开发服务器
+# 开发
+pnpm dev              # 启动 Vite 开发服务器 (:3000) + API 服务器 (:3001)
 pnpm dev:desktop      # 启动 Electron 开发
-pnpm build            # 构建 Web 生产版本
+
+# 构建与部署
+pnpm build            # 构建 Web 生产版本 (dist/)
+pnpm serve            # 启动生产服务器 (Express, :3001)
 pnpm build:desktop    # 打包 Electron 应用
+
+# 测试
 pnpm test             # 运行 Vitest 单元测试
 pnpm test:e2e         # 运行 Playwright E2E 测试
 pnpm lint             # ESLint + Prettier 检查
