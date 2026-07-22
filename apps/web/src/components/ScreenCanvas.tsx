@@ -872,7 +872,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       {/* 地球-2（斜平视角）已移至 MainScreen 视口级渲染，不受画布缩放/偏移影响 */}
       {/* ═══ 能量脉冲动线 ═══ */}
       {backgroundEffect === 'energy-flow' && (
-        <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} />
+        <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} mobile={isNarrowHeader} />
       )}
       {backgroundEffect === 'low-poly' && (
         <LowPolyBg canvasW={canvas.width} canvasH={canvas.height} />

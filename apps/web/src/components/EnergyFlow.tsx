@@ -44,6 +44,7 @@ function drawRibbon(
   ctx: CanvasRenderingContext2D,
   pts: [number, number][],
   head: number, tailLen: number, alpha: number,
+  lineWidth: number, colorAlphaMul = 1,
 ) {
   const tail = Math.max(0, head - tailLen);
   if (head <= tail) return;
@@ -58,12 +59,12 @@ function drawRibbon(
     const [x1, y1] = pointAt(pts, t1);
     const [x2, y2] = pointAt(pts, t2);
     const prog = (i + 1) / steps;
-    const a = prog * alpha;
+    const a = Math.min(1, prog * alpha * colorAlphaMul);
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
-    ctx.strokeStyle = `rgba(0,212,255,${Math.min(1, a).toFixed(3)})`;
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = `rgba(0,212,255,${a.toFixed(3)})`;
+    ctx.lineWidth = lineWidth;
     ctx.stroke();
   }
 }
@@ -135,9 +136,11 @@ function pickTrack(pool: TrackDef[], active: ActiveTrack[], usedHistory: number[
 interface EnergyFlowProps {
   canvasW: number;
   canvasH: number;
+  /** 移动端降帧模式 */
+  mobile?: boolean;
 }
 
-export function EnergyFlow({ canvasW, canvasH }: EnergyFlowProps) {
+export function EnergyFlow({ canvasW, canvasH, mobile = false }: EnergyFlowProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const poolRef = useRef<TrackDef[]>([]);
   const activeRef = useRef<ActiveTrack[]>([]);
@@ -173,9 +176,17 @@ export function EnergyFlow({ canvasW, canvasH }: EnergyFlowProps) {
     usedHistoryRef.current = used;
     roundRef.current = 0;
 
+    // 移动端目标帧率 (~20fps)，桌面端 (~30fps)
+    const targetInterval = mobile ? 50 : 33;
+
     function tick(now: number) {
       if (!running) return;
       if (!lastTime) lastTime = now;
+      // 帧率节流
+      if (now - lastTime < targetInterval) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
       const delta = Math.min(now - lastTime, 50);
       lastTime = now;
 
@@ -201,10 +212,10 @@ export function EnergyFlow({ canvasW, canvasH }: EnergyFlowProps) {
 
         if (a.alpha > 0.003) {
           const tailLen = 0.45 + a.alpha * 0.25;
-          ctx!.shadowBlur = 8;
-          ctx!.shadowColor = `rgba(0,212,255,${(a.alpha * 0.35).toFixed(3)})`;
-          drawRibbon(ctx!, def.points, a.phase, tailLen, a.alpha);
-          ctx!.shadowBlur = 0;
+          // 光晕层：宽低透明度
+          drawRibbon(ctx!, def.points, a.phase, tailLen, a.alpha, 5, 0.12);
+          // 主线：细高透明度
+          drawRibbon(ctx!, def.points, a.phase, tailLen, a.alpha, 2, 1.0);
         }
 
         // 推进
