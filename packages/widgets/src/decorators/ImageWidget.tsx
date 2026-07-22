@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 interface ImageWidgetProps {
   src?: string;
   fit?: 'contain' | 'cover' | 'fill';
@@ -6,23 +8,40 @@ interface ImageWidgetProps {
 
 /**
  * 图片展示组件 — 纯展示，上传由属性面板控制
+ * 入场效果：从上往下蒙版刷新
  */
 export function ImageWidget({
   src,
   fit = 'contain',
   opacity = 1,
 }: ImageWidgetProps) {
+  // 每次 src 变化时重新触发动画
+  const [animKey, setAnimKey] = useState(0);
+  useEffect(() => { setAnimKey(k => k + 1); }, [src]);
+
   return (
     <div className="w-full h-full relative overflow-hidden select-none"
       style={{ opacity }}>
       {src ? (
-        <img
-          src={src}
-          alt=""
-          className="w-full h-full"
-          style={{ objectFit: fit }}
-          draggable={false}
-        />
+        <>
+          <style>{`
+            @keyframes imgReveal {
+              0% { clip-path: inset(0 0 100% 0); }
+              100% { clip-path: inset(0 0 0 0); }
+            }
+          `}</style>
+          <img
+            key={animKey}
+            src={src}
+            alt=""
+            className="w-full h-full"
+            style={{
+              objectFit: fit,
+              animation: 'imgReveal 0.6s ease-in-out forwards',
+            }}
+            draggable={false}
+          />
+        </>
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center gap-2
           border-2 border-dashed border-[rgba(0,212,255,0.15)] rounded-lg">

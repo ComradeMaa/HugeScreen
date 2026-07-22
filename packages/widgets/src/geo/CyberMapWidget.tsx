@@ -296,6 +296,26 @@ export function CyberMapWidget({
     });
   }, [pinInstances, bounds, thickness, sceneVersion]);
 
+  // ═══ 区域地名标签 ═══
+  const regionLabels = useMemo(() => {
+    if (!bounds || !sceneRef.current || geoFeatures.length === 0) return [];
+    const { camera } = sceneRef.current;
+    const cw = threeRef.current?.clientWidth ?? 400;
+    const ch = threeRef.current?.clientHeight ?? 300;
+
+    return geoFeatures
+      .filter((f: any) => f.properties?.name)
+      .map((f: any) => {
+        const [lng, lat] = f.properties.centroid ?? f.properties.center ?? [0, 0];
+        const wp = lngLatToWorld(lng, lat, bounds);
+        // ★ Z 取反：applyMatrix4(rotX(-π/2)) 映射 (x,y,z)→(x,z,-y)
+        // 地图几何体 Z = -wp.z，标签必须同步
+        const pos = new THREE.Vector3(wp.x, thickness ?? 3, -wp.z);
+        const s = worldToScreen(pos, camera, cw, ch);
+        return { name: f.properties.name as string, screenX: s.x, screenY: s.y };
+      });
+  }, [geoFeatures, bounds, thickness, sceneVersion]);
+
   const pinTypeMap = useMemo(() => {
     const m: Record<string, MapPinType> = {};
     pinTypes.forEach(pt => { m[pt.id] = pt; });
@@ -507,6 +527,23 @@ export function CyberMapWidget({
 
       {/* Three.js canvas */}
       <div ref={threeRef} className="absolute inset-0" />
+
+      {/* 地名标签层 */}
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
+        {regionLabels.map((rl, i) => (
+          <div key={i}
+            className="absolute transform -translate-x-1/2 -translate-y-1/2"
+            style={{ left: rl.screenX, top: rl.screenY }}>
+            <span className="text-[10px] font-medium whitespace-nowrap select-none"
+              style={{
+                color: 'rgba(232,232,236,0.55)',
+                textShadow: '0 0 6px rgba(0,0,0,0.7), 0 0 2px rgba(0,0,0,0.9)',
+              }}>
+              {rl.name}
+            </span>
+          </div>
+        ))}
+      </div>
 
       {/* 地图钉覆盖层 */}
       <div className="absolute inset-0" style={{ pointerEvents: pinEditMode ? 'auto' : 'none' }}>
