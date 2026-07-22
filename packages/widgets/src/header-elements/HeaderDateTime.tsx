@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 
 interface HeaderDateTimeProps {
   showSeconds?: boolean;
+  /** 紧凑模式（手机等窄屏设备） */
+  compact?: boolean;
 }
 
 /**
  * 顶栏日期时间 — 日期 + 实时时钟 + HUD 科技感装饰
  */
-export function HeaderDateTime({ showSeconds = true }: HeaderDateTimeProps) {
+export function HeaderDateTime({ showSeconds = true, compact = false }: HeaderDateTimeProps) {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -29,18 +31,19 @@ export function HeaderDateTime({ showSeconds = true }: HeaderDateTimeProps) {
   });
 
   return (
-    <div className="flex items-center justify-end h-full px-3 gap-3">
+    <div className={`flex items-center justify-end h-full ${compact ? 'px-2 gap-1.5' : 'px-3 gap-3'}`}>
       {/* 日期 */}
       <div className="text-right">
-        <div className="text-[11px] text-textSecondary/60 font-mono tracking-wide leading-tight">
+        <div className={`text-textSecondary/60 font-mono tracking-wide leading-tight ${compact ? 'text-[9px]' : 'text-[11px]'}`}>
           {dateStr}
         </div>
-        <div className="text-lg font-semibold text-white font-mono tracking-wider tabular-nums leading-tight">
+        <div className={`font-semibold text-white font-mono tracking-wider tabular-nums leading-tight ${compact ? 'text-sm' : 'text-lg'}`}>
           {timeStr}
         </div>
       </div>
 
-      {/* HUD 装饰 */}
+      {/* HUD 装饰 — 紧凑模式下去掉 */}
+      {!compact && (
       <div className="flex items-center gap-1.5 flex-shrink-0">
         {/* 渐变线 */}
         <div className="w-6 h-px bg-gradient-to-r from-accent-cool/40 to-transparent" />
@@ -62,6 +65,7 @@ export function HeaderDateTime({ showSeconds = true }: HeaderDateTimeProps) {
           <div className="w-0.5 h-2.5 bg-accent-cool/20 rounded-sm" />
         </div>
       </div>
+      )}
     </div>
   );
 }

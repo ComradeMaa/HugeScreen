@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { ScreenCanvas } from '../components/ScreenCanvas';
 import { useEditorStore } from '../store/editorStore';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 import type { ScreenConfig } from '@hugescreen/shared';
 
 /**
  * 纯展示模式
- * 加载配置 → 全屏渲染 → 实时数据刷新
+ * 加载配置 → 断点适配 → 全屏渲染 → 实时数据刷新
  *
  * 三种配置加载方式：
  *   1. URL 参数 ?id=8  → fetch /api/view/8 (云端)
@@ -52,19 +53,28 @@ export function ViewerScreen() {
     })();
   }, [setConfig, loadConfig]);
 
-  // ═══ 等比例缩放 ═══
-  // 首次加载后 loading→false 时容器尺寸可能切换，需重算
+  // ═══ 响应式断点 ═══
+  const { grid: bpGrid, layouts: bpLayouts, hiddenWidgets, scaleMode, canvasHeight: bpCanvasH } = useBreakpoint();
+  const effectiveCanvasH = bpCanvasH || config.canvas.height;
+
+  // ═══ 缩放 ═══
   useEffect(() => {
     const calc = () => {
       if (!containerRef.current) return;
       const cw = containerRef.current.clientWidth;
       const ch = containerRef.current.clientHeight;
-      setScale(Math.min(cw / config.canvas.width, ch / config.canvas.height));
+      if (scaleMode === 'width') {
+        // 移动端：撑满宽度
+        setScale(cw / config.canvas.width);
+      } else {
+        // 桌面/平板：等比缩放
+        setScale(Math.min(cw / config.canvas.width, ch / effectiveCanvasH));
+      }
     };
     calc();
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
-  }, [config.canvas, loading]);
+  }, [config.canvas, loading, scaleMode, effectiveCanvasH]);
 
   // 居中偏移
   const offset = useMemo(() => {
@@ -73,9 +83,11 @@ export function ViewerScreen() {
     const ch = containerRef.current.clientHeight;
     return {
       x: (cw - config.canvas.width * scale) / 2,
-      y: (ch - config.canvas.height * scale) / 2,
+      y: scaleMode === 'width'
+        ? 0
+        : (ch - effectiveCanvasH * scale) / 2,
     };
-  }, [config.canvas, scale]);
+  }, [config.canvas, scale, scaleMode, effectiveCanvasH]);
 
   // ═══ 加载 / 错误状态 ═══
   if (loading) {
@@ -101,20 +113,41 @@ export function ViewerScreen() {
     );
   }
 
+  const isMobile = scaleMode === 'width';
+  const mobileCanvasW = Math.max(320, containerRef.current?.clientWidth || window.innerWidth || 375);
+  const displayCanvasH = isMobile
+    ? Math.round(effectiveCanvasH * mobileCanvasW / config.canvas.width)
+    : effectiveCanvasH;
+
+  const canvasWrapperStyle: React.CSSProperties = isMobile ? {
+    width: mobileCanvasW,
+    height: displayCanvasH,
+    position: 'relative',
+  } : {
+    width: config.canvas.width,
+    height: displayCanvasH,
+    position: 'absolute',
+    left: offset.x,
+    top: offset.y,
+    transform: `scale(${scale})`,
+    transformOrigin: 'top left',
+  };
+
   return (
-    <div ref={containerRef} className="w-full h-full bg-[#2C2C34] overflow-hidden">
-      <div
-        style={{
-          width: config.canvas.width,
-          height: config.canvas.height,
-          position: 'absolute',
-          left: offset.x,
-          top: offset.y,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-        }}
-      >
-        <ScreenCanvas isEditing={false} />
+    <div
+      ref={containerRef}
+      className="w-full h-full bg-[#2C2C34]"
+      style={{ overflowY: isMobile ? 'auto' : 'hidden', overflowX: 'hidden' }}
+    >
+      <div style={canvasWrapperStyle}>
+        <ScreenCanvas
+          isEditing={false}
+          bpGrid={bpGrid}
+          bpLayouts={bpLayouts}
+          hiddenWidgets={hiddenWidgets}
+          canvasWidth={isMobile ? mobileCanvasW : undefined}
+          canvasHeight={isMobile ? displayCanvasH : (bpCanvasH !== config.canvas.height ? bpCanvasH : undefined)}
+        />
       </div>
     </div>
   );

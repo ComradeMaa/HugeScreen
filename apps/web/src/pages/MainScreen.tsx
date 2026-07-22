@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useState, Suspense, lazy } from 'react'
 import { useEditorStore } from '../store/editorStore';
 import { ScreenCanvas } from '../components/ScreenCanvas';
 import { EditorOverlay } from '../components/EditorOverlay';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 
 const CyberGlobe = lazy(() => import('../components/CyberGlobe').then(m => ({ default: m.CyberGlobe })));
 
@@ -18,6 +19,9 @@ export function MainScreen() {
     loadConfig,
     backgroundPattern,
   } = useEditorStore();
+
+  // 展示态响应式（编辑态始终桌面端）
+  const { grid: bpGrid, layouts: bpLayouts, hiddenWidgets, scaleMode, canvasHeight: bpCanvasH } = useBreakpoint();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -45,20 +49,29 @@ export function MainScreen() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // 缩放比：编辑模式需扣除左侧面板宽度
+  // 缩放比：编辑模式需扣除左侧面板宽度；展示模式按断点策略
   const EDITOR_PANEL_WIDTH = 280;
   useEffect(() => {
     const calc = () => {
       if (!containerRef.current) return;
       const cw = containerRef.current.clientWidth;
       const ch = containerRef.current.clientHeight;
-      const availW = isEditorVisible ? cw - EDITOR_PANEL_WIDTH : cw;
-      setScale(Math.min(availW / config.canvas.width, ch / config.canvas.height));
+      if (isEditorVisible) {
+        // 编辑态：始终等比缩放
+        const availW = cw - EDITOR_PANEL_WIDTH;
+        setScale(Math.min(availW / config.canvas.width, ch / config.canvas.height));
+      } else if (scaleMode === 'width') {
+        // 展示态移动端：撑满宽度
+        setScale(cw / config.canvas.width);
+      } else {
+        // 展示态桌面/平板：等比缩放
+        setScale(Math.min(cw / config.canvas.width, ch / config.canvas.height));
+      }
     };
     calc();
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
-  }, [config.canvas, isEditorVisible]);
+  }, [config.canvas, isEditorVisible, scaleMode]);
 
   // 快捷键
   const handleKeyDown = useCallback(
@@ -81,10 +94,22 @@ export function MainScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // 展示态 left：精确居中 = (视口宽 - 画布缩放后宽) / 2
-  const displayLeft = Math.max(0, ((containerRef.current?.clientWidth ?? window.innerWidth) - config.canvas.width * scale) / 2);
+  // 展示态 left/画布：移动端原生分辨率，桌面/平板等比缩放
+  const isMobile = !isEditorVisible && scaleMode === 'width';
+  const mobileCanvasW = Math.max(320, containerRef.current?.clientWidth || window.innerWidth || 375);
+  const effectiveCanvasH = isMobile
+    ? Math.round((bpCanvasH ?? config.canvas.height) * mobileCanvasW / config.canvas.width)
+    : config.canvas.height;
 
-  const canvasStyle: React.CSSProperties = {
+  const displayLeft = isMobile
+    ? 0
+    : Math.max(0, ((containerRef.current?.clientWidth ?? window.innerWidth) - config.canvas.width * scale) / 2);
+
+  const canvasStyle: React.CSSProperties = isMobile ? {
+    width: mobileCanvasW,
+    height: effectiveCanvasH,
+    position: 'relative',
+  } : {
     width: config.canvas.width,
     height: config.canvas.height,
     position: 'absolute',
@@ -95,10 +120,15 @@ export function MainScreen() {
     transition: 'left 300ms ease, transform 300ms ease',
   };
 
+  // 传给 ScreenCanvas 的实际画布尺寸（移动端用视口宽度）
+  const scCanvasW = isMobile ? mobileCanvasW : undefined;
+  const scCanvasH = isMobile ? effectiveCanvasH : (effectiveCanvasH !== config.canvas.height ? effectiveCanvasH : undefined);
+
   return (
     <div
       ref={containerRef}
-      className="w-full h-full bg-surface-base overflow-hidden relative"
+      className="w-full h-full bg-surface-base relative"
+      style={{ overflowY: isMobile ? 'auto' : 'hidden', overflowX: 'hidden' }}
     >
       {/* ═══ 背景地球-2：视口级渲染，不受画布缩放偏移影响 ═══ */}
       {backgroundPattern === 'globe-2' && viewportW > 0 && (
@@ -109,7 +139,14 @@ export function MainScreen() {
 
       {/* 展示画布 */}
       <div style={canvasStyle}>
-        <ScreenCanvas isEditing={isEditorVisible} />
+        <ScreenCanvas
+          isEditing={isEditorVisible}
+          bpGrid={isEditorVisible ? undefined : bpGrid}
+          bpLayouts={isEditorVisible ? undefined : bpLayouts}
+          hiddenWidgets={isEditorVisible ? undefined : hiddenWidgets}
+          canvasWidth={scCanvasW}
+          canvasHeight={scCanvasH}
+        />
       </div>
 
       {/* 编辑器浮层 */}
@@ -123,6 +160,13 @@ export function MainScreen() {
           </span>
         </div>
       )}
+
+      {/* DEBUG: 断点指示器 */}
+      <div className="absolute top-2 right-2 z-[999] pointer-events-none">
+        <span className="text-[10px] font-mono bg-black/70 text-accent-cool px-2 py-1 rounded">
+          {scaleMode} | H:{effectiveCanvasH} | S:{scale.toFixed(3)} | W:{config.widgets.length}
+        </span>
+      </div>
 
       {/* 编辑态：底部提示 */}
       {isEditorVisible && (

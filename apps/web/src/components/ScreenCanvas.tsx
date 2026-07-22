@@ -82,6 +82,16 @@ function mergePreservingMeta(newData: Record<string, unknown>, currentOpts: Reco
 
 interface ScreenCanvasProps {
   isEditing?: boolean;
+  /** 断点网格覆盖（响应式） */
+  bpGrid?: import('@hugescreen/shared').GridConfig;
+  /** 断点布局覆盖（响应式），key = widgetId */
+  bpLayouts?: Record<string, import('@hugescreen/shared').WidgetLayout>;
+  /** 需要隐藏的 widget ID 列表 */
+  hiddenWidgets?: string[];
+  /** 有效画布宽度覆盖（移动端原生分辨率） */
+  canvasWidth?: number;
+  /** 有效画布高度覆盖（移动端拉伸时用） */
+  canvasHeight?: number;
 }
 
 interface BlockSlot {
@@ -185,15 +195,22 @@ function slotToPx(
 }
 
 const HEADER_ROW = 0;
-const HEADER_ROWS = 1;
+const BASE_HEADER_ROWS = 1;
+
+/** 根据网格列数动态调整顶栏行数 */
+function headerRows(cols: number): number {
+  if (cols >= 8) return 1;
+  if (cols >= 2) return 4;
+  return 7; // 1 列 = 手机，需要足够高度容纳标题+时钟垂直排列
+}
 
 /** 顶栏 Y 结束位置（设计坐标），落点高于此 = 顶栏区域 */
 function headerBottomY(canvasH: number, gap: number, rows: number): number {
-  const { cellH } = cellMetrics(1920, canvasH, gap, 8, rows); // cols 固定 8
+  const { cellH } = cellMetrics(1920, canvasH, gap, 8, rows);
   return gap + HEADER_ROW * (cellH + gap) + cellH;
 }
 
-export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
+export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidgets, canvasWidth: canvasWOverride, canvasHeight: canvasHOverride }: ScreenCanvasProps) {
   const {
     config, selectedWidgetId, selectedHeaderSlotId, selectWidget, selectHeaderSlot,
     addWidget, moveWidget, swapWidgetLayouts, removeWidget,
@@ -204,6 +221,15 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
     pinEditWidgetId,
   } = useEditorStore();
   const { canvas, grid, header, widgets, theme } = config;
+
+  // ─── 响应式断点覆盖（仅影响渲染，不影响编辑态数据结构） ───
+  const activeGrid = bpGrid || grid;
+  const activeCanvasW = canvasWOverride || canvas.width;
+  const activeCanvasH = canvasHOverride || canvas.height;
+  const visibleWidgets = useMemo(() => {
+    if (!hiddenWidgets || hiddenWidgets.length === 0) return widgets;
+    return widgets.filter(w => !hiddenWidgets.includes(w.id));
+  }, [widgets, hiddenWidgets]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const draggingWidgetId = useRef<string | null>(null);
@@ -225,39 +251,57 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
   type DragSwap = { targetWidgetId: string; originSlot: BlockSlot; targetSlot: BlockSlot };
   const [dragSwap, setDragSwap] = useState<DragSwap | null>(null);
 
+  const dynamicHRows = headerRows(activeGrid.cols);
+  const isNarrowHeader = activeGrid.cols <= 2;
+
   const { cellW, cellH } = useMemo(
-    () => cellMetrics(canvas.width, canvas.height, grid.gap, grid.cols, grid.rows),
-    [canvas.width, canvas.height, grid.gap, grid.cols, grid.rows],
+    () => cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, activeGrid.rows),
+    [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, activeGrid.rows],
   );
 
   const headerPx = useMemo(
-    () => slotToPx({ col: 0, row: HEADER_ROW, colSpan: grid.cols, rowSpan: HEADER_ROWS }, cellW, cellH, grid.gap),
-    [cellW, cellH, grid.gap, grid.cols],
+    () => slotToPx({ col: 0, row: HEADER_ROW, colSpan: activeGrid.cols, rowSpan: dynamicHRows }, cellW, cellH, activeGrid.gap),
+    [cellW, cellH, activeGrid.gap, activeGrid.cols, dynamicHRows],
   );
 
   const headerBottom = headerPx.top + headerPx.height;
 
-  // 顶栏槽位像素
+  // 顶栏槽位像素：窄屏垂直排列（仅显示非空槽位），宽屏水平排列
   const headerSlotPixels = useMemo(() => {
+    if (isNarrowHeader) {
+      const activeSlots = header.slots.filter(s => s.elementType !== null);
+      if (activeSlots.length === 0) return [];
+      let top = headerPx.top;
+      const slotH = Math.max(24, (headerPx.height - (activeSlots.length - 1) * activeGrid.gap) / activeSlots.length);
+      return activeSlots.map((s) => {
+        const px = { left: headerPx.left, top, width: headerPx.width, height: slotH };
+        top += slotH + activeGrid.gap;
+        return { id: s.id, ...px };
+      });
+    }
     let left = headerPx.left;
     return header.slots.map((s) => {
-      const w = s.colSpan * cellW + (s.colSpan - 1) * grid.gap;
+      const w = s.colSpan * cellW + (s.colSpan - 1) * activeGrid.gap;
       const px = { left, top: headerPx.top, width: w, height: headerPx.height };
-      left += w + grid.gap;
+      left += w + activeGrid.gap;
       return { id: s.id, ...px };
     });
-  }, [header.slots, headerPx, cellW, grid.gap]);
+  }, [header.slots, headerPx, cellW, activeGrid.gap, isNarrowHeader]);
 
   // Widget 像素位置（canvas 相对坐标）
+  // 如果有断点布局覆盖，使用覆盖值；否则使用 widget 自身 layout
   const positions = useMemo(() => {
-    return widgets.map((w) => ({
-      id: w.id,
-      ...slotToPx(w.layout, cellW, cellH, grid.gap),
-    }));
-  }, [widgets, cellW, cellH, grid.gap]);
+    return visibleWidgets.map((w) => {
+      const layout = bpLayouts?.[w.id] || w.layout;
+      return {
+        id: w.id,
+        ...slotToPx(layout, cellW, cellH, activeGrid.gap),
+      };
+    });
+  }, [visibleWidgets, bpLayouts, cellW, cellH, activeGrid.gap]);
 
   const isCenterEmpty = useMemo(() => {
-    return !widgets.some((w) => {
+    return !visibleWidgets.some((w) => {
       const wEndCol = w.layout.col + w.layout.colSpan;
       const wEndRow = w.layout.row + w.layout.rowSpan;
       return (
@@ -267,7 +311,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         wEndRow > CENTER_SLOT.row
       );
     });
-  }, [widgets]);
+  }, [visibleWidgets]);
 
   const clientToDesign = useCallback(
     (clientX: number, clientY: number) => {
@@ -844,7 +888,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
         }}
         onDrop={isEditing ? handleHeaderDrop : undefined}
       >
-        <div className="flex h-full relative" style={{ gap: grid.gap }}>
+        <div className={`${isNarrowHeader ? 'flex-col' : 'flex'} h-full relative`} style={{ gap: activeGrid.gap }}>
 
           {/* 拖拽一般组件时顶栏虚化红框提示 */}
           {showWidgetSlotsHint && (
@@ -913,9 +957,10 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                 key={slot.id}
                 id={`header-slot-${slot.id}`}
                 draggable={isEditing && !!slot.elementType}
-                className={`relative overflow-hidden ${isEditing ? 'cursor-pointer' : ''}`}
+                className={`relative overflow-hidden ${isEditing ? 'cursor-pointer' : ''} ${isNarrowHeader ? 'flex-shrink-0' : ''}`}
                 style={{
-                  width: px?.width, height: px?.height,
+                  width: isNarrowHeader ? '100%' : px?.width,
+                  height: px?.height,
                   outline: isEditing && selectedHeaderSlotId === slot.id
                     ? '1px solid rgba(0,212,255,0.7)' : 'none',
                   outlineOffset: -1,
@@ -940,7 +985,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
                   transition: 'opacity 200ms ease-out',
                 }}>
                   {ElComp ? (
-                    <ElComp {...(elDef!.defaultConfig ?? {})} {...(slot.options as object)} />
+                    <ElComp {...(elDef!.defaultConfig ?? {})} {...(slot.options as object)} compact={isNarrowHeader} />
                   ) : isEditing ? (
                     <div className={`h-full mx-0.5 rounded border transition-colors ${
                       headerBlockedIdx === idx
@@ -1068,7 +1113,7 @@ export function ScreenCanvas({ isEditing = false }: ScreenCanvasProps) {
 
 
       {/* ═══ 组件 ═══ */}
-      {widgets.map(widget => {
+      {visibleWidgets.map(widget => {
         // 交换预览：被"挤"走的组件渲染在原位置
         const isSwapTarget = dragSwap?.targetWidgetId === widget.id;
         const px = isSwapTarget

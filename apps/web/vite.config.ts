@@ -19,6 +19,24 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      // DataV GeoJSON API 代理（去掉 Referer 绕过校验）
+      '/geodata': {
+        target: 'https://geo.datav.aliyun.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/geodata/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.removeHeader('Referer');
+            proxyReq.removeHeader('Origin');
+          });
+        },
+      },
+      // OSM Overpass API 代理
+      '/overpass': {
+        target: 'https://overpass-api.de',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/overpass/, ''),
+      },
     },
   },
   build: {

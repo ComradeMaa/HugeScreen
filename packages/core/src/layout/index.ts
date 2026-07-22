@@ -138,3 +138,115 @@ class LayoutEngine {
 
 /** 全局单例 */
 export const layoutEngine = new LayoutEngine();
+
+// ─── 响应式自动重排 ───
+
+export interface ReflowWidget {
+  id: string;
+  layout: WidgetLayout; // 桌面端布局
+}
+
+/**
+ * 按阅读顺序排序（从上到下、从左到右）
+ */
+function sortByReadingOrder(widgets: ReflowWidget[]): ReflowWidget[] {
+  return [...widgets].sort((a, b) => {
+    const ay = a.layout.row + a.layout.rowSpan / 2;
+    const by = b.layout.row + b.layout.rowSpan / 2;
+    if (Math.abs(ay - by) < 0.5) {
+      return (a.layout.col + a.layout.colSpan / 2) - (b.layout.col + b.layout.colSpan / 2);
+    }
+    return ay - by;
+  });
+}
+
+/**
+ * 将桌面端布局自动重排到目标断点网格。
+ *
+ * 策略：
+ *   - 1 列（手机）：单列堆叠，每个 widget 撑满宽度，高度按原始宽高比推算
+ *   - 2 列（平板）：左右交替填入，维持原始宽高比
+ *   - 多列：同桌面端不重排（使用原始布局）
+ *
+ * @returns widgetId → WidgetLayout 的映射
+ */
+export function reflowToBreakpoint(
+  widgets: ReflowWidget[],
+  desktopGrid: GridConfig,
+  targetGrid: GridConfig,
+  canvasWidth: number,
+  canvasHeight: number,
+  hiddenIds: string[] = [],
+): Record<string, WidgetLayout> {
+  const visible = sortByReadingOrder(
+    widgets.filter(w => !hiddenIds.includes(w.id)),
+  );
+
+  if (visible.length === 0) return {};
+
+  const dg = desktopGrid.gap;
+  const tg = targetGrid.gap;
+  const cols = targetGrid.cols;
+
+  // 桌面端 cell 尺寸
+  const deskCW = (canvasWidth - dg * (desktopGrid.cols + 1)) / desktopGrid.cols;
+  const deskCH = (canvasHeight - dg * (desktopGrid.rows + 1)) / desktopGrid.rows;
+
+  // 目标网格 cell 尺寸（用画布高度和桌面端行数计算，保持 cell 高度一致）
+  const targetCW = (canvasWidth - tg * (cols + 1)) / cols;
+  const targetCH = deskCH; // 同一个画布，cell 高度一致
+
+  // row 0 保留给顶栏，组件从顶栏之后开始
+  const hRows = cols >= 8 ? 1 : cols >= 2 ? 4 : 7;
+
+  const result: Record<string, WidgetLayout> = {};
+  const colRows: number[] = new Array(cols).fill(hRows);
+
+  // ── 单列模式（手机）：堆叠，维持原始宽高比 ──
+  if (cols === 1) {
+    let cursor = hRows;
+    for (const w of visible) {
+      // 桌面端原始像素尺寸
+      const pixelW = w.layout.colSpan * deskCW + (w.layout.colSpan - 1) * dg;
+      const pixelH = w.layout.rowSpan * deskCH + (w.layout.rowSpan - 1) * dg;
+      const ratio = pixelW > 0 ? pixelH / pixelW : 1;
+
+      // 目标像素：满宽
+      const targetPW = targetCW;
+      const targetPH = targetPW * ratio;
+
+      // 像素高度 → 行数
+      const rowSpan = Math.max(2, Math.round((targetPH + tg) / (targetCH + tg)));
+      result[w.id] = { col: 0, row: cursor, colSpan: 1, rowSpan };
+      cursor += rowSpan;
+    }
+    return result;
+  }
+
+  // ── 多列模式（平板）：交替填入各列 ──
+  for (const w of visible) {
+    let minCol = 0;
+    for (let c = 1; c < cols; c++) {
+      if (colRows[c] < colRows[minCol]) minCol = c;
+    }
+
+    const pixelW = w.layout.colSpan * deskCW + (w.layout.colSpan - 1) * dg;
+    const pixelH = w.layout.rowSpan * deskCH + (w.layout.rowSpan - 1) * dg;
+    const ratio = pixelW > 0 ? pixelH / pixelW : 1;
+
+    const targetColSpan = Math.min(w.layout.colSpan, cols - minCol);
+    const targetPW = targetColSpan * targetCW + (targetColSpan - 1) * tg;
+    const targetPH = targetPW * ratio;
+    const rowSpan = Math.max(1, Math.round((targetPH + tg) / (targetCH + tg)));
+
+    result[w.id] = {
+      col: minCol,
+      row: colRows[minCol],
+      colSpan: targetColSpan,
+      rowSpan,
+    };
+    colRows[minCol] += rowSpan;
+  }
+
+  return result;
+}

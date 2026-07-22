@@ -24,7 +24,9 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
 
   // Entry animation: bump version on first render
   const [buildVersion] = useState(() => {
-    return typeof crypto !== 'undefined' ? crypto.randomUUID().slice(0, 4) : Math.random().toString(36).slice(2, 6);
+    return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().slice(0, 4)
+      : Math.random().toString(36).slice(2, 6);
   });
 
   if (!resolved || slots.length === 0) {
