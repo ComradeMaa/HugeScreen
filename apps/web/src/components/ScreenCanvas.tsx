@@ -14,11 +14,12 @@ const CyberGlobe = lazy(() => import('./CyberGlobe').then(m => ({ default: m.Cyb
 
 /** 组件主体：注入实时数据（liveProps 以最高优先级覆盖静态默认值与用户配置）。
  *  当 liveProps 有内容时，自动把数据字段同步回 widget.options，保证属性面板显示最新数据。 */
-function WidgetBody({ widget, Comp, defaultConfig }: {
+function WidgetBody({ widget, Comp, defaultConfig, compact }: {
   widget: WidgetConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Comp: any;
   defaultConfig: Record<string, unknown>;
+  compact?: boolean;
 }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const pinEditWidgetId = useEditorStore((s) => s.pinEditWidgetId);
@@ -42,7 +43,7 @@ function WidgetBody({ widget, Comp, defaultConfig }: {
     updateWidget(widget.id, { options: { ...currentOpts, ...merged } });
   }, [JSON.stringify(liveProps), widget.id, widget.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={(patch: Record<string, unknown>) => updateWidget(widget.id, { options: { ...widget.options as Record<string, unknown>, ...patch } })} />;
+  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={(patch: Record<string, unknown>) => updateWidget(widget.id, { options: { ...widget.options as Record<string, unknown>, ...patch } })} />;
 }
 
 /** 只保留数据字段，排除外观/开关字段 */
@@ -1172,7 +1173,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
             <div className="flex-1 min-h-0 w-full">
               {Comp ? (
                 <Suspense fallback={<div className="flex items-center justify-center h-full text-textSecondary/20 text-xs">...</div>}>
-                  <WidgetBody widget={widget} Comp={Comp} defaultConfig={def?.defaultConfig ?? {}} />
+                  <WidgetBody widget={widget} Comp={Comp} defaultConfig={def?.defaultConfig ?? {}} compact={isNarrowHeader} />
                 </Suspense>
               ) : (
                 <div className="flex items-center justify-center h-full text-textSecondary/20 text-xs">{widget.displayName}</div>
