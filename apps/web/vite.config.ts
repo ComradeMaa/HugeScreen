@@ -45,6 +45,15 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         viewer: resolve(__dirname, 'viewer.html'),
       },
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-three': ['three'],
+          'vendor-r3f': ['@react-three/fiber', '@react-three/drei'],
+          'vendor-echarts': ['echarts'],
+          'vendor-state': ['zustand', 'zundo', '@dnd-kit/core', '@dnd-kit/sortable'],
+        },
+      },
     },
   },
 });

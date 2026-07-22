@@ -212,15 +212,20 @@ function headerBottomY(canvasH: number, gap: number, rows: number): number {
 }
 
 export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidgets, canvasWidth: canvasWOverride, canvasHeight: canvasHOverride }: ScreenCanvasProps) {
-  const {
-    config, selectedWidgetId, selectedHeaderSlotId, selectWidget, selectHeaderSlot,
-    addWidget, moveWidget, swapWidgetLayouts, removeWidget,
+  // ─── 精确订阅：只订阅渲染所需的状态，避免全量 store 变更触发重渲染 ───
+  const config = useEditorStore(s => s.config);
+  const selectedWidgetId = useEditorStore(s => s.selectedWidgetId);
+  const selectedHeaderSlotId = useEditorStore(s => s.selectedHeaderSlotId);
+  const isDraggingWidget = useEditorStore(s => s.isDraggingWidget);
+  const isDraggingHeaderEl = useEditorStore(s => s.isDraggingHeaderEl);
+  const backgroundPattern = useEditorStore(s => s.backgroundPattern);
+  const backgroundEffect = useEditorStore(s => s.backgroundEffect);
+  const pinEditWidgetId = useEditorStore(s => s.pinEditWidgetId);
+  // 稳定 action 引用（store 创建时固定，不会随渲染变化）
+  const { addWidget, moveWidget, swapWidgetLayouts, removeWidget,
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
-    setDraggingWidget, setDraggingHeaderEl, isDraggingWidget, isDraggingHeaderEl,
-    backgroundPattern,
-    backgroundEffect,
-    pinEditWidgetId,
-  } = useEditorStore();
+    setDraggingWidget, setDraggingHeaderEl, selectWidget, selectHeaderSlot,
+  } = useEditorStore.getState();
   const { canvas, grid, header, widgets, theme } = config;
 
   // ─── 响应式断点覆盖（仅影响渲染，不影响编辑态数据结构） ───

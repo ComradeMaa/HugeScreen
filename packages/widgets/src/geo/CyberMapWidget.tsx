@@ -247,16 +247,19 @@ export function CyberMapWidget({
     });
     mapGroup.add(glowGroup);
 
-    // ── 动画循环 ──
-    let running = true;
-    const animate = () => {
-      if (!running) return;
+    // ── 渲染（静态场景只渲染一次 + resize 时重渲染）──
+    let disposed = false;
+    const renderOnce = () => {
+      if (disposed) return;
       renderer.render(scene, camera);
-      requestAnimationFrame(animate);
     };
-    animate();
+    const requestRender = () => {
+      if (disposed) return;
+      requestAnimationFrame(renderOnce);
+    };
+    renderOnce();
 
-    sceneRef.current = { renderer, scene, camera, mapGroup, running };
+    sceneRef.current = { renderer, scene, camera, mapGroup, running: false };
     setSceneVersion(v => v + 1);
 
     // ── ResizeObserver ──
@@ -269,13 +272,25 @@ export function CyberMapWidget({
         sceneRef.current.camera.aspect = cw / ch;
         sceneRef.current.camera.updateProjectionMatrix();
       }
+      requestRender();
     });
     ro.observe(container);
     resizeObsRef.current = ro;
 
     return () => {
-      running = false;
+      disposed = true;
       ro.disconnect();
+      // GPU 资源完全释放
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line || child instanceof THREE.Points) {
+          child.geometry?.dispose();
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+          } else {
+            child.material?.dispose();
+          }
+        }
+      });
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
       sceneRef.current = null;

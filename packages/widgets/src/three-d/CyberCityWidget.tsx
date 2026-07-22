@@ -379,16 +379,19 @@ export function CyberCityWidget({
     ground.position.y = -0.2;
     scene.add(ground);
 
-    // ── 渲染循环 ──
-    let running = true;
-    const animate = () => {
-      if (!running) return;
+    // ── 按需渲染（静态场景，无需持续 rAF 循环）──
+    let disposed = false;
+    const renderOnce = () => {
+      if (disposed) return;
       renderer.render(scene, camera);
-      requestAnimationFrame(animate);
     };
-    animate();
+    const requestRender = () => {
+      if (disposed) return;
+      requestAnimationFrame(renderOnce);
+    };
+    renderOnce();
 
-    sceneRef.current = { renderer, scene, camera, running };
+    sceneRef.current = { renderer, scene, camera, running: false };
 
     // ── ResizeObserver ──
     const ro = new ResizeObserver(() => {
@@ -409,7 +412,7 @@ export function CyberCityWidget({
     ro.observe(container);
 
     return () => {
-      running = false;
+      disposed = true;
       ro.disconnect();
       // 释放所有 GPU 资源
       scene.traverse((child) => {

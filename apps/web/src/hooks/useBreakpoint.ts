@@ -38,7 +38,11 @@ const TABLET_GRID: GridConfig = { cols: 2, rows: 12, gap: 8, snapToGrid: false }
  * 桌面端使用原始布局；平板/手机端优先使用手动覆盖，否则自动重排。
  */
 export function useBreakpoint() {
-  const config = useEditorStore(s => s.config);
+  // 精确订阅：只选择重排所需的切片，避免 widget options 等无关变更触发重算
+  const widgets = useEditorStore(s => s.config.widgets);
+  const canvas = useEditorStore(s => s.config.canvas);
+  const desktopGrid = useEditorStore(s => s.config.grid);
+  const responsive = useEditorStore(s => s.config.responsive);
   const [width, setWidth] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth : 1920,
   );
@@ -52,7 +56,6 @@ export function useBreakpoint() {
   const bp = detectBreakpoint(width);
 
   return useMemo(() => {
-    const { canvas, grid: desktopGrid, responsive, widgets } = config;
 
     // 桌面端：直接用原始配置
     if (bp === 'desktop') {
@@ -118,5 +121,5 @@ export function useBreakpoint() {
       scaleMode,
       canvasHeight: effectiveCanvasH,
     };
-  }, [bp, config]);
+  }, [bp, widgets, canvas, desktopGrid, responsive]);
 }
