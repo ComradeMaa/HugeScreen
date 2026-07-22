@@ -21,6 +21,7 @@ interface CyberMapWidgetProps {
   dataSource?: DataSourceConfig;
   thickness?: number;
   showGrid?: boolean;
+  mapName?: string;
   pinTypes?: MapPinType[];
   pinInstances?: MapPinInstance[];
   pinEditMode?: boolean;
@@ -38,6 +39,7 @@ export function CyberMapWidget({
   dataSource,
   thickness = 3,
   showGrid = true,
+  mapName = '',
   pinTypes = [],
   pinInstances = [],
   pinEditMode = false,
@@ -564,6 +566,36 @@ export function CyberMapWidget({
           );
         })}
       </div>
+
+      {/* 地图名 */}
+      {mapName && (
+        <div className="absolute left-0 right-0 flex items-center justify-center pointer-events-none"
+          style={{ bottom: '18%', zIndex: 8 }}>
+          <style>{`
+            @keyframes mapNameGlow {
+              0%, 100% { text-shadow: 0 0 8px rgba(0,212,255,0.2), 0 0 16px rgba(0,212,255,0.08); }
+              50% { text-shadow: 0 0 14px rgba(0,212,255,0.5), 0 0 28px rgba(0,212,255,0.2), 0 0 40px rgba(0,212,255,0.06); }
+            }
+            @keyframes mapNameFlow {
+              0% { background-position: 0% 50%; }
+              100% { background-position: 200% 50%; }
+            }
+          `}</style>
+          <span
+            className="text-3xl font-bold tracking-[0.5em] select-none"
+            style={{
+              background: 'linear-gradient(90deg, #00D4FF, #88EEFF, #00D4FF, #88EEFF)',
+              backgroundSize: '200% 100%',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              animation: 'mapNameGlow 3s ease-in-out infinite, mapNameFlow 4s linear infinite',
+            }}
+          >
+            {mapName}
+          </span>
+        </div>
+      )}
 
       {/* 图例 */}
       {pinTypes.length > 0 && (

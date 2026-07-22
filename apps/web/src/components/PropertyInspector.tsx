@@ -933,6 +933,13 @@ export function PropertyInspector() {
                 <input type="checkbox" checked={Boolean((widget.options as Record<string, unknown>).showGrid ?? true)}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showGrid: e.target.checked } })} />
               </label>
+              <label className="flex flex-col gap-1 mt-2">
+                <span className="text-[11px] text-textSecondary/70">地图名</span>
+                <input type="text" value={String((widget.options as Record<string, unknown>).mapName ?? '')}
+                  placeholder="留空则不显示"
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), mapName: e.target.value } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors" />
+              </label>
             </CollapsibleFieldGroup>
 
             {/* ═══ 地图钉类型 ═══ */}
