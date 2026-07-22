@@ -15,6 +15,7 @@ import {
   Image,
   LayoutDashboard,
   Map,
+  Building2,
   Plus,
   Trash2,
   type LucideIcon,
@@ -33,6 +34,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Image,
   LayoutDashboard,
   Map,
+  Building2,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -231,6 +233,24 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.strokeStyle = '#FF8C42';
     ctx.lineWidth = 0.8;
     ctx.beginPath(); ctx.arc(60, 30, 5, 0, Math.PI * 2); ctx.stroke();
+
+  } else if (type === 'cyber-city') {
+    // Multiple building blocks with wireframe style
+    const blds = [
+      [20, 30, 16, 28], [50, 18, 20, 40], [85, 26, 14, 32],
+      [32, 48, 12, 16], [64, 40, 16, 22], [96, 50, 10, 14],
+    ];
+    blds.forEach(([bx, by, bw, bh]) => {
+      ctx.fillStyle = 'rgba(0,212,255,0.12)';
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(bx, by, bw, bh);
+    });
+    // Ground line
+    ctx.strokeStyle = 'rgba(0,212,255,0.15)';
+    ctx.lineWidth = 0.4;
+    ctx.beginPath(); ctx.moveTo(8, 58); ctx.lineTo(w - 8, 58); ctx.stroke();
 
   } else {
     // Fallback: centered label

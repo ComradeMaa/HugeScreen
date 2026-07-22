@@ -983,6 +983,25 @@ export function PropertyInspector() {
           </>
         )}
 
+        {/* ═══ 赛博城市专属配置 ═══ */}
+        {widget.type === 'cyber-city' && (
+          <CollapsibleFieldGroup label="城市配置" defaultOpen={true}>
+            <label className="flex items-center justify-between mt-1">
+              <span className="text-[11px] text-textSecondary/70">高度倍率</span>
+              <input type="range" min={0.2} max={3} step={0.1}
+                value={Number((widget.options as Record<string, unknown>).heightScale ?? 1)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), heightScale: Number(e.target.value) } })}
+                className="w-24" />
+              <span className="text-[11px] text-textSecondary/50 w-8 text-right font-mono">{(widget.options as Record<string, unknown>).heightScale as number ?? 1}x</span>
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">显示网格</span>
+              <input type="checkbox" checked={Boolean((widget.options as Record<string, unknown>).showGrid ?? true)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showGrid: e.target.checked } })} />
+            </label>
+          </CollapsibleFieldGroup>
+        )}
+
         {/* ═══ 数据源 ═══ */}
         <CollapsibleFieldGroup label="数据源" defaultOpen={false}>
           <DataSourceEditor
