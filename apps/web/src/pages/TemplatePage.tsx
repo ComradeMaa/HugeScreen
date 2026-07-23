@@ -23,6 +23,11 @@ export function TemplatePage() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [publishUrl, setPublishUrl] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredTemplates = searchQuery.trim()
+    ? templates.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    : templates;
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -129,11 +134,28 @@ export function TemplatePage() {
 
       {/* Content */}
       <div className="max-w-[1200px] mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[#E8E8EC] text-base font-medium">我的模板</h2>
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <h2 className="text-[#E8E8EC] text-base font-medium flex-shrink-0">我的模板</h2>
+          <div className="flex items-center gap-3 flex-1 max-w-md">
+            <input
+              type="text"
+              placeholder="搜索模板名..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-[#2C2C34] border border-[rgba(255,255,255,0.06)] rounded-lg px-3 py-2 text-xs text-[#E8E8EC] placeholder-[#9E9EA8] focus:outline-none focus:border-[#00D4FF]/50 transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-xs text-[#9E9EA8] hover:text-[#E8E8EC] transition-colors flex-shrink-0"
+              >
+                清除
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setShowNew(true)}
-            className="px-4 py-2 bg-[#00D4FF] text-[#2C2C34] text-xs font-semibold rounded hover:bg-[#00D4FF]/80 transition-colors"
+            className="px-4 py-2 bg-[#00D4FF] text-[#2C2C34] text-xs font-semibold rounded hover:bg-[#00D4FF]/80 transition-colors flex-shrink-0"
           >
             + 新建模板
           </button>
@@ -152,8 +174,27 @@ export function TemplatePage() {
             </div>
           )}
 
-          {/* Empty */}
-          {!loading && !error && templates.length === 0 && (
+          {/* Search empty */}
+          {!loading && !error && filteredTemplates.length === 0 && searchQuery.trim() && (
+            <div className="text-center py-16">
+              <div className="text-4xl mb-3 opacity-20">
+                <svg className="mx-auto" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9E9EA8" strokeWidth="1.5">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
+                  <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+              </div>
+              <p className="text-sm text-[#9E9EA8] mb-1">未找到匹配"<span className="text-[#E8E8EC]">{searchQuery.trim()}</span>"的模板</p>
+              <p className="text-xs text-[#9E9EA8]/60 mb-4">试试其他关键词</p>
+              <button onClick={() => setSearchQuery('')}
+                className="px-4 py-2 bg-[#363640] border border-[rgba(255,255,255,0.1)] text-xs text-[#E8E8EC] rounded hover:bg-[#363640]/80 transition-colors">
+                清除搜索
+              </button>
+            </div>
+          )}
+
+          {/* Empty (no templates at all) */}
+          {!loading && !error && filteredTemplates.length === 0 && !searchQuery.trim() && (
             <div className="text-center py-16">
               <div className="text-5xl mb-4 opacity-30">+</div>
               <p className="text-sm text-[#9E9EA8] mb-4">还没有模板</p>
@@ -165,9 +206,9 @@ export function TemplatePage() {
           )}
 
           {/* Grid */}
-          {!loading && !error && templates.length > 0 && (
+          {!loading && !error && filteredTemplates.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {templates.map(tpl => (
+              {filteredTemplates.map(tpl => (
               <TemplateCard
                 key={tpl.id}
                 id={tpl.id}
