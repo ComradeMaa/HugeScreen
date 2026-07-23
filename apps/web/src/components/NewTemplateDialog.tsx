@@ -16,36 +16,24 @@ export function NewTemplateDialog({ open, onClose, onCreate }: NewTemplateDialog
     e.preventDefault();
     if (!name.trim()) return;
     setLoading(true);
-    try {
-      await onCreate(name.trim());
-      setName('');
-    } finally {
-      setLoading(false);
-    }
+    try { await onCreate(name.trim()); setName(''); }
+    finally { setLoading(false); }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-[#363640] border border-[rgba(255,255,255,0.08)] rounded-xl p-6 w-[360px] shadow-2xl"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A032E]/70 backdrop-blur-[2px]" onClick={onClose}>
+      <div className="bg-gradient-to-b from-[#163268]/90 to-[#163268]/50 border border-[rgba(133,177,224,0.12)] rounded-2xl p-6 w-[360px] shadow-2xl shadow-[#0A032E]/60 backdrop-blur-xl"
            onClick={(e) => e.stopPropagation()}>
         <h2 className="text-[#E8E8EC] text-lg font-semibold mb-4">新建模板</h2>
         <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            placeholder="模板名称"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            autoFocus
-            className="w-full bg-[#2C2C34] border border-[rgba(255,255,255,0.06)] rounded px-3 py-2.5 text-sm text-[#E8E8EC] placeholder-[#9E9EA8] focus:outline-none focus:border-[#00D4FF]/50 transition-colors mb-4"
-          />
+          <input type="text" placeholder="模板名称" value={name}
+            onChange={(e) => setName(e.target.value)} required autoFocus
+            className="w-full bg-[#0A032E]/50 border border-[rgba(133,177,224,0.12)] rounded-lg px-3 py-2.5 text-sm text-[#E8E8EC] placeholder-[#85B1E0]/30 focus:outline-none focus:border-[#85B1E0]/40 transition-all backdrop-blur-sm mb-4" />
           <div className="flex justify-end gap-3">
             <button type="button" onClick={onClose}
-              className="px-4 py-2 text-xs text-[#9E9EA8] hover:text-[#E8E8EC] transition-colors">
-              取消
-            </button>
+              className="px-4 py-2 text-xs text-[#85B1E0]/50 hover:text-[#85B1E0] transition-colors">取消</button>
             <button type="submit" disabled={loading}
-              className="px-4 py-2 bg-[#00D4FF] text-[#2C2C34] text-xs font-semibold rounded hover:bg-[#00D4FF]/80 disabled:opacity-50 transition-all">
+              className="px-4 py-2 bg-gradient-to-r from-[#163268] to-[#1A4A8A] text-[#85B1E0] text-xs font-semibold rounded-lg border border-[rgba(133,177,224,0.15)] hover:from-[#1A4A8A] disabled:opacity-50 transition-all">
               {loading ? '创建中...' : '创建'}
             </button>
           </div>
