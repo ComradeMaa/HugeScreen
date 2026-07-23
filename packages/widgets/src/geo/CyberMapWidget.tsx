@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { MapPinType, MapPinInstance, DataSourceConfig } from '@hugescreen/shared';
 import { computeRegionBounds, lngLatToWorld, worldToScreen, screenToWorld, xzToLngLat } from './projection';
 import { PIN_ICON_PATHS } from './types';
+import { normalizeUrl } from '@hugescreen/shared/normalizeUrl';
 
 // ─── 坐标系说明 ───
 //
@@ -95,7 +96,8 @@ export function CyberMapWidget({
             }
           }
         }
-        const res = await fetch(ds.config.url, {
+        const url = normalizeUrl(ds.config.url);
+        const res = await fetch(url, {
           method: (ds.config.method as 'GET' | 'POST') ?? 'GET',
           headers,
         });
