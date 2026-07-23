@@ -93,14 +93,13 @@ export function TemplatePage() {
   const btnGhost = "px-4 py-2 bg-[#1B2238]/40 border border-[rgba(133,177,224,0.1)] text-[#F1EFF2]/60 text-xs rounded-lg hover:bg-[#1B2238]/60 hover:text-[#F1EFF2] hover:border-[rgba(133,177,224,0.2)] transition-all";
 
   return (
-    <div className="min-h-screen bg-[#1B2238] relative overflow-hidden">
+    <div className="h-screen bg-[#1B2238] flex flex-col overflow-hidden relative">
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/4 w-[400px] h-[400px] rounded-full bg-[#7181AC]/20 blur-[150px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] rounded-full bg-[#F1EFF2]/5 blur-[120px] pointer-events-none" />
 
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="border-b border-[rgba(133,177,224,0.08)] bg-gradient-to-r from-[#1B2238]/80 to-[#7181AC]/40 backdrop-blur-xl">
+      {/* Header — 固定顶部 */}
+      <header className="flex-shrink-0 border-b border-[rgba(133,177,224,0.08)] bg-gradient-to-r from-[#1B2238]/80 to-[#7181AC]/40 backdrop-blur-xl">
           <div className="max-w-[1200px] mx-auto px-6 py-3 flex items-center justify-between">
             <h1 className="text-xl font-bold bg-gradient-to-r from-[#F1EFF2] to-[#A3C8F0] bg-clip-text text-transparent tracking-wider">
               HugeScreen
@@ -130,7 +129,8 @@ export function TemplatePage() {
           </div>
         )}
 
-        {/* Content */}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="max-w-[1200px] mx-auto px-6 py-8">
           {/* Search bar + new button */}
           <div className="flex items-center justify-between mb-6 gap-4">
@@ -211,6 +211,7 @@ export function TemplatePage() {
             )}
           </div>
         </div>
+        </div>{/* end scrollable */}
 
         {/* Dialogs */}
         <NewTemplateDialog open={showNew} onClose={() => setShowNew(false)} onCreate={handleCreate} />
@@ -229,7 +230,6 @@ export function TemplatePage() {
           url={publishUrl || ''}
           onClose={() => setPublishUrl(null)}
         />
-      </div>
     </div>
   );
 }
