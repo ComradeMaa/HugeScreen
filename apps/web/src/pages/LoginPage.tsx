@@ -45,33 +45,33 @@ export function LoginPage() {
     }
   }
 
-  const inputCls = "w-full bg-[#0A032E]/60 border border-[rgba(133,177,224,0.12)] rounded-lg px-3 py-2.5 text-sm text-[#E8E8EC] placeholder-[#85B1E0]/40 focus:outline-none focus:border-[#85B1E0]/50 transition-all backdrop-blur-sm";
+  const inputCls = "w-full bg-[#1B2238]/60 border border-[rgba(183,172,178,0.15)] rounded-lg px-3 py-2.5 text-sm text-[#F1EFF2] placeholder-[#B7ACB2]/50 focus:outline-none focus:border-[#7181AC] transition-all backdrop-blur-sm";
 
   return (
-    <div className="min-h-screen bg-[#0A032E] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#1B2238] flex items-center justify-center p-4 relative overflow-hidden">
       {/* Ambient glow */}
-      <div className="absolute top-1/4 -left-20 w-[300px] h-[300px] rounded-full bg-[#163268]/30 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-[250px] h-[250px] rounded-full bg-[#85B1E0]/10 blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 w-[300px] h-[300px] rounded-full bg-[#7181AC]/15 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-[250px] h-[250px] rounded-full bg-[#B7ACB2]/10 blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-[380px] relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#85B1E0] via-[#A3C8F0] to-[#85B1E0] bg-clip-text text-transparent tracking-wider">
+          <h1 className="text-3xl font-bold text-[#F1EFF2] tracking-wider">
             HugeScreen
           </h1>
-          <p className="text-[#85B1E0]/40 text-xs mt-2 tracking-wide">数据可视化大屏平台</p>
+          <p className="text-[#B7ACB2] text-xs mt-2 tracking-wide">数据可视化大屏平台</p>
         </div>
 
         {/* Card */}
-        <div className="bg-gradient-to-b from-[#163268]/80 to-[#163268]/40 rounded-2xl border border-[rgba(133,177,224,0.12)] p-6 backdrop-blur-xl shadow-2xl shadow-[#0A032E]/50">
+        <div className="bg-gradient-to-b from-[#7181AC]/40 to-[#7181AC]/15 rounded-2xl border border-[rgba(183,172,178,0.12)] p-6 backdrop-blur-xl shadow-2xl shadow-[#1B2238]/50">
           {/* Tabs */}
-          <div className="flex mb-6 border-b border-[rgba(133,177,224,0.1)]">
+          <div className="flex mb-6 border-b border-[rgba(183,172,178,0.12)]">
             <button
               onClick={() => { setTab('login'); setError(''); }}
               className={`flex-1 pb-2.5 text-sm transition-all ${
                 tab === 'login'
-                  ? 'text-[#85B1E0] border-b-2 border-[#85B1E0] font-medium'
-                  : 'text-[#85B1E0]/30 hover:text-[#85B1E0]/60'
+                  ? 'text-[#F1EFF2] border-b-2 border-[#7181AC] font-medium'
+                  : 'text-[#B7ACB2] hover:text-[#F1EFF2]/70'
               }`}
             >
               登录
@@ -80,8 +80,8 @@ export function LoginPage() {
               onClick={() => { setTab('register'); setError(''); }}
               className={`flex-1 pb-2.5 text-sm transition-all ${
                 tab === 'register'
-                  ? 'text-[#85B1E0] border-b-2 border-[#85B1E0] font-medium'
-                  : 'text-[#85B1E0]/30 hover:text-[#85B1E0]/60'
+                  ? 'text-[#F1EFF2] border-b-2 border-[#7181AC] font-medium'
+                  : 'text-[#B7ACB2] hover:text-[#F1EFF2]/70'
               }`}
             >
               注册
@@ -98,48 +98,30 @@ export function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <input
-                type="text"
-                placeholder="用户名"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className={inputCls}
-              />
+              <input type="text" placeholder="用户名" value={username}
+                onChange={(e) => setUsername(e.target.value)} required className={inputCls} />
             </div>
             <div>
-              <input
-                type="password"
-                placeholder="密码（至少6位，需含字母和数字）"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required={tab === 'register' || tab === 'login'}
-                minLength={6}
-                className={inputCls}
-              />
+              <input type="password" placeholder="密码（至少6位，需含字母和数字）" value={password}
+                onChange={(e) => setPassword(e.target.value)} required={tab === 'register' || tab === 'login'}
+                minLength={6} className={inputCls} />
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-gradient-to-r from-[#163268] to-[#1A4A8A] text-[#85B1E0] text-sm font-semibold rounded-lg border border-[rgba(133,177,224,0.15)] hover:from-[#1A4A8A] hover:to-[#1E5AAA] hover:border-[rgba(133,177,224,0.3)] disabled:opacity-50 transition-all shadow-lg shadow-[#0A032E]/30"
-            >
+            <button type="submit" disabled={loading}
+              className="w-full py-2.5 bg-[#7181AC] text-[#F1EFF2] text-sm font-semibold rounded-lg hover:bg-[#7E8DB5] disabled:opacity-50 transition-all shadow-lg shadow-[#1B2238]/30">
               {loading ? '处理中...' : tab === 'login' ? '登 录' : '注 册'}
             </button>
           </form>
 
           {/* Divider */}
           <div className="flex items-center my-5">
-            <div className="flex-1 border-t border-[rgba(133,177,224,0.08)]" />
-            <span className="px-3 text-xs text-[#85B1E0]/30">或者</span>
-            <div className="flex-1 border-t border-[rgba(133,177,224,0.08)]" />
+            <div className="flex-1 border-t border-[rgba(183,172,178,0.1)]" />
+            <span className="px-3 text-xs text-[#B7ACB2]/50">或者</span>
+            <div className="flex-1 border-t border-[rgba(183,172,178,0.1)]" />
           </div>
 
           {/* Guest */}
-          <button
-            onClick={handleGuest}
-            disabled={loading}
-            className="w-full py-2.5 bg-[#0A032E] border border-[rgba(133,177,224,0.15)] text-[#85B1E0]/70 text-sm rounded-lg hover:bg-[#0E0520] hover:text-[#85B1E0] hover:border-[rgba(133,177,224,0.3)] disabled:opacity-50 transition-all"
-          >
+          <button onClick={handleGuest} disabled={loading}
+            className="w-full py-2.5 bg-[#1B2238]/40 border border-[rgba(183,172,178,0.12)] text-[#B7ACB2] text-sm rounded-lg hover:bg-[#1B2238]/60 hover:text-[#F1EFF2] hover:border-[rgba(183,172,178,0.2)] disabled:opacity-50 transition-all backdrop-blur-sm">
             游客试用
           </button>
         </div>

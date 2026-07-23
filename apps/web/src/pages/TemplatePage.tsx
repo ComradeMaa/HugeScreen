@@ -89,32 +89,32 @@ export function TemplatePage() {
     }
   };
 
-  const btnPrimary = "px-4 py-2 bg-gradient-to-r from-[#163268] to-[#1A4A8A] text-[#85B1E0] text-xs font-semibold rounded-lg border border-[rgba(133,177,224,0.15)] hover:from-[#1A4A8A] hover:to-[#1E5AAA] hover:border-[rgba(133,177,224,0.3)] transition-all shadow-lg shadow-[#0A032E]/30";
-  const btnGhost = "px-4 py-2 bg-[#0A032E]/40 border border-[rgba(133,177,224,0.1)] text-[#85B1E0]/60 text-xs rounded-lg hover:bg-[#0A032E]/60 hover:text-[#85B1E0] hover:border-[rgba(133,177,224,0.2)] transition-all";
+  const btnPrimary = "px-4 py-2 bg-gradient-to-r from-[#7181AC] to-[#7E8DB5] text-[#F1EFF2] text-xs font-semibold rounded-lg border border-[rgba(133,177,224,0.15)] hover:from-[#7E8DB5] hover:to-[#1E5AAA] hover:border-[rgba(133,177,224,0.3)] transition-all shadow-lg shadow-[#1B2238]/30";
+  const btnGhost = "px-4 py-2 bg-[#1B2238]/40 border border-[rgba(133,177,224,0.1)] text-[#F1EFF2]/60 text-xs rounded-lg hover:bg-[#1B2238]/60 hover:text-[#F1EFF2] hover:border-[rgba(133,177,224,0.2)] transition-all";
 
   return (
-    <div className="min-h-screen bg-[#0A032E] relative overflow-hidden">
+    <div className="min-h-screen bg-[#1B2238] relative overflow-hidden">
       {/* Ambient glow */}
-      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] rounded-full bg-[#163268]/20 blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] rounded-full bg-[#85B1E0]/5 blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] rounded-full bg-[#7181AC]/20 blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[300px] h-[300px] rounded-full bg-[#F1EFF2]/5 blur-[120px] pointer-events-none" />
 
       <div className="relative z-10">
         {/* Header */}
-        <header className="border-b border-[rgba(133,177,224,0.08)] bg-gradient-to-r from-[#0A032E]/80 to-[#163268]/40 backdrop-blur-xl">
+        <header className="border-b border-[rgba(133,177,224,0.08)] bg-gradient-to-r from-[#1B2238]/80 to-[#7181AC]/40 backdrop-blur-xl">
           <div className="max-w-[1200px] mx-auto px-6 py-3 flex items-center justify-between">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-[#85B1E0] to-[#A3C8F0] bg-clip-text text-transparent tracking-wider">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-[#F1EFF2] to-[#A3C8F0] bg-clip-text text-transparent tracking-wider">
               HugeScreen
             </h1>
             <div className="flex items-center gap-4">
               {!!user?.is_guest && (
                 <button onClick={() => setShowUpgrade(true)}
-                  className="text-xs text-[#85B1E0]/70 hover:text-[#85B1E0] transition-colors">
+                  className="text-xs text-[#F1EFF2]/70 hover:text-[#F1EFF2] transition-colors">
                   升级账号
                 </button>
               )}
-              <span className="text-sm text-[#85B1E0]/60">欢迎, {user?.username}</span>
+              <span className="text-sm text-[#F1EFF2]/60">欢迎, {user?.username}</span>
               <button onClick={logout}
-                className="text-xs text-[#85B1E0]/40 hover:text-[#85B1E0]/70 transition-colors">
+                className="text-xs text-[#F1EFF2]/40 hover:text-[#F1EFF2]/70 transition-colors">
                 退出登录
               </button>
             </div>
@@ -123,10 +123,10 @@ export function TemplatePage() {
 
         {/* Guest banner */}
         {!!user?.is_guest && (
-          <div className="bg-[#163268]/20 border-b border-[rgba(133,177,224,0.06)] px-6 py-2 text-center backdrop-blur-sm">
-            <span className="text-xs text-[#85B1E0]/60">你是游客用户，模板将在关闭浏览器后丢失。</span>
+          <div className="bg-[#7181AC]/20 border-b border-[rgba(133,177,224,0.06)] px-6 py-2 text-center backdrop-blur-sm">
+            <span className="text-xs text-[#F1EFF2]/60">你是游客用户，模板将在关闭浏览器后丢失。</span>
             <button onClick={() => setShowUpgrade(true)}
-              className="ml-2 text-xs text-[#85B1E0] underline hover:no-underline">立即注册</button>
+              className="ml-2 text-xs text-[#F1EFF2] underline hover:no-underline">立即注册</button>
           </div>
         )}
 
@@ -134,18 +134,18 @@ export function TemplatePage() {
         <div className="max-w-[1200px] mx-auto px-6 py-8">
           {/* Search bar + new button */}
           <div className="flex items-center justify-between mb-6 gap-4">
-            <h2 className="text-[#85B1E0]/80 text-base font-medium flex-shrink-0">我的模板</h2>
+            <h2 className="text-[#F1EFF2]/80 text-base font-medium flex-shrink-0">我的模板</h2>
             <div className="flex items-center gap-3 flex-1 max-w-md">
               <input
                 type="text"
                 placeholder="搜索模板名..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-[#0A032E]/50 border border-[rgba(133,177,224,0.1)] rounded-lg px-3 py-2 text-xs text-[#E8E8EC] placeholder-[#85B1E0]/30 focus:outline-none focus:border-[#85B1E0]/40 transition-all backdrop-blur-sm"
+                className="flex-1 bg-[#1B2238]/50 border border-[rgba(133,177,224,0.1)] rounded-lg px-3 py-2 text-xs text-[#E8E8EC] placeholder-[#F1EFF2]/30 focus:outline-none focus:border-[#F1EFF2]/40 transition-all backdrop-blur-sm"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')}
-                  className="text-xs text-[#85B1E0]/50 hover:text-[#85B1E0] transition-colors flex-shrink-0">
+                  className="text-xs text-[#F1EFF2]/50 hover:text-[#F1EFF2] transition-colors flex-shrink-0">
                   清除
                 </button>
               )}
@@ -170,14 +170,14 @@ export function TemplatePage() {
             {!loading && !error && filteredTemplates.length === 0 && searchQuery.trim() && (
               <div className="text-center py-16">
                 <div className="text-4xl mb-3 opacity-20">
-                  <svg className="mx-auto" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#85B1E0" strokeWidth="1.5">
+                  <svg className="mx-auto" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F1EFF2" strokeWidth="1.5">
                     <circle cx="11" cy="11" r="8" />
                     <path d="M21 21l-4.35-4.35" />
                     <line x1="8" y1="11" x2="14" y2="11" />
                   </svg>
                 </div>
-                <p className="text-sm text-[#85B1E0]/60 mb-1">未找到匹配"<span className="text-[#85B1E0]">{searchQuery.trim()}</span>"的模板</p>
-                <p className="text-xs text-[#85B1E0]/30 mb-4">试试其他关键词</p>
+                <p className="text-sm text-[#F1EFF2]/60 mb-1">未找到匹配"<span className="text-[#F1EFF2]">{searchQuery.trim()}</span>"的模板</p>
+                <p className="text-xs text-[#F1EFF2]/30 mb-4">试试其他关键词</p>
                 <button onClick={() => setSearchQuery('')} className={btnGhost}>清除搜索</button>
               </div>
             )}
@@ -185,8 +185,8 @@ export function TemplatePage() {
             {/* Empty (no templates) */}
             {!loading && !error && filteredTemplates.length === 0 && !searchQuery.trim() && (
               <div className="text-center py-16">
-                <div className="text-5xl mb-4 text-[#85B1E0]/10">+</div>
-                <p className="text-sm text-[#85B1E0]/50 mb-4">还没有模板</p>
+                <div className="text-5xl mb-4 text-[#F1EFF2]/10">+</div>
+                <p className="text-sm text-[#F1EFF2]/50 mb-4">还没有模板</p>
                 <button onClick={() => setShowNew(true)} className={btnPrimary}>
                   新建第一个模板
                 </button>

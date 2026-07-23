@@ -33,12 +33,12 @@ export function PublishSuccessDialog({ open, url, onClose }: PublishSuccessDialo
           transition={{ duration: 0.15 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <motion.div className="absolute inset-0 bg-[#0A032E]/70 backdrop-blur-[2px]"
+          <motion.div className="absolute inset-0 bg-[#1B2238]/70 backdrop-blur-[2px]"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose} />
 
           <motion.div
-            className="relative bg-gradient-to-b from-[#163268]/90 to-[#163268]/50 border border-[rgba(133,177,224,0.12)] rounded-2xl p-6 w-[420px] shadow-2xl shadow-[#0A032E]/60 backdrop-blur-xl"
+            className="relative bg-gradient-to-b from-[#7181AC]/90 to-[#7181AC]/50 border border-[rgba(183,172,178,0.12)] rounded-2xl p-6 w-[420px] shadow-2xl shadow-[#1B2238]/60 backdrop-blur-xl"
             initial={{ scale: 0.92, opacity: 0, y: 12 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.92, opacity: 0, y: 12 }}
@@ -53,23 +53,23 @@ export function PublishSuccessDialog({ open, url, onClose }: PublishSuccessDialo
               <h3 className="text-[#E8E8EC] text-base font-semibold">发布成功</h3>
             </div>
 
-            <div className="bg-[#0A032E]/60 border border-[rgba(133,177,224,0.1)] rounded-lg px-3 py-2.5 mb-4 flex items-center justify-between backdrop-blur-sm">
-              <span className="text-xs text-[#85B1E0] font-mono truncate flex-1 select-all">{url}</span>
+            <div className="bg-[#1B2238]/60 border border-[rgba(183,172,178,0.1)] rounded-lg px-3 py-2.5 mb-4 flex items-center justify-between backdrop-blur-sm">
+              <span className="text-xs text-[#F1EFF2] font-mono truncate flex-1 select-all">{url}</span>
               <button onClick={handleCopy}
                 className={`ml-2 px-3 py-1 text-xs rounded-lg transition-all flex-shrink-0 ${
                   copied
                     ? 'bg-[#34d399]/15 text-[#34d399] border border-[#34d399]/20'
-                    : 'bg-gradient-to-r from-[#163268] to-[#1A4A8A] text-[#85B1E0] border border-[rgba(133,177,224,0.15)] hover:from-[#1A4A8A]'
+                    : 'bg-gradient-to-r from-[#7181AC] to-[#7E8DB5] text-[#F1EFF2] border border-[rgba(183,172,178,0.15)] hover:from-[#7E8DB5]'
                 }`}>
                 {copied ? '已复制' : '复制链接'}
               </button>
             </div>
 
-            <p className="text-[11px] text-[#85B1E0]/40 text-center">将此链接分享给其他人即可查看大屏</p>
+            <p className="text-[11px] text-[#F1EFF2]/40 text-center">将此链接分享给其他人即可查看大屏</p>
 
             <div className="flex justify-center mt-4">
               <button onClick={onClose}
-                className="px-4 py-2 text-xs text-[#85B1E0]/50 hover:text-[#85B1E0] transition-colors">关闭</button>
+                className="px-4 py-2 text-xs text-[#F1EFF2]/50 hover:text-[#F1EFF2] transition-colors">关闭</button>
             </div>
           </motion.div>
         </motion.div>
