@@ -10,15 +10,12 @@ import type {
   CustomComponentDef,
   DataSourceConfig,
 } from '@hugescreen/shared';
-import {
-  DEFAULT_THEME,
-  DEFAULT_CANVAS,
-} from '@hugescreen/shared';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import { registerCustomComponent, unregisterCustomComponent } from '@hugescreen/widgets/composite';
 import { generateId } from '../utils/id';
-import { DEFAULT_SLOTS, DEFAULT_GRID as LAYOUT_GRID, findSlotAt, type ScreenSlot } from './defaultLayout';
+import { DEFAULT_GRID as LAYOUT_GRID, findSlotAt, type ScreenSlot } from './defaultLayout';
+import defaultScreenConfig from './defaultScreenConfig.json';
 
 export type Breakpoint = 'desktop' | 'tablet' | 'mobile';
 
@@ -309,25 +306,11 @@ function createDefaultHeader(): { slots: HeaderSlotConfig[] } {
 }
 
 function createInitialConfig(): ScreenConfig {
-  const initialSlots = DEFAULT_SLOTS;
-  return {
-    id: generateId(),
-    name: '默认大屏',
-    version: '1.0',
-    canvas: { ...DEFAULT_CANVAS },
-    grid: { ...DEFAULT_GRID },
-    header: createDefaultHeader(),
-    responsive: {
-      desktop: { grid: { cols: 8, rows: 7, gap: 8 }, widgetLayouts: {}, hiddenWidgets: [] },
-      tablet: { grid: { cols: 4, rows: 7, gap: 6 }, widgetLayouts: {}, hiddenWidgets: [] },
-      mobile: { grid: { cols: 1, rows: 6, gap: 4 }, widgetLayouts: {}, hiddenWidgets: [] },
-    },
-    widgets: createDefaultWidgets(initialSlots),
-    theme: { ...DEFAULT_THEME },
-    backgroundPattern: 'none',
-    backgroundEffect: 'energy-flow',
-    customComponents: [],
-  };
+  // 使用项目默认配置 JSON，确保首次打开即展示预设的大屏布局
+  const config = defaultScreenConfig as ScreenConfig;
+  // 注册默认配置中的自定义组合组件
+  registerCustomComponents(config);
+  return config;
 }
 
 /** 遍历 config.customComponents，把自定义组合组件重新注册到组件池（加载/setConfig 时调用） */

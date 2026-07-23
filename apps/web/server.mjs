@@ -23,6 +23,7 @@
  */
 
 import express from 'express';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,6 +80,27 @@ const app = express();
 
 // Body 解析
 app.use(express.json({ limit: '5mb' }));
+
+// ─── API 代理（与 Vite 开发代理保持一致）───
+// DataV GeoJSON API — 去掉 Referer 绕过访问校验
+app.use('/geodata', createProxyMiddleware({
+  target: 'https://geo.datav.aliyun.com',
+  changeOrigin: true,
+  pathRewrite: { '^/geodata': '' },
+  on: {
+    proxyReq: (proxyReq) => {
+      proxyReq.removeHeader('Referer');
+      proxyReq.removeHeader('Origin');
+    },
+  },
+}));
+
+// OSM Overpass API
+app.use('/overpass', createProxyMiddleware({
+  target: 'https://overpass-api.de',
+  changeOrigin: true,
+  pathRewrite: { '^/overpass': '' },
+}));
 
 // ─── 静态文件 ───
 const hasDist = existsSync(DIST_DIR);
