@@ -1,22 +1,28 @@
 import { useEffect, useCallback, useRef, useState, Suspense, lazy } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEditorStore } from '../store/editorStore';
 import { ScreenCanvas } from '../components/ScreenCanvas';
 import { EditorOverlay } from '../components/EditorOverlay';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { apiFetch } from '../utils/api';
 
 const CyberGlobe = lazy(() => import('../components/CyberGlobe').then(m => ({ default: m.CyberGlobe })));
 
 /**
  * 主屏幕
  * 默认展示态（全屏数据展示），Ctrl+E 切换编辑器浮层。
+ * URL 含 templateId 时进入模板模式（API 存取），否则走 localStorage。
  */
 export function MainScreen() {
+  const { templateId } = useParams();
+  const navigate = useNavigate();
   const {
     config,
     isEditorVisible,
     showEditor,
     hideEditor,
     loadConfig,
+    setCurrentTemplateId,
     backgroundPattern,
   } = useEditorStore();
 
@@ -27,14 +33,27 @@ export function MainScreen() {
   const [scale, setScale] = useState(1);
   const [viewportW, setViewportW] = useState(0);
   const [viewportH, setViewportH] = useState(0);
-
-  // 启动时加载本地配置
+  // 模板模式：从 API 加载配置；普通模式：localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('hugescreen-config');
-    if (saved) {
-      try { loadConfig(saved); } catch { /* use default */ }
+    if (templateId) {
+      setCurrentTemplateId(templateId);
+      (async () => {
+        try {
+          const res = await apiFetch(`/api/templates/${templateId}`);
+          if (res.ok) {
+            const tpl = await res.json();
+            loadConfig(JSON.stringify(tpl.config));
+          }
+        } catch { /* ignore */ }
+      })();
+      return () => { setCurrentTemplateId(null); };
+    } else {
+      const saved = localStorage.getItem('hugescreen-config');
+      if (saved) {
+        try { loadConfig(saved); } catch { /* use default */ }
+      }
     }
-  }, [loadConfig]);
+  }, [templateId, loadConfig, setCurrentTemplateId]);
 
   // 跟踪容器尺寸（用于背景地球-2 视口级渲染）
   useEffect(() => {
@@ -152,6 +171,18 @@ export function MainScreen() {
       {/* 编辑器浮层 */}
       <EditorOverlay />
 
+      {/* 模板模式：返回按钮 */}
+      {templateId && (
+        <div className="absolute top-3 left-3 z-[100]">
+          <button
+            onClick={() => navigate('/templates')}
+            className="text-xs text-[#9E9EA8] hover:text-[#E8E8EC] bg-[#363640]/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-[rgba(255,255,255,0.06)] transition-colors"
+          >
+            ← 返回模板
+          </button>
+        </div>
+      )}
+
       {/* 展示态提示：底部居中 Ctrl+E */}
       {!isEditorVisible && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none">
@@ -161,12 +192,6 @@ export function MainScreen() {
         </div>
       )}
 
-      {/* DEBUG: 断点指示器 */}
-      <div className="absolute top-2 right-2 z-[999] pointer-events-none">
-        <span className="text-[10px] font-mono bg-black/70 text-accent-cool px-2 py-1 rounded">
-          {scaleMode} | H:{effectiveCanvasH} | S:{scale.toFixed(3)} | W:{config.widgets.length}
-        </span>
-      </div>
 
       {/* 编辑态：底部提示 */}
       {isEditorVisible && (

@@ -2,6 +2,7 @@
  * HugeScreen 一体化生产服务器
  *
  * 静态文件 + REST API 一体，单进程运行。
+ * 存储：SQLite (hugescreen.db)
  *
  * 部署方式：
  *   1. node server.mjs                      ← 直接运行
@@ -14,43 +15,45 @@
  *   GET  /viewer           展示器 SPA (Query: ?id=xxx)
  *
  * API：
- *   POST   /api/view       保存配置 → {"id":"8abc","url":"/viewer?id=8abc"}
- *   GET    /api/view/:id   获取配置
- *   DELETE /api/view/:id   删除配置
- *   GET    /api/views      列出所有配置
- *
- * 存储：内存 + 文件持久化 (views.json)
+ *   POST   /api/auth/register|login|guest  认证
+ *   GET    /api/auth/me                    当前用户
+ *   POST   /api/auth/upgrade               游客升级
+ *   GET    /api/templates                  列出模板
+ *   POST   /api/templates                  新建模板
+ *   GET    /api/templates/:id              获取模板
+ *   PUT    /api/templates/:id              更新模板
+ *   DELETE /api/templates/:id              删除模板
+ *   POST   /api/view                       发布配置
+ *   GET    /api/view/:id                   获取配置
+ *   DELETE /api/view/:id                   删除配置
+ *   GET    /api/views                      列出发布
  */
 
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import { initTables } from './db/init.mjs';
+import { migrateViewsJson } from './db/migrate.mjs';
+import { getDb, closeDb } from './db/connection.mjs';
+import { startCleanupScheduler } from './db/cleanup.mjs';
+import authRouter from './routes/auth.mjs';
+import templatesRouter from './routes/templates.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_FILE = join(__dirname, 'views.json');
 const DIST_DIR = join(__dirname, 'dist');
 const PORT = process.env.PORT || 3001;
 
-// ─── 持久化 ───
-/** @type {Map<string, {id:string, name:string, createdAt:string, config:object}>} */
-let views = new Map();
+// ─── 初始化 SQLite ───
+initTables();
+migrateViewsJson();
+startCleanupScheduler();
 
-if (existsSync(DATA_FILE)) {
-  try {
-    const entries = JSON.parse(readFileSync(DATA_FILE, 'utf-8'));
-    views = new Map(entries);
-    console.log(`[server] 加载了 ${views.size} 个大屏配置`);
-  } catch { /* ignore corrupt file */ }
-}
-
-function save() {
-  writeFileSync(DATA_FILE, JSON.stringify([...views]), 'utf-8');
-}
-
-// ─── 工具 ───
+// ─── 持久化辅助 ───
+/** 8-char nanoid */
 function nanoid(len = 8) {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let id = '';
@@ -102,6 +105,10 @@ app.use('/overpass', createProxyMiddleware({
   pathRewrite: { '^/overpass': '' },
 }));
 
+// ─── API 路由 ───
+app.use('/api/auth', authRouter);
+app.use('/api/templates', templatesRouter);
+
 // ─── 静态文件 ───
 const hasDist = existsSync(DIST_DIR);
 if (hasDist) {
@@ -150,58 +157,86 @@ app.get('/viewer', (_, res) => {
 });
 
 // ─── API ───
+import { requireAuth, optionalAuth } from './middleware/auth.mjs';
 
 // POST /api/view — 保存配置（快照固化，每次生成新 ID）
-app.post('/api/view', (req, res) => {
+app.post('/api/view', requireAuth, (req, res) => {
   try {
     const config = req.body;
     if (!config || typeof config !== 'object') {
       return res.status(400).json({ error: '请求体必须是 JSON 对象' });
     }
     const id = nanoid();
-    const entry = {
-      id,
-      name: config.name || '未命名',
-      createdAt: new Date().toISOString(),
-      config,
-    };
-    views.set(id, entry);
-    save();
-    console.log(`[server] 保存配置: ${id} (${entry.name})`);
+    const db = getDb();
+    db.prepare(
+      'INSERT INTO published_views (id, user_id, name, config) VALUES (?, ?, ?, ?)'
+    ).run(id, req.user.id, config.name || '未命名', JSON.stringify(config));
+    console.log(`[server] 发布配置: ${id} (${config.name})`);
     res.json({ id, url: `/viewer?id=${id}` });
-  } catch {
+  } catch (e) {
+    console.error('[server] publish error:', e.message);
     res.status(400).json({ error: '无效的 JSON' });
   }
 });
 
-// GET /api/view/:id — 获取单个配置
+// GET /api/view/:id — 获取单个配置（公开）
 app.get('/api/view/:id', (req, res) => {
-  const entry = views.get(req.params.id);
-  if (!entry) {
-    return res.status(404).json({ error: `配置 ${req.params.id} 不存在` });
+  try {
+    const db = getDb();
+    const row = db.prepare('SELECT config FROM published_views WHERE id = ?').get(req.params.id);
+    if (!row) {
+      return res.status(404).json({ error: `配置 ${req.params.id} 不存在` });
+    }
+    res.json(JSON.parse(row.config));
+  } catch (e) {
+    res.status(500).json({ error: '获取配置失败' });
   }
-  res.json(entry.config);
 });
 
 // DELETE /api/view/:id — 删除配置
-app.delete('/api/view/:id', (req, res) => {
-  const entry = views.get(req.params.id);
-  if (!entry) {
-    return res.status(404).json({ error: `配置 ${req.params.id} 不存在` });
+app.delete('/api/view/:id', requireAuth, (req, res) => {
+  try {
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM published_views WHERE id = ?').get(req.params.id);
+    if (!row) {
+      return res.status(404).json({ error: `配置 ${req.params.id} 不存在` });
+    }
+    db.prepare('DELETE FROM published_views WHERE id = ?').run(req.params.id);
+    console.log(`[server] 删除配置: ${req.params.id} (${JSON.parse(row.config).name})`);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: '删除失败' });
   }
-  views.delete(req.params.id);
-  save();
-  console.log(`[server] 删除配置: ${req.params.id} (${entry.name})`);
-  res.json({ ok: true });
 });
 
 // GET /api/views — 列出所有配置
-app.get('/api/views', (_, res) => {
-  const list = [...views.values()]
-    .map(({ id, name, createdAt }) => ({ id, name, createdAt }))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt)); // 最新的在前
-  res.json(list);
+app.get('/api/views', (_req, res) => {
+  try {
+    const db = getDb();
+    const rows = db.prepare(
+      'SELECT id, name, created_at FROM published_views ORDER BY created_at DESC'
+    ).all();
+    res.json(rows.map(r => ({ id: r.id, name: r.name, createdAt: r.created_at })));
+  } catch (e) {
+    res.status(500).json({ error: '获取列表失败' });
+  }
 });
+
+// ─── SPA fallback — 所有非 API/静态文件 GET 请求均返回 index.html ───
+app.get('*', (req, res, next) => {
+  // 跳过 API 和已处理的路由
+  if (req.path.startsWith('/api/')) return next();
+  if (req.path === '/viewer' || req.path === '/viewer.html') return next();
+  if (hasDist) {
+    res.sendFile(join(DIST_DIR, 'index.html'));
+  } else {
+    next();
+  }
+});
+
+// ─── 优雅关闭 ───
+process.on('SIGINT', () => { closeDb(); process.exit(0); });
+process.on('SIGTERM', () => { closeDb(); process.exit(0); });
 
 // ─── 启动 ───
 app.listen(PORT, () => {
@@ -227,6 +262,5 @@ app.listen(PORT, () => {
   console.log(`     http://localhost:${PORT}/viewer?id=<配置ID>`);
   console.log('');
   console.log(`   API: http://localhost:${PORT}/api/`);
-  console.log(`   已存储配置: ${views.size} 个`);
   console.log('');
 });

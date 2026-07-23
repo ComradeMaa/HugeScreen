@@ -96,7 +96,11 @@ interface EditorState {
   pinEditWidgetId: string | null;
   setPinEditWidgetId: (id: string | null) => void;
 
-  saveConfig: () => string;
+  // ─── 模板模式 ───
+  currentTemplateId: string | null;
+  setCurrentTemplateId: (id: string | null) => void;
+
+  saveConfig: () => string | Promise<string>;
   loadConfig: (json: string) => void;
   exportConfig: () => void;
   importConfig: () => void;
@@ -335,6 +339,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   backgroundEffect: 'energy-flow',
   compositeSlotEdit: null,
   pinEditWidgetId: null,
+  currentTemplateId: null,
 
   setConfig: (config: ScreenConfig) => {
     registerCustomComponents(config);
@@ -704,9 +709,25 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     }));
   },
 
+  setCurrentTemplateId: (id) => set({ currentTemplateId: id }),
+
   saveConfig: () => {
-    const config = get().config;
+    const state = get();
+    const config = state.config;
     const json = JSON.stringify(config, null, 2);
+
+    // 模板模式：保存到 API
+    if (state.currentTemplateId) {
+      const token = localStorage.getItem('hugescreen-token');
+      fetch(`/api/templates/${state.currentTemplateId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ config }),
+      }).catch(() => {});
+      return json;
+    }
+
+    // 普通模式：localStorage
     localStorage.setItem('hugescreen-config', json);
     return json;
   },

@@ -13,3 +13,5 @@ test-results/
 out/
 *.tsbuildinfo
 samples/
+apps/web/hugescreen.db*
+apps/web/views.json.migrated
