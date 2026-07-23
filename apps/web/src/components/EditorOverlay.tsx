@@ -322,10 +322,6 @@ function ToolbarActions() {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [showPublishedList, setShowPublishedList] = useState(false);
-  const [publishedList, setPublishedList] = useState<{ id: string; name: string; createdAt: string }[]>([]);
-  const [listLoading, setListLoading] = useState(false);
-
   // 构建绝对 URL
   const fullUrl = publishedUrl
     ? `${window.location.origin}${publishedUrl}`
@@ -351,9 +347,13 @@ function ToolbarActions() {
     setPublishStatus('publishing');
     setQrDataUrl(null);
     try {
+      const token = localStorage.getItem('hugescreen-token');
       const res = await fetch('/api/view', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(config),
       });
       if (!res.ok) {
@@ -367,27 +367,6 @@ function ToolbarActions() {
       setPublishStatus('error');
       setPublishError(e instanceof Error ? e.message : String(e));
     }
-  };
-
-  const loadPublishedList = async () => {
-    setListLoading(true);
-    try {
-      const res = await fetch('/api/views');
-      if (res.ok) {
-        const list = await res.json();
-        setPublishedList(list);
-      }
-    } catch { /* ignore */ }
-    setListLoading(false);
-  };
-
-  const handleDeletePublished = async (id: string) => {
-    try {
-      const res = await fetch(`/api/view/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setPublishedList(prev => prev.filter(item => item.id !== id));
-      }
-    } catch { /* ignore */ }
   };
 
   const handleCopyUrl = async () => {
@@ -505,62 +484,6 @@ function ToolbarActions() {
             : '发布大屏'}
       </button>
 
-      {/* 已发布列表 */}
-      <div className="border-t border-[rgba(255,255,255,0.04)] pt-1.5">
-        <button
-          onClick={() => {
-            const next = !showPublishedList;
-            setShowPublishedList(next);
-            if (next) loadPublishedList();
-          }}
-          className="flex items-center gap-1 text-[10px] font-semibold text-textSecondary/50 uppercase tracking-wider hover:text-textSecondary/70 transition-colors w-full text-left"
-        >
-          <ChevronDown size={12} className={`transition-transform ${showPublishedList ? 'rotate-0' : '-rotate-90'}`} />
-          已发布大屏
-        </button>
-        {showPublishedList && (
-          <div className="mt-1.5 max-h-40 overflow-y-auto">
-            {listLoading ? (
-              <div className="text-[10px] text-textSecondary/30 px-1 py-2">加载中...</div>
-            ) : publishedList.length === 0 ? (
-              <div className="text-[10px] text-textSecondary/30 px-1 py-2">暂无发布记录</div>
-            ) : (
-              publishedList.map(item => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-1.5 px-1.5 py-1.5 rounded hover:bg-surface-hover/50 group transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-textSecondary truncate">{item.name}</div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[9px] text-textSecondary/30 font-mono">{item.id}</span>
-                      <span className="text-[9px] text-textSecondary/20">
-                        {new Date(item.createdAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      window.open(`/viewer?id=${item.id}`, '_blank');
-                    }}
-                    className="text-[9px] text-accent-cool/50 hover:text-accent-cool opacity-0 group-hover:opacity-100 transition-all px-1"
-                    title="在新标签页打开"
-                  >
-                    查看
-                  </button>
-                  <button
-                    onClick={() => handleDeletePublished(item.id)}
-                    className="text-textSecondary/20 hover:text-negative/60 opacity-0 group-hover:opacity-100 transition-all"
-                    title="删除"
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEditorStore } from '../store/editorStore';
 import { ScreenCanvas } from '../components/ScreenCanvas';
 import { EditorOverlay } from '../components/EditorOverlay';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { apiFetch } from '../utils/api';
 
@@ -33,6 +34,33 @@ export function MainScreen() {
   const [scale, setScale] = useState(1);
   const [viewportW, setViewportW] = useState(0);
   const [viewportH, setViewportH] = useState(0);
+  const [showUnsaved, setShowUnsaved] = useState(false);
+  const dirtyRef = useRef(false);
+
+  // 模板模式：追踪是否有未保存修改
+  useEffect(() => {
+    if (!templateId) return;
+    dirtyRef.current = false;
+    const unsub = useEditorStore.subscribe(() => {
+      dirtyRef.current = true;
+    });
+    return unsub;
+  }, [templateId]);
+
+  const handleBack = () => {
+    if (dirtyRef.current) {
+      setShowUnsaved(true);
+    } else {
+      navigate('/templates');
+    }
+  };
+
+  const handleSaveAndExit = () => {
+    useEditorStore.getState().saveConfig();
+    setShowUnsaved(false);
+    navigate('/templates');
+  };
+
   // 模板模式：从 API 加载配置；普通模式：localStorage
   useEffect(() => {
     if (templateId) {
@@ -175,7 +203,7 @@ export function MainScreen() {
       {templateId && (
         <div className="absolute top-3 left-3 z-[100]">
           <button
-            onClick={() => navigate('/templates')}
+            onClick={handleBack}
             className="text-xs text-[#9E9EA8] hover:text-[#E8E8EC] bg-[#363640]/80 backdrop-blur-sm px-3 py-1.5 rounded-full border border-[rgba(255,255,255,0.06)] transition-colors"
           >
             ← 返回模板
@@ -201,6 +229,17 @@ export function MainScreen() {
           </span>
         </div>
       )}
+
+      {/* 未保存提醒 */}
+      <ConfirmDialog
+        open={showUnsaved}
+        title="未保存的修改"
+        message="当前模板有未保存的修改，是否保存后再退出？"
+        confirmLabel="保存并退出"
+        cancelLabel="直接退出"
+        onConfirm={handleSaveAndExit}
+        onCancel={() => { setShowUnsaved(false); navigate('/templates'); }}
+      />
     </div>
   );
 }
