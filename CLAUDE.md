@@ -223,62 +223,112 @@ ECharts Three.js       CSS/Canvas
 **发布后的配置不可原地修改** — 需修改则重新发布，生成新 ID 和新 URL，旧 URL 保持不变。
 
 ```
-编辑器（各用户独立）        服务器              展示端（只读）
+编辑器（各用户独立）        服务器               展示端（只读）
 ───────────────────       ──────              ─────────────
-用户 A 编辑 → 发布 ──→  views.json ──→  /viewer?id=aaa (永不变)
-用户 B 编辑 → 发布 ──→  views.json ──→  /viewer?id=bbb (永不变)
-用户 A 修改 → 重新发布 ──→  views.json ──→  /viewer?id=ccc (新版本)
+用户 A 编辑 → 发布 ──→  SQLite ──→  /viewer?id=aaa (永不变)
+用户 B 编辑 → 发布 ──→  SQLite ──→  /viewer?id=bbb (永不变)
+用户 A 修改 → 重新发布 ──→  SQLite ──→  /viewer?id=ccc (新版本)
 ```
 
-### 部署架构
+### 服务器部署架构
+
+**⚠️ 关键：部署在服务器 `/home/ubuntu/hugescreen/` 根目录，不是本地 `apps/web/` 子目录。**
+
+PM2 以 `/home/ubuntu/hugescreen/` 为工作目录运行 `server.mjs`，所有路径均相对于此目录。
 
 ```
-企业内部服务器
-┌────────────────────────────────────────────┐
-│  server.mjs (Express)                       │
-│                                             │
-│  静态文件: dist/                             │
-│    index.html  → 编辑器 SPA                  │
-│    viewer.html → 展示器 SPA                  │
-│                                             │
-│  API:                                       │
-│    POST   /api/view      保存配置 ( → 快照)   │
-│    GET    /api/view/:id  获取配置             │
-│    DELETE /api/view/:id  删除配置             │
-│    GET    /api/views     列出所有配置          │
-│                                             │
-│  存储: views.json (文件持久化)                 │
-└────────────────┬───────────────────────────┘
-                 │ 内网 HTTP
-    ┌────────────┼────────────┐
-    ▼            ▼            ▼
- 编辑工作站    大屏电视     平板/手机
- (拖拽编辑)   (全屏展示)    (移动查看)
+服务器: 221.131.69.161:55906 (SSH: 221.131.69.161:60222)
+PM2 进程: hugescreen (fork mode, /home/ubuntu/hugescreen/server.mjs)
+
+/home/ubuntu/hugescreen/
+├── server.mjs              # Express 一体化服务器（PM2 入口）
+├── package.json            # 运行时依赖（从 package.server.json 复制）
+├── hugescreen.db           # SQLite 数据库（本地文件，零网络依赖）
+│
+├── dist/                   # Vite 构建产物 — 静态文件
+│   ├── index.html          #   编辑器 SPA 入口
+│   ├── viewer.html         #   展示器 SPA 入口
+│   └── assets/             #   JS/CSS 分块产物
+│
+├── db/                     # 数据库层
+│   ├── connection.mjs      #   SQLite 单例（better-sqlite3, WAL 模式）
+│   ├── init.mjs            #   CREATE TABLE IF NOT EXISTS
+│   ├── migrate.mjs         #   views.json → SQLite 一次性迁移
+│   └── cleanup.mjs         #   游客定时清理（5min TTL, 2min 扫描间隔）
+│
+├── middleware/
+│   └── auth.mjs            #   JWT 认证中间件（requireAuth / optionalAuth）
+│
+├── routes/
+│   ├── auth.mjs            #   注册 / 登录 / 游客 / 升级
+│   └── templates.mjs       #   模板 CRUD
+│
+└── views.json.migrated     # 旧数据迁移后的备份（已废弃，不再使用）
 ```
 
-### 使用流程
+### API 路由
 
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| POST | /api/auth/register | 无 | 注册，返回 JWT |
+| POST | /api/auth/login | 无 | 登录，返回 JWT |
+| POST | /api/auth/guest | 无 | 游客登录，返回 JWT |
+| GET | /api/auth/me | requireAuth | 验证 token，返回用户信息 |
+| POST | /api/auth/upgrade | requireAuth | 游客升级，迁移数据 |
+| GET | /api/templates | requireAuth | 列出用户的模板（不含 config） |
+| POST | /api/templates | requireAuth | 新建模板 |
+| GET | /api/templates/:id | requireAuth | 获取模板（含 config） |
+| PUT | /api/templates/:id | requireAuth | 更新模板 |
+| DELETE | /api/templates/:id | requireAuth | 删除模板 |
+| POST | /api/view | requireAuth | 发布配置（关联用户） |
+| GET | /api/view/:id | 无 | 获取已发布配置（公开） |
+| DELETE | /api/view/:id | requireAuth | 删除已发布配置 |
+| GET | /api/views | optionalAuth | 列出已发布配置 |
+| GET | /geodata/* | 无 | DataV API 代理（geo.datav.aliyun.com） |
+| GET | /overpass/* | 无 | OpenStreetMap Overpass API 代理 |
+
+### 部署流程
+
+```bash
+# 1. 本地构建
+cd apps/web && npx vite build    # 产出 dist/
+
+# 2. 上传到服务器（注意目标路径是 /home/ubuntu/hugescreen/，不是 apps/web/）
+scp -r dist/ ubuntu@server:/home/ubuntu/hugescreen/
+scp server.mjs ubuntu@server:/home/ubuntu/hugescreen/
+scp -r db/ middleware/ routes/ ubuntu@server:/home/ubuntu/hugescreen/
+scp package.server.json ubuntu@server:/home/ubuntu/hugescreen/
+
+# 3. 服务器上
+cd /home/ubuntu/hugescreen
+cp package.server.json package.json
+npm install --omit=dev          # 仅运行时依赖
+npx pm2 restart hugescreen      # 重启进程
 ```
-1. 一次性部署：pnpm build → 上传 dist/ + server.mjs → node server.mjs
-   服务器启动后打印可访问 URL，此后无需再上传文件。
 
-2. 日常使用：
-   编辑 — 浏览器打开服务器地址，Ctrl+E 编辑，拖拽设计大屏
-   发布 — 点击「发布大屏」，复制返回的 URL
-   展示 — 任意设备浏览器打开 URL，全屏只读渲染
-
-3. 修改内容：
-   打开编辑器 → 调整 → 重新点击「发布」→ 生成新 ID 和新 URL
-   旧 URL 继续可用（已部署的展示端不受影响）
-```
+**⚠️ 常见错误：不要把文件传到 `/home/ubuntu/hugescreen/apps/web/`。**
+PM2 进程工作目录是 `/home/ubuntu/hugescreen/`（根层级），所有 `__dirname` 引用均相对于根层级解析。传到 `apps/web/` 子目录的文件不会被服务器加载。
 
 ### server.mjs 设计
 
-- 框架：Express（零额外中间件依赖）
-- 端口：3001（`PORT` 环境变量可覆盖）
-- 静态文件：`express.static('dist')` + SPA fallback
-- 存储：内存 Map + `views.json` 文件双写
+- 框架：Express 4，零额外中间件依赖
+- 端口：55906（`PORT` 环境变量可覆盖）
+- 静态文件：`express.static('dist')` + SPA fallback（`/login`、`/templates`、`/editor/*` 路由回退到 `index.html`）
+- 存储：SQLite（`better-sqlite3`），本地文件 `hugescreen.db`，WAL 模式，外键约束
+- 认证：JWT（`jsonwebtoken`），密码哈希（`bcryptjs`），24h 过期
+- 游客清理：每 2 分钟扫描，5 分钟不活跃自动删除，同 IP 限流 5 次/小时
+- 进程管理：PM2 fork mode，开机自启
 - URL 格式：`/viewer?id=xxx`（clean URL）
+
+### 本地开发 vs 服务器
+
+| | 本地开发 | 服务器生产 |
+|------|------|------|
+| 服务器根目录 | `apps/web/` | `/home/ubuntu/hugescreen/` |
+| 端口 | 3000 (Vite) + 3001 (API) | 55906 (单一 Express) |
+| 启动命令 | `pnpm dev` | `npx pm2 restart hugescreen` |
+| 数据库文件 | `apps/web/hugescreen.db` | `/home/ubuntu/hugescreen/hugescreen.db` |
+| Node 版本 | — | 22.22.0 |
 
 ## 开发阶段
 
@@ -308,7 +358,8 @@ pnpm dev              # 启动 Vite 开发服务器 (:3000) + API 服务器 (:30
 pnpm dev:desktop      # 启动 Electron 开发
 
 # 构建与部署
-pnpm build            # 构建 Web 生产版本 (dist/)
+pnpm build            # 构建 Web 生产版本（⚠️ tsc 有预存错误，会失败）
+npx vite build        # 跳过 tsc 直接构建 (cd apps/web && npx vite build)
 pnpm serve            # 启动生产服务器 (Express, :3001)
 pnpm build:desktop    # 打包 Electron 应用
 
@@ -317,3 +368,5 @@ pnpm test             # 运行 Vitest 单元测试
 pnpm test:e2e         # 运行 Playwright E2E 测试
 pnpm lint             # ESLint + Prettier 检查
 ```
+
+**注意：** `pnpm build`（即 `tsc && vite build`）目前因 TypeScript 类型错误（three.js 声明文件缺失、隐式 any 等预存问题）会失败。部署时使用 `npx vite build` 直接构建即可。

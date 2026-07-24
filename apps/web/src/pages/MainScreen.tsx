@@ -35,31 +35,7 @@ export function MainScreen() {
   const [viewportW, setViewportW] = useState(0);
   const [viewportH, setViewportH] = useState(0);
   const [showUnsaved, setShowUnsaved] = useState(false);
-  const dirtyRef = useRef(false);
-
-  // 模板模式：追踪是否有未保存修改
-  useEffect(() => {
-    if (!templateId) return;
-    dirtyRef.current = false;
-    const unsub = useEditorStore.subscribe(() => {
-      dirtyRef.current = true;
-    });
-    return unsub;
-  }, [templateId]);
-
-  const handleBack = () => {
-    if (dirtyRef.current) {
-      setShowUnsaved(true);
-    } else {
-      navigate('/templates');
-    }
-  };
-
-  const handleSaveAndExit = () => {
-    useEditorStore.getState().saveConfig();
-    setShowUnsaved(false);
-    navigate('/templates');
-  };
+  const savedSnapshotRef = useRef('');
 
   // 模板模式：从 API 加载配置；普通模式：localStorage
   useEffect(() => {
@@ -73,6 +49,8 @@ export function MainScreen() {
             loadConfig(JSON.stringify(tpl.config));
           }
         } catch { /* ignore */ }
+        // 记录初始快照，用于后续判断是否有未保存修改
+        savedSnapshotRef.current = JSON.stringify(useEditorStore.getState().config);
       })();
       return () => { setCurrentTemplateId(null); };
     } else {
@@ -82,6 +60,22 @@ export function MainScreen() {
       }
     }
   }, [templateId, loadConfig, setCurrentTemplateId]);
+
+  const handleBack = () => {
+    const current = JSON.stringify(useEditorStore.getState().config);
+    if (current !== savedSnapshotRef.current) {
+      setShowUnsaved(true);
+    } else {
+      navigate('/templates');
+    }
+  };
+
+  const handleSaveAndExit = () => {
+    useEditorStore.getState().saveConfig();
+    savedSnapshotRef.current = JSON.stringify(useEditorStore.getState().config);
+    setShowUnsaved(false);
+    navigate('/templates');
+  };
 
   // 跟踪容器尺寸（用于背景地球-2 视口级渲染）
   useEffect(() => {
