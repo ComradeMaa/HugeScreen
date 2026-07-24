@@ -99,6 +99,8 @@ interface EditorState {
   // ─── 模板模式 ───
   currentTemplateId: string | null;
   setCurrentTemplateId: (id: string | null) => void;
+  lastSavedConfig: string;  // 最近一次保存时的配置快照，供未保存检测用
+  markConfigSaved: () => void;
 
   saveConfig: () => string | Promise<string>;
   loadConfig: (json: string) => void;
@@ -340,6 +342,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   compositeSlotEdit: null,
   pinEditWidgetId: null,
   currentTemplateId: null,
+  lastSavedConfig: '',
+  markConfigSaved: () => set({ lastSavedConfig: JSON.stringify(get().config) }),
 
   setConfig: (config: ScreenConfig) => {
     registerCustomComponents(config);
@@ -715,6 +719,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const state = get();
     const config = state.config;
     const json = JSON.stringify(config, null, 2);
+
+    // 记录保存快照（无论哪种模式），供未保存检测用
+    set({ lastSavedConfig: JSON.stringify(config) });
 
     // 模板模式：保存到 API
     if (state.currentTemplateId) {

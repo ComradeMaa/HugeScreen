@@ -35,7 +35,7 @@ export function MainScreen() {
   const [viewportW, setViewportW] = useState(0);
   const [viewportH, setViewportH] = useState(0);
   const [showUnsaved, setShowUnsaved] = useState(false);
-  const savedSnapshotRef = useRef('');
+  const lastSavedConfig = useEditorStore(s => s.lastSavedConfig);
 
   // 模板模式：从 API 加载配置；普通模式：localStorage
   useEffect(() => {
@@ -49,8 +49,8 @@ export function MainScreen() {
             loadConfig(JSON.stringify(tpl.config));
           }
         } catch { /* ignore */ }
-        // 记录初始快照，用于后续判断是否有未保存修改
-        savedSnapshotRef.current = JSON.stringify(useEditorStore.getState().config);
+        // 加载完成 → 标记为"已保存"状态
+        useEditorStore.getState().markConfigSaved();
       })();
       return () => { setCurrentTemplateId(null); };
     } else {
@@ -63,7 +63,7 @@ export function MainScreen() {
 
   const handleBack = () => {
     const current = JSON.stringify(useEditorStore.getState().config);
-    if (current !== savedSnapshotRef.current) {
+    if (current !== lastSavedConfig) {
       setShowUnsaved(true);
     } else {
       navigate('/templates');
@@ -72,7 +72,6 @@ export function MainScreen() {
 
   const handleSaveAndExit = () => {
     useEditorStore.getState().saveConfig();
-    savedSnapshotRef.current = JSON.stringify(useEditorStore.getState().config);
     setShowUnsaved(false);
     navigate('/templates');
   };
