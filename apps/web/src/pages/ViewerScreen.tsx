@@ -67,8 +67,8 @@ export function ViewerScreen() {
         // 移动端：撑满宽度
         setScale(cw / config.canvas.width);
       } else {
-        // 桌面/平板：等比缩放
-        setScale(Math.min(cw / config.canvas.width, ch / effectiveCanvasH));
+        // 桌面/平板：填满屏幕（cover 策略，裁切溢出部分）
+        setScale(Math.max(cw / config.canvas.width, ch / effectiveCanvasH));
       }
     };
     calc();

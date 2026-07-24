@@ -105,8 +105,8 @@ export function MainScreen() {
         // 展示态移动端：撑满宽度
         setScale(cw / config.canvas.width);
       } else {
-        // 展示态桌面/平板：等比缩放
-        setScale(Math.min(cw / config.canvas.width, ch / config.canvas.height));
+        // 展示态桌面/平板：填满屏幕（cover 策略，裁切溢出部分）
+        setScale(Math.max(cw / config.canvas.width, ch / config.canvas.height));
       }
     };
     calc();
@@ -145,6 +145,9 @@ export function MainScreen() {
   const displayLeft = isMobile
     ? 0
     : Math.max(0, ((containerRef.current?.clientWidth ?? window.innerWidth) - config.canvas.width * scale) / 2);
+  const displayTop = isMobile
+    ? 0
+    : Math.max(0, ((containerRef.current?.clientHeight ?? window.innerHeight) - config.canvas.height * scale) / 2);
 
   const canvasStyle: React.CSSProperties = isMobile ? {
     width: mobileCanvasW,
@@ -154,7 +157,7 @@ export function MainScreen() {
     width: config.canvas.width,
     height: config.canvas.height,
     position: 'absolute',
-    top: 0,
+    top: isEditorVisible ? 0 : displayTop,
     left: isEditorVisible ? 280 : displayLeft,
     transform: `scale(${scale})`,
     transformOrigin: 'top left',
