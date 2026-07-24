@@ -842,7 +842,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     <div
       ref={canvasRef}
       className="relative"
-      style={{ width: canvas.width, height: canvas.height, backgroundColor: backgroundPattern === 'globe-2' ? 'transparent' : '#2C2C34' }}
+      style={{ width: activeCanvasW, height: activeCanvasH, backgroundColor: backgroundPattern === 'globe-2' ? 'transparent' : '#2C2C34' }}
       onDragOver={isEditing ? handleCanvasDragOver : undefined}
       onDragLeave={isEditing ? handleCanvasDragLeave : undefined}
       onDrop={isEditing ? handleCanvasDrop : undefined}
@@ -851,7 +851,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       <div
         className="absolute pointer-events-none"
         style={{
-          left: 0, top: 0, width: canvas.width, height: canvas.height,
+          left: 0, top: 0, width: activeCanvasW, height: activeCanvasH,
           background: [
             'radial-gradient(ellipse 100% 22% at 50% 0%, #15151A 0%, #1A1A20 35%, #222228 65%, transparent 85%)',
             'radial-gradient(ellipse 100% 10% at 50% 100%, #15151A 0%, #1A1A20 50%, #222228 80%, transparent 100%)',
@@ -861,23 +861,23 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
 {/* ═══ 3D 赛博地球（俯视）════ */}
       {backgroundPattern === 'globe-1' && (
         <Suspense fallback={null}>
-          <CyberGlobe canvasW={canvas.width} canvasH={canvas.height} variant="top-down" />
+          <CyberGlobe canvasW={activeCanvasW} canvasH={activeCanvasH} variant="top-down" />
         </Suspense>
       )}
       {backgroundPattern === 'globe-3' && (
         <Suspense fallback={null}>
-          <CyberSphere canvasW={canvas.width} canvasH={canvas.height} />
+          <CyberSphere canvasW={activeCanvasW} canvasH={activeCanvasH} />
         </Suspense>
       )}
       {/* 地球-2（斜平视角）已移至 MainScreen 视口级渲染，不受画布缩放/偏移影响 */}
       {/* ═══ 能量脉冲动线 ═══ */}
       {backgroundEffect === 'energy-flow' && (
-        <EnergyFlow canvasW={canvas.width} canvasH={canvas.height} mobile={isNarrowHeader} />
+        <EnergyFlow canvasW={activeCanvasW} canvasH={activeCanvasH} mobile={isNarrowHeader} />
       )}
       {backgroundEffect === 'low-poly' && (
-        <LowPolyBg canvasW={canvas.width} canvasH={canvas.height} />
+        <LowPolyBg canvasW={activeCanvasW} canvasH={activeCanvasH} />
       )}
-      {isEditing && <GridOverlay grid={grid} canvasWidth={canvas.width} canvasHeight={canvas.height} />}
+      {isEditing && <GridOverlay grid={grid} canvasWidth={activeCanvasW} canvasHeight={activeCanvasH} />}
 
       {/* ═══ 固定顶栏 ═══ */}
       <div

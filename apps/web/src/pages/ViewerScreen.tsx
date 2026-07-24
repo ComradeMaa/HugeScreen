@@ -62,13 +62,12 @@ export function ViewerScreen() {
     const calc = () => {
       if (!containerRef.current) return;
       const cw = containerRef.current.clientWidth;
-      const ch = containerRef.current.clientHeight;
       if (scaleMode === 'width') {
         // 移动端：撑满宽度
         setScale(cw / config.canvas.width);
       } else {
-        // 桌面：画布尺寸直接匹配视口，无需缩放
-        setScale(1);
+        // 桌面：等比缩放填满视口，CSS transform 统一缩放所有内容
+        setScale(cw / config.canvas.width);
       }
     };
     calc();
@@ -82,17 +81,21 @@ export function ViewerScreen() {
   const mobileCanvasW = Math.max(320, vpW);
   const displayCanvasH = isMobile
     ? Math.round(effectiveCanvasH * mobileCanvasW / config.canvas.width)
-    : effectiveCanvasH;
+    : Math.round(config.canvas.width * (vpH / vpW));
 
   const canvasWrapperStyle: React.CSSProperties = isMobile ? {
     width: mobileCanvasW,
     height: displayCanvasH,
     position: 'relative',
   } : {
-    // 桌面展示态：画布 = 视口尺寸，网格自动拉伸填充
-    width: vpW,
-    height: vpH,
-    position: 'relative',
+    // 桌面展示态：设计宽 1920 + 拉伸高度 + CSS transform 统一缩放
+    width: config.canvas.width,
+    height: displayCanvasH,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    transform: `scale(${scale})`,
+    transformOrigin: 'top left',
   };
 
   return (
@@ -107,8 +110,8 @@ export function ViewerScreen() {
           bpGrid={bpGrid}
           bpLayouts={bpLayouts}
           hiddenWidgets={hiddenWidgets}
-          canvasWidth={isMobile ? mobileCanvasW : vpW}
-          canvasHeight={isMobile ? displayCanvasH : vpH}
+          canvasWidth={isMobile ? mobileCanvasW : config.canvas.width}
+          canvasHeight={isMobile ? displayCanvasH : displayCanvasH}
         />
       </div>
     </div>

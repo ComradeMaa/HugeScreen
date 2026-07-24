@@ -105,8 +105,8 @@ export function MainScreen() {
         // 展示态移动端：撑满宽度
         setScale(cw / config.canvas.width);
       } else {
-        // 展示态桌面/平板：画布尺寸直接匹配视口，无需缩放
-        setScale(1);
+        // 展示态桌面/平板：等比缩放填满视口，CSS transform 统一缩放所有内容
+        setScale(cw / config.canvas.width);
       }
     };
     calc();
@@ -141,6 +141,9 @@ export function MainScreen() {
   const vpH = containerRef.current?.clientHeight ?? window.innerHeight;
   const mobileCanvasW = Math.max(320, vpW);
 
+  // 桌面展示态：设计宽 1920，高度按视口比例拉伸，CSS transform 统一缩放
+  const stretchedCanvasH = Math.round(config.canvas.width * (vpH / vpW));
+
   const effectiveCanvasH = isMobile
     ? Math.round((bpCanvasH ?? config.canvas.height) * mobileCanvasW / config.canvas.width)
     : config.canvas.height;
@@ -150,10 +153,14 @@ export function MainScreen() {
     height: effectiveCanvasH,
     position: 'relative',
   } : isDesktopDisplay ? {
-    // 桌面展示态：画布 = 视口尺寸，网格自动拉伸填充，无缩放无留白
-    width: vpW,
-    height: vpH,
-    position: 'relative',
+    // 桌面展示态：设计宽 1920 + 拉伸高度 + CSS transform 统一缩放
+    width: config.canvas.width,
+    height: stretchedCanvasH,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    transform: `scale(${scale})`,
+    transformOrigin: 'top left',
   } : {
     // 编辑态：等比缩放 + 左偏移面板宽度
     width: config.canvas.width,
@@ -167,8 +174,8 @@ export function MainScreen() {
   };
 
   // 传给 ScreenCanvas 的实际画布尺寸
-  const scCanvasW = isMobile ? mobileCanvasW : isDesktopDisplay ? vpW : undefined;
-  const scCanvasH = isMobile ? effectiveCanvasH : isDesktopDisplay ? vpH : undefined;
+  const scCanvasW = isMobile ? mobileCanvasW : (isDesktopDisplay ? config.canvas.width : undefined);
+  const scCanvasH = isMobile ? effectiveCanvasH : (isDesktopDisplay ? stretchedCanvasH : undefined);
 
   return (
     <div
