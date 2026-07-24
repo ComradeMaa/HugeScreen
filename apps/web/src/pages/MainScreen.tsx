@@ -98,15 +98,15 @@ export function MainScreen() {
       const cw = containerRef.current.clientWidth;
       const ch = containerRef.current.clientHeight;
       if (isEditorVisible) {
-        // 编辑态：始终等比缩放
+        // 编辑态：等比缩放，面板内完整显示
         const availW = cw - EDITOR_PANEL_WIDTH;
         setScale(Math.min(availW / config.canvas.width, ch / config.canvas.height));
       } else if (scaleMode === 'width') {
         // 展示态移动端：撑满宽度
         setScale(cw / config.canvas.width);
       } else {
-        // 展示态桌面/平板：填满屏幕（cover 策略，裁切溢出部分）
-        setScale(Math.max(cw / config.canvas.width, ch / config.canvas.height));
+        // 展示态桌面/平板：画布尺寸直接匹配视口，无需缩放
+        setScale(1);
       }
     };
     calc();
@@ -135,38 +135,40 @@ export function MainScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // 展示态 left/画布：移动端原生分辨率，桌面/平板等比缩放
   const isMobile = !isEditorVisible && scaleMode === 'width';
-  const mobileCanvasW = Math.max(320, containerRef.current?.clientWidth || window.innerWidth || 375);
+  const isDesktopDisplay = !isEditorVisible && !isMobile;
+  const vpW = containerRef.current?.clientWidth ?? window.innerWidth;
+  const vpH = containerRef.current?.clientHeight ?? window.innerHeight;
+  const mobileCanvasW = Math.max(320, vpW);
+
   const effectiveCanvasH = isMobile
     ? Math.round((bpCanvasH ?? config.canvas.height) * mobileCanvasW / config.canvas.width)
     : config.canvas.height;
-
-  const displayLeft = isMobile
-    ? 0
-    : Math.max(0, ((containerRef.current?.clientWidth ?? window.innerWidth) - config.canvas.width * scale) / 2);
-  const displayTop = isMobile
-    ? 0
-    : Math.max(0, ((containerRef.current?.clientHeight ?? window.innerHeight) - config.canvas.height * scale) / 2);
 
   const canvasStyle: React.CSSProperties = isMobile ? {
     width: mobileCanvasW,
     height: effectiveCanvasH,
     position: 'relative',
+  } : isDesktopDisplay ? {
+    // 桌面展示态：画布 = 视口尺寸，网格自动拉伸填充，无缩放无留白
+    width: vpW,
+    height: vpH,
+    position: 'relative',
   } : {
+    // 编辑态：等比缩放 + 左偏移面板宽度
     width: config.canvas.width,
     height: config.canvas.height,
     position: 'absolute',
-    top: isEditorVisible ? 0 : displayTop,
-    left: isEditorVisible ? 280 : displayLeft,
+    top: 0,
+    left: EDITOR_PANEL_WIDTH,
     transform: `scale(${scale})`,
     transformOrigin: 'top left',
     transition: 'left 300ms ease, transform 300ms ease',
   };
 
-  // 传给 ScreenCanvas 的实际画布尺寸（移动端用视口宽度）
-  const scCanvasW = isMobile ? mobileCanvasW : undefined;
-  const scCanvasH = isMobile ? effectiveCanvasH : (effectiveCanvasH !== config.canvas.height ? effectiveCanvasH : undefined);
+  // 传给 ScreenCanvas 的实际画布尺寸
+  const scCanvasW = isMobile ? mobileCanvasW : isDesktopDisplay ? vpW : undefined;
+  const scCanvasH = isMobile ? effectiveCanvasH : isDesktopDisplay ? vpH : undefined;
 
   return (
     <div

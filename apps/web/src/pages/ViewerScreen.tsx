@@ -67,54 +67,19 @@ export function ViewerScreen() {
         // 移动端：撑满宽度
         setScale(cw / config.canvas.width);
       } else {
-        // 桌面/平板：填满屏幕（cover 策略，裁切溢出部分）
-        setScale(Math.max(cw / config.canvas.width, ch / effectiveCanvasH));
+        // 桌面：画布尺寸直接匹配视口，无需缩放
+        setScale(1);
       }
     };
     calc();
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
-  }, [config.canvas, loading, scaleMode, effectiveCanvasH]);
-
-  // 居中偏移
-  const offset = useMemo(() => {
-    if (!containerRef.current) return { x: 0, y: 0 };
-    const cw = containerRef.current.clientWidth;
-    const ch = containerRef.current.clientHeight;
-    return {
-      x: (cw - config.canvas.width * scale) / 2,
-      y: scaleMode === 'width'
-        ? 0
-        : (ch - effectiveCanvasH * scale) / 2,
-    };
-  }, [config.canvas, scale, scaleMode, effectiveCanvasH]);
-
-  // ═══ 加载 / 错误状态 ═══
-  if (loading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-[#2C2C34]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-accent-cool animate-pulse" />
-          <span className="text-textSecondary/40 text-xs tracking-widest">加载中</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-[#2C2C34]">
-        <div className="flex flex-col items-center gap-3 max-w-sm text-center px-4">
-          <span className="text-negative/60 text-sm font-semibold">加载失败</span>
-          <span className="text-textSecondary/30 text-xs leading-relaxed">{error}</span>
-          <span className="text-textSecondary/20 text-[10px] mt-2">请检查配置 ID 或网络连接</span>
-        </div>
-      </div>
-    );
-  }
+  }, [config.canvas, loading, scaleMode]);
 
   const isMobile = scaleMode === 'width';
-  const mobileCanvasW = Math.max(320, containerRef.current?.clientWidth || window.innerWidth || 375);
+  const vpW = containerRef.current?.clientWidth ?? window.innerWidth;
+  const vpH = containerRef.current?.clientHeight ?? window.innerHeight;
+  const mobileCanvasW = Math.max(320, vpW);
   const displayCanvasH = isMobile
     ? Math.round(effectiveCanvasH * mobileCanvasW / config.canvas.width)
     : effectiveCanvasH;
@@ -124,13 +89,10 @@ export function ViewerScreen() {
     height: displayCanvasH,
     position: 'relative',
   } : {
-    width: config.canvas.width,
-    height: displayCanvasH,
-    position: 'absolute',
-    left: offset.x,
-    top: offset.y,
-    transform: `scale(${scale})`,
-    transformOrigin: 'top left',
+    // 桌面展示态：画布 = 视口尺寸，网格自动拉伸填充
+    width: vpW,
+    height: vpH,
+    position: 'relative',
   };
 
   return (
@@ -145,8 +107,8 @@ export function ViewerScreen() {
           bpGrid={bpGrid}
           bpLayouts={bpLayouts}
           hiddenWidgets={hiddenWidgets}
-          canvasWidth={isMobile ? mobileCanvasW : undefined}
-          canvasHeight={isMobile ? displayCanvasH : (bpCanvasH !== config.canvas.height ? bpCanvasH : undefined)}
+          canvasWidth={isMobile ? mobileCanvasW : vpW}
+          canvasHeight={isMobile ? displayCanvasH : vpH}
         />
       </div>
     </div>
