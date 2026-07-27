@@ -38,10 +38,12 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
   const ds = widget.dataSource;
   const chartType = widget.type;
 
-  // ── 稳定依赖 key：用 URL + type 做浅比较，避免 JSON.stringify 每次 render 创建新字符串 ──
+  // ── 稳定依赖 key：URL + interval（interval 变化时需重连 adapter）───
   const poolKey = ds?.type === 'rest' ? `rest:${ds.config?.url || ''}` : null;
-  const dsKey = poolKey || (ds?.type ?? 'none');
+  const dsInterval = ds?.config?.interval ?? 0;
+  const dsKey = poolKey ? `${poolKey}|int=${dsInterval}` : (ds?.type ?? 'none');
   const lastDsKeyRef = useRef(dsKey);
+  const lastDataRef = useRef('');  // 缓存上次数据的 JSON，避免相同数据重复触发渲染
 
   useEffect(() => {
     const dsChanged = dsKey !== lastDsKeyRef.current;
@@ -71,19 +73,23 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
             cb(raw);
           }
         });
-        entry.adapter.connect(ds).catch(() => {});
       }
 
       entry.refs++;
 
       const callback = (raw: unknown) => {
-        setLiveProps(mapData(raw, chartType, ds.mapping ?? {}));
+        const mapped = mapData(raw, chartType, ds.mapping ?? {});
+        const json = JSON.stringify(mapped);
+        if (json !== lastDataRef.current) {
+          lastDataRef.current = json;
+          setLiveProps(mapped);
+        }
       };
       entry.calls.add(callback);
 
-      // 如果 dataSource 变了（URL 相同但其他配置变了），强制刷新
-      if (dsChanged && entry.adapter.getData() != null) {
-        callback(entry.adapter.getData()!);
+      // 首次连接或 interval 变更时重连 adapter
+      if (dsChanged || !entry.adapter.connected) {
+        entry.adapter.connect(ds).catch(() => {});
       }
 
       return () => {

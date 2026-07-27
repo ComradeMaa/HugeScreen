@@ -35,6 +35,9 @@ export class RESTAdapter implements DataAdapter {
 
   get connected(): boolean { return this._connected; }
 
+  /** 是否已启动轮询计时器 */
+  hasPolling(): boolean { return this._timer != null; }
+
   /** Register a callback for data updates */
   onData(cb: RESTDataCallback): () => void {
     this._listeners.add(cb);
@@ -42,16 +45,16 @@ export class RESTAdapter implements DataAdapter {
   }
 
   async connect(config: DataSourceConfig): Promise<void> {
-    // Guard: disconnect any previous connection first to prevent timer/controller leaks
-    if (this._connected || this._timer || this._abortController) {
-      this.disconnect();
-    }
-
     const url = config.config?.url;
     if (!url) {
       console.warn('[RESTAdapter] No url provided');
       return;
     }
+
+    // 重连时仅清理定时器和进行中的请求，保留监听器列表
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    if (this._abortController) { this._abortController.abort(); this._abortController = null; }
+    this._connected = false;
 
     const fetchData = async (): Promise<void> => {
       // Abort any in-flight request before starting a new one
@@ -79,6 +82,7 @@ export class RESTAdapter implements DataAdapter {
         }
 
         this._data = json;
+        console.log(`[RESTAdapter] fetch ok: url=${url} polling=${!!this._timer}`);
         this._listeners.forEach(cb => cb(json));
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
