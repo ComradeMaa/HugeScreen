@@ -128,6 +128,8 @@ interface EditorState {
   // ─── 地图钉编辑模式 ───
   pinEditWidgetId: string | null;
   setPinEditWidgetId: (id: string | null) => void;
+  lastDraggedPinId: string | null;  // 最近拖拽的地图钉实例 ID
+  setLastDraggedPinId: (id: string | null) => void;
 
   // ─── 模板模式 ───
   currentTemplateId: string | null;
@@ -376,6 +378,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   backgroundVideo: '',
   compositeSlotEdit: null,
   pinEditWidgetId: null,
+  lastDraggedPinId: null,
   currentTemplateId: null,
   lastSavedConfig: '',
   markConfigSaved: () => set({ lastSavedConfig: JSON.stringify(get().config) }),
@@ -735,6 +738,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setCompositeSlotEdit: (edit) => set({ compositeSlotEdit: edit }),
   setPinEditWidgetId: (id) => set({ pinEditWidgetId: id }),
+  setLastDraggedPinId: (id) => set({ lastDraggedPinId: id }),
 
   addCustomComponent: (def) => {
     registerCustomComponent(def);

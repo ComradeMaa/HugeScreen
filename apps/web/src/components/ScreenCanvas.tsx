@@ -43,7 +43,29 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
     updateWidget(widget.id, { options: { ...currentOpts, ...merged } });
   }, [JSON.stringify(liveProps), widget.id, widget.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={(patch: Record<string, unknown>) => updateWidget(widget.id, { options: { ...widget.options as Record<string, unknown>, ...patch } })} />;
+  const setLastDraggedPinId = useEditorStore((s) => s.setLastDraggedPinId);
+  const pinPosRef = useRef<Record<string, { lat: number; lng: number }>>({});
+  // 用 ref 保存最新的 widget 引用，避免 onUpdate 每次渲染重建导致 CyberMapWidget 的 handlePinMouseDown 闭包过期
+  const widgetRef = useRef(widget);
+  widgetRef.current = widget;
+
+  const stableOnUpdate = useCallback((patch: Record<string, unknown>) => {
+    const w = widgetRef.current;
+    // 地图钉拖拽检测：比较新旧位置，找出被拖拽的实例并高亮
+    if (patch.pinInstances && Array.isArray(patch.pinInstances)) {
+      const newPins = patch.pinInstances as any[];
+      for (const np of newPins) {
+        const prev = pinPosRef.current[np.id];
+        if (prev && (prev.lat !== np.lat || prev.lng !== np.lng)) {
+          setLastDraggedPinId(np.id);
+        }
+        pinPosRef.current[np.id] = { lat: np.lat, lng: np.lng };
+      }
+    }
+    updateWidget(w.id, { options: { ...(w.options as Record<string, unknown>), ...patch } });
+  }, [updateWidget, setLastDraggedPinId]); // 稳定依赖，不会每次渲染重建
+
+  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={stableOnUpdate} />;
 }
 
 /** 只保留数据字段，排除外观/开关字段 */

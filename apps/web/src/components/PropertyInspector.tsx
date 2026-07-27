@@ -305,6 +305,7 @@ function PinTypeEditor({ pinTypes, onChange }: { pinTypes: any[]; onChange: (pts
 /** 地图钉实例编辑器 */
 function PinInstanceEditor({ pinInstances, pinTypes, onChange }: { pinInstances: any[]; pinTypes: any[]; onChange: (pis: any[]) => void }) {
   const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors';
+  const lastDraggedPinId = useEditorStore((s) => s.lastDraggedPinId);
 
   return (
     <div className="space-y-2">
@@ -318,8 +319,14 @@ function PinInstanceEditor({ pinInstances, pinTypes, onChange }: { pinInstances:
       >+ 添加实例</button>
       {pinInstances.map((pi: any, i: number) => {
         const pt = pinTypes.find((t: any) => t.id === pi.pinTypeId);
+        const isActive = lastDraggedPinId === pi.id;
         return (
-          <div key={pi.id ?? i} className="flex items-center gap-1 flex-wrap p-1.5 rounded bg-surface-base/50">
+          <div key={pi.id ?? i}
+            className={`flex items-center gap-1 flex-wrap p-1.5 rounded transition-colors duration-300 ${
+              isActive
+                ? 'bg-accent-cool/15 ring-1 ring-accent-cool/40'
+                : 'bg-surface-base/50'
+            }`}>
             <select value={pi.pinTypeId ?? ''}
               onChange={(e) => { const next = [...pinInstances]; next[i] = { ...pi, pinTypeId: e.target.value }; onChange(next); }}
               className={`${inputCls} flex-1 min-w-0`}>
