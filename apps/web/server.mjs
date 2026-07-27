@@ -45,7 +45,7 @@ import templatesRouter from './routes/templates.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_FILE = join(__dirname, 'views.json');
 const DIST_DIR = join(__dirname, 'dist');
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 55906;
 
 // ─── 初始化 SQLite ───
 initTables();
