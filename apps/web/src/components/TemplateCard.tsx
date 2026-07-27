@@ -8,9 +8,10 @@ interface TemplateCardProps {
   onDeleted: () => void;
   onPublish: (id: string) => void;
   onDeleteRequest: (id: string, name: string) => void;
+  onRename: (id: string, name: string) => void;
 }
 
-export function TemplateCard({ id, name, updatedAt, onDeleted, onPublish, onDeleteRequest }: TemplateCardProps) {
+export function TemplateCard({ id, name, updatedAt, onDeleted, onPublish, onDeleteRequest, onRename }: TemplateCardProps) {
   const relative = useRelativeTime(updatedAt);
   const navigate = useNavigate();
 
@@ -41,9 +42,9 @@ export function TemplateCard({ id, name, updatedAt, onDeleted, onPublish, onDele
         <div className="absolute inset-0 bg-[#1B2238]/95 flex items-center justify-center gap-2 rounded-b-2xl backdrop-blur-sm
                         opacity-0 group-hover:opacity-100 transition-opacity duration-150"
              onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => navigate(`/editor/${id}`)}
+          <button onClick={() => onRename(id, name)}
             className="px-3 py-1.5 bg-gradient-to-r from-[#7181AC] to-[#7E8DB5] text-[#F1EFF2] text-xs rounded-lg border border-[rgba(183,172,178,0.15)] hover:from-[#7E8DB5] transition-all">
-            编辑
+            重命名
           </button>
           <button onClick={() => onPublish(id)}
             className="px-3 py-1.5 bg-[#1B2238]/60 border border-[rgba(183,172,178,0.15)] text-[#F1EFF2]/80 text-xs rounded-lg hover:bg-[#1B2238] transition-all">

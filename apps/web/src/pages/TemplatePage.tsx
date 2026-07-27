@@ -5,6 +5,7 @@ import { NewTemplateDialog } from '../components/NewTemplateDialog';
 import { GuestUpgradeDialog } from '../components/GuestUpgradeDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PublishSuccessDialog } from '../components/PublishSuccessDialog';
+import { RenameDialog } from '../components/RenameDialog';
 import { apiFetch } from '../utils/api';
 import defaultScreenConfig from '../store/defaultScreenConfig.json';
 
@@ -22,6 +23,7 @@ export function TemplatePage() {
   const [showNew, setShowNew] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [publishUrl, setPublishUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -70,6 +72,23 @@ export function TemplatePage() {
         fetchTemplates();
       }
     } catch { /* ignore */ }
+  };
+
+  const handleRename = async (newName: string) => {
+    if (!renameTarget) return;
+    const { id } = renameTarget;
+    // 乐观更新本地状态
+    setTemplates(prev => prev.map(t => t.id === id ? { ...t, name: newName } : t));
+    setRenameTarget(null);
+    try {
+      const res = await apiFetch(`/api/templates/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: newName }),
+      });
+      if (!res.ok) fetchTemplates();
+    } catch {
+      fetchTemplates();
+    }
   };
 
   const handlePublish = async (templateId: string) => {
@@ -205,6 +224,7 @@ export function TemplatePage() {
                     onDeleted={fetchTemplates}
                     onPublish={handlePublish}
                     onDeleteRequest={(id, name) => setDeleteTarget({ id, name })}
+                    onRename={(id, name) => setRenameTarget({ id, name })}
                   />
                 ))}
               </div>
@@ -216,6 +236,12 @@ export function TemplatePage() {
         {/* Dialogs */}
         <NewTemplateDialog open={showNew} onClose={() => setShowNew(false)} onCreate={handleCreate} />
         <GuestUpgradeDialog open={showUpgrade} onClose={() => setShowUpgrade(false)} />
+        <RenameDialog
+          open={renameTarget !== null}
+          currentName={renameTarget?.name ?? ''}
+          onClose={() => setRenameTarget(null)}
+          onRename={handleRename}
+        />
         <ConfirmDialog
           open={deleteTarget !== null}
           title="删除模板"
