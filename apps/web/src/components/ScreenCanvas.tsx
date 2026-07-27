@@ -220,6 +220,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   const isDraggingHeaderEl = useEditorStore(s => s.isDraggingHeaderEl);
   const backgroundPattern = useEditorStore(s => s.backgroundPattern);
   const backgroundEffect = useEditorStore(s => s.backgroundEffect);
+  const backgroundImage = useEditorStore(s => s.backgroundImage);
+  const backgroundVideo = useEditorStore(s => s.backgroundVideo);
   const pinEditWidgetId = useEditorStore(s => s.pinEditWidgetId);
   // 稳定 action 引用（store 创建时固定，不会随渲染变化）
   const { addWidget, moveWidget, swapWidgetLayouts, removeWidget,
@@ -842,7 +844,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     <div
       ref={canvasRef}
       className="relative"
-      style={{ width: activeCanvasW, height: activeCanvasH, backgroundColor: backgroundPattern === 'globe-2' ? 'transparent' : '#2C2C34' }}
+      style={{ width: activeCanvasW, height: activeCanvasH, backgroundColor: (backgroundPattern === 'globe-2' || backgroundImage || backgroundVideo) ? 'transparent' : '#2C2C34' }}
       onDragOver={isEditing ? handleCanvasDragOver : undefined}
       onDragLeave={isEditing ? handleCanvasDragLeave : undefined}
       onDrop={isEditing ? handleCanvasDrop : undefined}
@@ -858,13 +860,24 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           ].join(', '),
         }}
       />
+{/* ═══ 自定义背景图片/视频 ═══ */}
+      {backgroundImage && (
+        <img src={backgroundImage} alt=""
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        />
+      )}
+      {backgroundVideo && (
+        <video src={backgroundVideo} autoPlay loop muted playsInline
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        />
+      )}
 {/* ═══ 3D 赛博地球（俯视）════ */}
-      {backgroundPattern === 'globe-1' && (
+      {backgroundPattern === 'globe-1' && !backgroundImage && !backgroundVideo && (
         <Suspense fallback={null}>
           <CyberGlobe canvasW={activeCanvasW} canvasH={activeCanvasH} variant="top-down" />
         </Suspense>
       )}
-      {backgroundPattern === 'globe-3' && (
+      {backgroundPattern === 'globe-3' && !backgroundImage && !backgroundVideo && (
         <Suspense fallback={null}>
           <CyberSphere canvasW={activeCanvasW} canvasH={activeCanvasH} />
         </Suspense>

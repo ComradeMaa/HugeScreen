@@ -25,6 +25,8 @@ export interface ScreenConfig {
   theme: ThemeConfig;
   backgroundPattern?: string;
   backgroundEffect?: string;
+  backgroundImage?: string;   // 自定义背景图片 URL
+  backgroundVideo?: string;   // 自定义背景视频 URL
   customComponents?: CustomComponentDef[];
 }
 

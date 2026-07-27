@@ -17,6 +17,35 @@ import { generateId } from '../utils/id';
 import { DEFAULT_GRID as LAYOUT_GRID, findSlotAt, type ScreenSlot } from './defaultLayout';
 import defaultScreenConfig from './defaultScreenConfig.json';
 
+// ─── 文件上传暂存（File 不可序列化，存模块级 Map）───
+
+/** blob URL → File 映射，保存时统一上传 */
+const pendingFiles = new Map<string, File>();
+
+/** 注册待上传文件，返回 blob URL 供即时预览 */
+export function stageUploadFile(file: File): string {
+  const url = URL.createObjectURL(file);
+  pendingFiles.set(url, file);
+  return url;
+}
+
+/** 上传单个文件到服务器，返回永久 URL */
+async function uploadFileToServer(file: File): Promise<string> {
+  const token = localStorage.getItem('hugescreen-token');
+  const resp = await fetch('/api/upload', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type,
+      'X-Filename': encodeURIComponent(file.name),
+      'Authorization': `Bearer ${token}`,
+    },
+    body: file,
+  });
+  if (!resp.ok) throw new Error('上传失败');
+  const { url } = await resp.json();
+  return url;
+}
+
 export type Breakpoint = 'desktop' | 'tablet' | 'mobile';
 
 const DEFAULT_GRID: GridConfig = {
@@ -41,6 +70,8 @@ interface EditorState {
   snapToGrid: boolean;
   backgroundPattern: string; // 背景图案：'none' | 'globe-1' 等（同步至 config）
   backgroundEffect: string;  // 背景效果：'none' | 'energy-flow' 等（同步至 config）
+  backgroundImage: string;   // 自定义背景图片 URL
+  backgroundVideo: string;   // 自定义背景视频 URL
 
   setConfig: (config: ScreenConfig) => void;
   setTheme: (theme: ThemeConfig) => void;
@@ -75,6 +106,8 @@ interface EditorState {
   toggleSnap: () => void;
   setBackgroundPattern: (pattern: string) => void;
   setBackgroundEffect: (effect: string) => void;
+  setBackgroundImage: (url: string) => void;
+  setBackgroundVideo: (url: string) => void;
 
   // ─── 组合图表槽位编辑（构建窗口 → 属性面板通信）───
   compositeSlotEdit: {
@@ -339,6 +372,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
   snapToGrid: true,
   backgroundPattern: 'none',
   backgroundEffect: 'energy-flow',
+  backgroundImage: '',
+  backgroundVideo: '',
   compositeSlotEdit: null,
   pinEditWidgetId: null,
   currentTemplateId: null,
@@ -351,6 +386,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       config,
       backgroundPattern: config.backgroundPattern ?? 'none',
       backgroundEffect: config.backgroundEffect ?? 'energy-flow',
+      backgroundImage: (config as any).backgroundImage ?? '',
+      backgroundVideo: (config as any).backgroundVideo ?? '',
     });
   },
 
@@ -685,6 +722,16 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       backgroundEffect: effect,
       config: { ...s.config, backgroundEffect: effect },
     })),
+  setBackgroundImage: (url: string) =>
+    set((s) => ({
+      backgroundImage: url,
+      config: { ...s.config, backgroundImage: url },
+    })),
+  setBackgroundVideo: (url: string) =>
+    set((s) => ({
+      backgroundVideo: url,
+      config: { ...s.config, backgroundVideo: url },
+    })),
 
   setCompositeSlotEdit: (edit) => set({ compositeSlotEdit: edit }),
   setPinEditWidgetId: (id) => set({ pinEditWidgetId: id }),
@@ -715,9 +762,39 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setCurrentTemplateId: (id) => set({ currentTemplateId: id }),
 
-  saveConfig: () => {
+  saveConfig: async () => {
     const state = get();
-    const config = state.config;
+    let config = { ...state.config };
+    let dirty = false;
+
+    // 上传待处理的本地文件
+    if (state.backgroundImage && state.backgroundImage.startsWith('blob:')) {
+      const file = pendingFiles.get(state.backgroundImage);
+      if (file) {
+        try {
+          const url = await uploadFileToServer(file);
+          config = { ...config, backgroundImage: url };
+          pendingFiles.delete(state.backgroundImage);
+          dirty = true;
+        } catch { /* 上传失败，保留本地 URL */ }
+      }
+    }
+    if (state.backgroundVideo && state.backgroundVideo.startsWith('blob:')) {
+      const file = pendingFiles.get(state.backgroundVideo);
+      if (file) {
+        try {
+          const url = await uploadFileToServer(file);
+          config = { ...config, backgroundVideo: url };
+          pendingFiles.delete(state.backgroundVideo);
+          dirty = true;
+        } catch { /* 上传失败，保留本地 URL */ }
+      }
+    }
+
+    if (dirty) {
+      set({ config, backgroundImage: config.backgroundImage ?? '', backgroundVideo: config.backgroundVideo ?? '' });
+    }
+
     const json = JSON.stringify(config, null, 2);
 
     // 记录保存快照（无论哪种模式），供未保存检测用
@@ -766,6 +843,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         config: raw as ScreenConfig,
         backgroundPattern: (raw as ScreenConfig).backgroundPattern ?? 'none',
         backgroundEffect: (raw as ScreenConfig).backgroundEffect ?? 'energy-flow',
+        backgroundImage: (raw as any).backgroundImage ?? '',
+        backgroundVideo: (raw as any).backgroundVideo ?? '',
       });
     } catch { console.error('[EditorStore] Failed to parse config JSON'); }
   },

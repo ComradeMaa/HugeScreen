@@ -1,9 +1,9 @@
-import { useEditorStore } from '../store/editorStore';
+import { useEditorStore, stageUploadFile } from '../store/editorStore';
 import { WidgetPalette } from './WidgetPalette';
 import { PropertyInspector } from './PropertyInspector';
 import { CompositeBuilderWindow } from './CompositeBuilderWindow';
 import type { CompositeConfig } from '@hugescreen/shared';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Trash2, ChevronDown, Copy, Check, QrCode } from 'lucide-react';
 // 自定义组合组件的注册由 store.addCustomComponent → registerCustomComponent 统一处理
 
@@ -243,8 +243,64 @@ const BG_PATTERNS = [
 ];
 
 function BackgroundPatternSelector() {
-  const { backgroundPattern, setBackgroundPattern } = useEditorStore();
+  const { backgroundPattern, backgroundImage, backgroundVideo,
+    setBackgroundPattern, setBackgroundImage, setBackgroundVideo } = useEditorStore();
   const [open, setOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const deleteOldFile = async (url: string) => {
+    if (!url || url.startsWith('blob:')) return; // 本地 blob 无需删服务器文件
+    try {
+      await fetch('/api/upload', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('hugescreen-token')}`,
+        },
+        body: JSON.stringify({ url }),
+      });
+    } catch { /* ignore */ }
+  };
+
+  const handleClear = () => {
+    const oldImg = backgroundImage;
+    const oldVid = backgroundVideo;
+    // 释放本地 blob URL
+    if (oldImg?.startsWith('blob:')) URL.revokeObjectURL(oldImg);
+    if (oldVid?.startsWith('blob:')) URL.revokeObjectURL(oldVid);
+    setBackgroundImage('');
+    setBackgroundVideo('');
+    setBackgroundPattern('none');
+    deleteOldFile(oldImg);
+    deleteOldFile(oldVid);
+  };
+
+  const handleSelectFile = (file: File) => {
+    const isVideo = file.type.startsWith('video/');
+    // 清理旧文件
+    deleteOldFile(backgroundImage);
+    deleteOldFile(backgroundVideo);
+    const oldImg = backgroundImage, oldVid = backgroundVideo;
+    if (oldImg?.startsWith('blob:')) URL.revokeObjectURL(oldImg);
+    if (oldVid?.startsWith('blob:')) URL.revokeObjectURL(oldVid);
+
+    // 生成本地 blob URL 即时预览
+    const blobUrl = stageUploadFile(file);
+    if (isVideo) {
+      setBackgroundVideo(blobUrl);
+      setBackgroundImage('');
+    } else {
+      setBackgroundImage(blobUrl);
+      setBackgroundVideo('');
+    }
+  };
+
+  const hasCustomBg = !!(backgroundImage || backgroundVideo);
+  const activePattern = hasCustomBg ? 'custom' : backgroundPattern;
+  const customFileName = backgroundImage?.startsWith('blob:')
+    ? '本地预览（保存后上传）'
+    : (backgroundImage || backgroundVideo).split('/').pop() || '';
+
   return (
     <div className="px-3 py-2 border-t border-[rgba(255,255,255,0.04)] flex-shrink-0">
       <button
@@ -255,20 +311,57 @@ function BackgroundPatternSelector() {
         背景图案
       </button>
       {open && (
-        <div className="flex flex-wrap gap-1.5">
-          {BG_PATTERNS.map(p => (
+        <div className="flex flex-col gap-1.5">
+          {/* 预设选项 */}
+          <div className="flex flex-wrap gap-1.5">
+            {BG_PATTERNS.map(p => (
+              <button
+                key={p.value}
+                onClick={() => { deleteOldFile(backgroundImage); deleteOldFile(backgroundVideo); setBackgroundPattern(p.value); setBackgroundImage(''); setBackgroundVideo(''); }}
+                className={`px-2 text-[11px] py-1.5 rounded transition-colors whitespace-nowrap ${
+                  activePattern === p.value
+                    ? 'bg-accent-cool/15 text-accent-cool ring-1 ring-accent-cool/30'
+                    : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 分隔 */}
+          <div className="border-t border-[rgba(255,255,255,0.04)]" />
+
+          {/* 自定义上传 */}
+          <div className="flex flex-wrap gap-1.5">
+            <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleSelectFile(f); e.target.value = ''; }} />
             <button
-              key={p.value}
-              onClick={() => setBackgroundPattern(p.value)}
+              onClick={() => fileInputRef.current?.click()}
               className={`px-2 text-[11px] py-1.5 rounded transition-colors whitespace-nowrap ${
-                backgroundPattern === p.value
+                hasCustomBg
                   ? 'bg-accent-cool/15 text-accent-cool ring-1 ring-accent-cool/30'
                   : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
               }`}
             >
-              {p.label}
+              📁 上传文件
             </button>
-          ))}
+          </div>
+
+          {/* 已设置自定义背景时显示预览和删除 */}
+          {hasCustomBg && (
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-textSecondary/40 truncate flex-1">
+                {backgroundImage ? '🖼 ' : '🎬 '}{customFileName}
+              </span>
+              <button
+                onClick={handleClear}
+                className="text-[10px] text-negative/50 hover:text-negative px-1.5 py-0.5 rounded hover:bg-negative/10 transition-colors"
+              >
+                ✕ 清除
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

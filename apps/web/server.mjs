@@ -31,8 +31,8 @@
 
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { readFileSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, existsSync, mkdirSync, createWriteStream, unlinkSync } from 'node:fs';
+import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import { initTables } from './db/init.mjs';
@@ -84,6 +84,71 @@ const app = express();
 // Body 解析
 app.use(express.json({ limit: '5mb' }));
 
+// ─── 上传目录 ───
+const UPLOADS_DIR = join(__dirname, 'uploads');
+if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
+
+// ─── 文件上传（原始二进制，无需 multipart）───
+const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm']);
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;   // 10MB
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024;  // 100MB
+
+app.put('/api/upload', requireAuth, (req, res) => {
+  const filename = decodeURIComponent(String(req.headers['x-filename'] || 'file'));
+  const ext = extname(filename).toLowerCase();
+  if (!ALLOWED_EXT.has(ext)) {
+    return res.status(400).json({ error: `不支持的文件类型: ${ext}` });
+  }
+
+  const isVideo = ['.mp4', '.webm'].includes(ext);
+  const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+  const contentLength = parseInt(req.headers['content-length'], 10);
+  if (contentLength > maxSize) {
+    return res.status(413).json({ error: `文件过大，最大 ${maxSize / 1024 / 1024}MB` });
+  }
+
+  const safeName = nanoid(16) + ext;
+  const filePath = join(UPLOADS_DIR, safeName);
+  const ws = createWriteStream(filePath);
+  let size = 0;
+
+  req.on('data', (chunk) => {
+    size += chunk.length;
+    if (size > maxSize) {
+      req.destroy();
+      ws.close();
+      unlinkSync(filePath);
+      return;
+    }
+  });
+
+  req.pipe(ws);
+  ws.on('finish', () => {
+    res.json({ url: '/uploads/' + safeName });
+  });
+  ws.on('error', () => {
+    res.status(500).json({ error: '写入文件失败' });
+  });
+});
+
+// 删除上传文件
+app.delete('/api/upload', requireAuth, (req, res) => {
+  const { url } = req.body || {};
+  if (!url || !url.startsWith('/uploads/')) {
+    return res.status(400).json({ error: '无效的文件路径' });
+  }
+  const filename = url.replace('/uploads/', '');
+  // 防止路径穿越
+  if (filename.includes('..') || filename.includes('/')) {
+    return res.status(400).json({ error: '无效的文件名' });
+  }
+  const filePath = join(UPLOADS_DIR, filename);
+  if (existsSync(filePath)) {
+    unlinkSync(filePath);
+  }
+  res.json({ ok: true });
+});
+
 // ─── API 代理（与 Vite 开发代理保持一致）───
 // DataV GeoJSON API — 去掉 Referer 绕过访问校验
 app.use('/geodata', createProxyMiddleware({
@@ -108,6 +173,9 @@ app.use('/overpass', createProxyMiddleware({
 // ─── API 路由 ───
 app.use('/api/auth', authRouter);
 app.use('/api/templates', templatesRouter);
+
+// ─── 上传文件静态服务 ───
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '30d', etag: true }));
 
 // ─── 静态文件 ───
 const hasDist = existsSync(DIST_DIR);

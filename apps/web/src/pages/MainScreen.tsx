@@ -25,6 +25,8 @@ export function MainScreen() {
     loadConfig,
     setCurrentTemplateId,
     backgroundPattern,
+    backgroundImage,
+    backgroundVideo,
   } = useEditorStore();
 
   // 展示态响应式（编辑态始终桌面端）
@@ -183,7 +185,7 @@ export function MainScreen() {
       style={{ overflowY: isMobile ? 'auto' : 'hidden', overflowX: 'hidden' }}
     >
       {/* ═══ 背景地球-2：视口级渲染，不受画布缩放偏移影响 ═══ */}
-      {backgroundPattern === 'globe-2' && viewportW > 0 && (
+      {backgroundPattern === 'globe-2' && !backgroundImage && !backgroundVideo && viewportW > 0 && (
         <Suspense fallback={null}>
           <CyberGlobe canvasW={viewportW} canvasH={viewportH} variant="oblique" />
         </Suspense>
