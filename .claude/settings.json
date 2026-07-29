@@ -38,7 +38,10 @@
       "Bash(taskkill /F /IM node.exe)",
       "Bash(powershell -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(git commit -m 'feat: 固定顶栏重构 + 区块吸附系统完善 *)",
-      "Bash(/d/Python/HugeScreen/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc --noEmit -p /d/Python/HugeScreen/packages/widgets/tsconfig.json)"
+      "Bash(/d/Python/HugeScreen/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc --noEmit -p /d/Python/HugeScreen/packages/widgets/tsconfig.json)",
+      "Bash(curl -s 'https://picsum.photos/v2/list?page=1&limit=10')",
+      "Bash(python -m json.tool)",
+      "Bash(python -c ' *)"
     ]
   }
 }

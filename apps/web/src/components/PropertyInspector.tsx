@@ -193,11 +193,11 @@ function SlotChartEditors({
       {chartType === 'image-widget' && (
         <CollapsibleFieldGroup label="图片" defaultOpen={true}>
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG，可多选)</span>
+            <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG/SVG，可多选)</span>
             <input
               type="file"
               multiple
-              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+              accept=".jpg,.jpeg,.png,.svg,image/jpeg,image/png,image/svg+xml"
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 if (files.length === 0) return;
@@ -847,11 +847,11 @@ export function PropertyInspector() {
           <CollapsibleFieldGroup label="图片" defaultOpen={true}>
             {/* 文件上传 */}
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG，可多选)</span>
+              <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG/SVG，可多选)</span>
               <input
                 type="file"
                 multiple
-                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                accept=".jpg,.jpeg,.png,.svg,image/jpeg,image/png,image/svg+xml"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
                   if (files.length === 0) return;
