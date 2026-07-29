@@ -15,3 +15,4 @@ out/
 samples/
 apps/web/hugescreen.db*
 apps/web/views.json.migrated
+bug清单.txt
