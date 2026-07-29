@@ -344,7 +344,7 @@ function BackgroundPatternSelector() {
                   : 'bg-surface-hover/50 text-textSecondary/60 hover:text-textSecondary hover:bg-surface-hover'
               }`}
             >
-              📁 上传文件
+              上传文件
             </button>
           </div>
 
