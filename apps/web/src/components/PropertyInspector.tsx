@@ -193,24 +193,60 @@ function SlotChartEditors({
       {chartType === 'image-widget' && (
         <CollapsibleFieldGroup label="图片" defaultOpen={true}>
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG)</span>
+            <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG，可多选)</span>
             <input
               type="file"
+              multiple
               accept=".jpg,.jpeg,.png,image/jpeg,image/png"
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => onUpdate({ src: reader.result });
-                reader.readAsDataURL(file);
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                const existing: string[] = [...(opts.images || [])];
+                let loaded = 0;
+                files.forEach((file) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    existing.push(reader.result as string);
+                    loaded++;
+                    if (loaded === files.length) {
+                      onUpdate({ images: [...existing] });
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                });
               }}
               className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
           </label>
-          {opts.src && (
+          {(opts.images as string[])?.length > 0 && (
+            <div className="space-y-1 mt-1">
+              {(opts.images as string[]).map((img: string, i: number) => (
+                <div key={i} className="flex items-center gap-2 bg-surface-base/50 rounded p-1">
+                  <img src={img} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                  <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">图片 {i + 1}</span>
+                  <button
+                    onClick={() => {
+                      const next = [...(opts.images as string[])];
+                      next.splice(i, 1);
+                      onUpdate({ images: next.length > 0 ? next : undefined });
+                    }}
+                    className="text-[10px] text-negative/60 hover:text-negative flex-shrink-0 px-1"
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {opts.src && !(opts.images as string[])?.length && (
             <button onClick={() => onUpdate({ src: undefined })}
               className="text-[11px] text-negative/60 hover:text-negative mt-1"
             >移除图片</button>
           )}
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">轮播间隔(秒)</span>
+            <input type="number" min={0} step={1} value={Number(opts.slideshowInterval ?? 0)}
+              onChange={(e) => onUpdate({ slideshowInterval: Math.max(0, Number(e.target.value)) })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+          </label>
+          <p className="text-[10px] text-textSecondary/40 -mt-1">0 = 不轮播，显示第一张</p>
           <LabelSelectRow label="填充方式" value={String(opts.fit ?? 'contain')}
             options={['contain','cover','fill']} labels={['适配','裁剪','拉伸']}
             onChange={(v) => onUpdate({ fit: v })} />
@@ -809,28 +845,70 @@ export function PropertyInspector() {
         {/* ═══ 图片专属配置 ═══ */}
         {widget.type === 'image-widget' && (
           <CollapsibleFieldGroup label="图片" defaultOpen={true}>
+            {/* 文件上传 */}
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG)</span>
+              <span className="text-[11px] text-textSecondary/70">图片文件 (JPG/PNG，可多选)</span>
               <input
                 type="file"
+                multiple
                 accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    updateWidget(widget.id, { options: { ...(widget.options as object), src: reader.result } });
-                  };
-                  reader.readAsDataURL(file);
+                  const files = Array.from(e.target.files || []);
+                  if (files.length === 0) return;
+                  const existing: string[] = [...((widget.options as any).images || [])];
+                  let loaded = 0;
+                  files.forEach((file) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      existing.push(reader.result as string);
+                      loaded++;
+                      if (loaded === files.length) {
+                        updateWidget(widget.id, { options: { ...(widget.options as object), images: [...existing] } });
+                      }
+                    };
+                    reader.readAsDataURL(file);
+                  });
                 }}
                 className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
             </label>
-            {(widget.options as any).src && (
+
+            {/* 图片列表 */}
+            {((widget.options as any).images as string[])?.length > 0 && (
+              <div className="space-y-1 mt-1">
+                {((widget.options as any).images as string[]).map((img: string, i: number) => (
+                  <div key={i} className="flex items-center gap-2 bg-surface-base/50 rounded p-1">
+                    <img src={img} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                    <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">图片 {i + 1}</span>
+                    <button
+                      onClick={() => {
+                        const next = [...((widget.options as any).images as string[])];
+                        next.splice(i, 1);
+                        updateWidget(widget.id, { options: { ...(widget.options as object), images: next.length > 0 ? next : undefined } });
+                      }}
+                      className="text-[10px] text-negative/60 hover:text-negative flex-shrink-0 px-1"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 向后兼容：旧数据有 src 无 images 时显示移除按钮 */}
+            {(widget.options as any).src && !((widget.options as any).images as string[])?.length && (
               <button
                 onClick={() => updateWidget(widget.id, { options: { ...(widget.options as object), src: undefined } })}
                 className="text-[11px] text-negative/60 hover:text-negative mt-1"
               >移除图片</button>
             )}
+
+            {/* 轮播间隔 */}
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">轮播间隔(秒)</span>
+              <input type="number" min={0} step={1} value={Number((widget.options as any).slideshowInterval ?? 0)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), slideshowInterval: Math.max(0, Number(e.target.value)) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <p className="text-[10px] text-textSecondary/40 -mt-1">0 = 不轮播，显示第一张</p>
+
             <LabelSelectRow label="填充方式" value={String((widget.options as any).fit ?? 'contain')}
               options={['contain','cover','fill']}
               labels={['适配','裁剪','拉伸']}
