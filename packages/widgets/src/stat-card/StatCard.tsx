@@ -89,8 +89,8 @@ export function StatCard({
           <span className="text-textSecondary/60 font-mono flex-shrink-0" style={{ fontSize: 'clamp(9px, 11cqh, 18px)' }}>{prefix}</span>
         )}
         <span
-          className="font-semibold font-mono tracking-tight tabular-nums leading-none truncate"
-          style={{ fontSize: 'clamp(16px, 26cqh, 46px)', color: valueColor }}
+          className="font-semibold font-mono tracking-tight tabular-nums leading-none"
+          style={{ fontSize: 'clamp(16px, min(24cqh, 13cqw), 48px)', color: valueColor }}
         >
           {formattedValue}
         </span>
