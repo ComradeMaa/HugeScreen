@@ -47,7 +47,6 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
     : '';
   const dsKey = poolKey ? `${poolKey}|fp=${configFingerprint}` : (ds?.type ?? 'none');
   const lastDsKeyRef = useRef(dsKey);
-  const lastDataRef = useRef('');  // 缓存上次数据的 JSON，避免相同数据重复触发渲染
 
   useEffect(() => {
     const dsChanged = dsKey !== lastDsKeyRef.current;
@@ -83,11 +82,7 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
 
       const callback = (raw: unknown) => {
         const mapped = mapData(raw, chartType, ds.mapping ?? {});
-        const json = JSON.stringify(mapped);
-        if (json !== lastDataRef.current) {
-          lastDataRef.current = json;
-          setLiveProps(mapped);
-        }
+        setLiveProps(mapped);
       };
       entry.calls.add(callback);
 

@@ -24,24 +24,25 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const pinEditWidgetId = useEditorStore((s) => s.pinEditWidgetId);
   const liveProps = useWidgetData(widget);
-  const lastSyncedRef = useRef<string>('');
 
-  // 当实时数据到来时，回写数据字段到 widget.options（避免覆盖样式/开关等外观字段）
+  // 当 REST 数据到达时，无条件回写数据字段到 widget.options
   // ★ static 数据源不需要同步——options 本身就是真源
   useEffect(() => {
     if (!liveProps || Object.keys(liveProps).length === 0) return;
     if (widget.dataSource?.type === 'static') return;
-    const liveStr = JSON.stringify(liveProps);
-    // Only sync when REST data actually changed — don't overwrite user edits on re-render
-    if (liveStr === lastSyncedRef.current) return;
-    lastSyncedRef.current = liveStr;
     const currentOpts = widget.options as Record<string, unknown>;
     const dataFields = pickDataFields(liveProps, widget.type);
     if (Object.keys(dataFields).length === 0) return;
+    // 只有当 REST 数据确实与当前 options 中的数据不同时才写入，避免无意义的 store 更新
+    const currentData = Object.fromEntries(
+      Object.keys(dataFields).map(k => [k, currentOpts[k]])
+    );
+    if (JSON.stringify(dataFields) === JSON.stringify(currentData)) return;
     // Merge: keep existing per-item metadata (like showLabelLine) from current options
     const merged = mergePreservingMeta(dataFields, currentOpts, widget.type);
     updateWidget(widget.id, { options: { ...currentOpts, ...merged } });
-  }, [JSON.stringify(liveProps), widget.id, widget.type]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveProps, widget.id, widget.type]);
 
   const setLastDraggedPinId = useEditorStore((s) => s.setLastDraggedPinId);
   const pinPosRef = useRef<Record<string, { lat: number; lng: number }>>({});
@@ -65,12 +66,9 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
     updateWidget(w.id, { options: { ...(w.options as Record<string, unknown>), ...patch } });
   }, [updateWidget, setLastDraggedPinId]); // 稳定依赖，不会每次渲染重建
 
-  // REST 数据源时 liveProps 最后展开以即时覆盖数据字段；静态/无数据源则 widget.options 为最终真源
-  const props = widget.dataSource?.type === 'rest'
-    ? { ...defaultConfig, ...(widget.options as object), ...liveProps }
-    : { ...defaultConfig, ...liveProps, ...(widget.options as object) };
-
-  return <Comp {...props} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={stableOnUpdate} />;
+  // widget.options 为最终真源 — 数据编辑器、引出线标签等 UI 元数据均在此
+  // REST 数据通过 sync effect 异步写回 options，合并时自动保留 per-item 元数据
+  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={stableOnUpdate} />;
 }
 
 /** 只保留数据字段，排除外观/开关字段 */
