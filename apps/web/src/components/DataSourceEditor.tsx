@@ -54,7 +54,7 @@ export function DataSourceEditor({ dataSource, chartType, onChange }: DataSource
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const token = extractBearer(cfg.headers);
-  const intervalSec = cfg.interval ? Math.round(cfg.interval / 1000) : 0;
+  const intervalSec = cfg.interval && cfg.interval >= 1000 ? Math.round(cfg.interval / 1000) : 0;
 
   const patchConfig = (p: Partial<DataSourceOptions>) => onChange({ ...ds, config: { ...cfg, ...p } });
   const setType = (type: DataSourceConfig['type']) => onChange({ ...ds, type });
@@ -150,11 +150,11 @@ const mappingRows = Object.entries(mapping);
 
           <label className="flex items-center justify-between gap-2">
             <span className="text-[11px] text-textSecondary/70 whitespace-nowrap">刷新间隔(秒)</span>
-            <input type="number" min={0} value={intervalSec}
+            <input type="number" min={0} step={1} value={intervalSec}
               onChange={(e) => patchConfig({ interval: Math.max(0, Number(e.target.value)) * 1000 })}
               className={`${inputCls} w-20 text-right`} />
           </label>
-          <p className="text-[10px] text-textSecondary/40 -mt-1">0 = 只拉取一次，不轮询</p>
+          <p className="text-[10px] text-textSecondary/40 -mt-1">0 = 只拉取一次 · 最小轮询间隔 1 秒</p>
 
           <label className="flex flex-col gap-1">
             <span className="text-[11px] text-textSecondary/70">jsonPath（可选）</span>

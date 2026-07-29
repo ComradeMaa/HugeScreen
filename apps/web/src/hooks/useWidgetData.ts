@@ -38,10 +38,14 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
   const ds = widget.dataSource;
   const chartType = widget.type;
 
-  // ── 稳定依赖 key：URL + interval（interval 变化时需重连 adapter）───
+  // ── 稳定依赖 key：URL + interval + headers + method + jsonPath ──
+  // 任何配置变更都会触发 adapter 重连，确保 token 等变更被感知
   const poolKey = ds?.type === 'rest' ? `rest:${ds.config?.url || ''}` : null;
   const dsInterval = ds?.config?.interval ?? 0;
-  const dsKey = poolKey ? `${poolKey}|int=${dsInterval}` : (ds?.type ?? 'none');
+  const configFingerprint = ds?.type === 'rest'
+    ? JSON.stringify({ url: ds.config?.url, method: ds.config?.method, headers: ds.config?.headers, jsonPath: ds.config?.jsonPath, interval: ds.config?.interval })
+    : '';
+  const dsKey = poolKey ? `${poolKey}|fp=${configFingerprint}` : (ds?.type ?? 'none');
   const lastDsKeyRef = useRef(dsKey);
   const lastDataRef = useRef('');  // 缓存上次数据的 JSON，避免相同数据重复触发渲染
 

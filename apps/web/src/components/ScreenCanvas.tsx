@@ -65,7 +65,12 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
     updateWidget(w.id, { options: { ...(w.options as Record<string, unknown>), ...patch } });
   }, [updateWidget, setLastDraggedPinId]); // 稳定依赖，不会每次渲染重建
 
-  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={stableOnUpdate} />;
+  // REST 数据源时 liveProps 最后展开以即时覆盖数据字段；静态/无数据源则 widget.options 为最终真源
+  const props = widget.dataSource?.type === 'rest'
+    ? { ...defaultConfig, ...(widget.options as object), ...liveProps }
+    : { ...defaultConfig, ...liveProps, ...(widget.options as object) };
+
+  return <Comp {...props} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={stableOnUpdate} />;
 }
 
 /** 只保留数据字段，排除外观/开关字段 */
@@ -1182,9 +1187,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
               backgroundColor: widget.style.backgroundColor || 'rgba(30, 30, 36, 0.82)',
-              borderColor: isEditing ? (isSelected ? theme.colors.primary : 'rgba(255,255,255,0.12)') : 'transparent',
-              borderWidth: isEditing ? 1 : 0,
-              borderStyle: isEditing ? 'dashed' : 'solid',
+              borderColor: isEditing ? (isSelected ? '#FF8C42' : 'rgba(255,255,255,0.12)') : 'transparent',
+              borderWidth: isEditing ? (isSelected ? 2 : 1) : 0,
+              borderStyle: isEditing ? (isSelected ? 'solid' : 'dashed') : 'solid',
               borderRadius: isEditing ? 4 : 0,
               boxShadow: !hasBorder && effectiveWidgetDrag && !effectiveHeaderDrag && !isSwapTarget && widget.id !== draggingWidgetId.current
                 ? 'inset 0 0 0 1px rgba(0,212,255,0.2)' : 'none',
@@ -1198,7 +1203,16 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           >
             {!isEditing && <CornerAccent isCenter={isCenter} />}
             {isEditing && isSelected && (
-              <div className="absolute inset-0 ring-1 ring-accent-cool pointer-events-none z-20" />
+              <>
+                {/* 选中光环 */}
+                <div className="absolute inset-0 ring-2 ring-accent-warm pointer-events-none z-20 rounded-[3px] animate-selectionPulse"
+                  style={{ boxShadow: '0 0 16px rgba(255,140,66,0.45), inset 0 0 16px rgba(255,140,66,0.10)' }} />
+                {/* 四角标记 */}
+                <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-accent-warm pointer-events-none z-20 rounded-tl-sm" style={{ margin: -1 }} />
+                <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-accent-warm pointer-events-none z-20 rounded-tr-sm" style={{ margin: -1 }} />
+                <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-accent-warm pointer-events-none z-20 rounded-bl-sm" style={{ margin: -1 }} />
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-accent-warm pointer-events-none z-20 rounded-br-sm" style={{ margin: -1 }} />
+              </>
             )}
 
             {/* ═══ 标准化标题区块 ═══ */}

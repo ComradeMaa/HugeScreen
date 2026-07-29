@@ -58,6 +58,15 @@ body {
   animation: slideIn 250ms ease-out;
 }
 
+/* 组件选中呼吸灯 */
+@keyframes selectionPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+.animate-selectionPulse {
+  animation: selectionPulse 2s ease-in-out infinite;
+}
+
 /* 顶栏交换：被挤走卡片入场动画 */
 @keyframes headerSqueezeIn {
   from { opacity: 0; transform: scale(0.97); }

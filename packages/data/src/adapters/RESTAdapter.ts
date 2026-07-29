@@ -96,10 +96,14 @@ export class RESTAdapter implements DataAdapter {
     // Only mark connected after initial fetch succeeds
     this._connected = true;
 
-    // Poll at interval if configured
-    const interval = config.config?.interval;
-    if (interval && interval > 0) {
-      this._timer = setInterval(fetchData, interval);
+    // Poll at interval if configured (safety: clamp between 1s and 1h)
+    const POLL_MIN = 1000;   // 1 second — 绝不允许短于 1s 的轮询
+    const POLL_MAX = 3600000; // 1 hour  — 防止天文数字级 interval
+    const raw = config.config?.interval;
+    if (typeof raw === 'number' && raw >= POLL_MIN) {
+      const clamped = Math.min(raw, POLL_MAX);
+      console.log(`[RESTAdapter] polling every ${clamped}ms (requested ${raw}ms)`);
+      this._timer = setInterval(fetchData, clamped);
     }
   }
 
