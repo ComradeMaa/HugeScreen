@@ -32,6 +32,7 @@ export function MainScreen() {
   // 展示态响应式（编辑态始终桌面端）
   const { grid: bpGrid, layouts: bpLayouts, hiddenWidgets, scaleMode, canvasHeight: bpCanvasH } = useBreakpoint();
 
+  const [ready, setReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [viewportW, setViewportW] = useState(0);
@@ -51,8 +52,8 @@ export function MainScreen() {
             loadConfig(JSON.stringify(tpl.config));
           }
         } catch { /* ignore */ }
-        // 加载完成 → 标记为"已保存"状态
         useEditorStore.getState().markConfigSaved();
+        setReady(true);
       })();
       return () => { setCurrentTemplateId(null); };
     } else {
@@ -60,6 +61,7 @@ export function MainScreen() {
       if (saved) {
         try { loadConfig(saved); } catch { /* use default */ }
       }
+      setReady(true);
     }
   }, [templateId, loadConfig, setCurrentTemplateId]);
 
@@ -185,23 +187,25 @@ export function MainScreen() {
       style={{ overflowY: isMobile ? 'auto' : 'hidden', overflowX: 'hidden' }}
     >
       {/* ═══ 背景地球-2：视口级渲染，不受画布缩放偏移影响 ═══ */}
-      {backgroundPattern === 'globe-2' && !backgroundImage && !backgroundVideo && viewportW > 0 && (
+      {ready && backgroundPattern === 'globe-2' && !backgroundImage && !backgroundVideo && viewportW > 0 && (
         <Suspense fallback={null}>
           <CyberGlobe canvasW={viewportW} canvasH={viewportH} variant="oblique" />
         </Suspense>
       )}
 
-      {/* 展示画布 */}
-      <div style={canvasStyle}>
-        <ScreenCanvas
-          isEditing={isEditorVisible}
-          bpGrid={isEditorVisible ? undefined : bpGrid}
-          bpLayouts={isEditorVisible ? undefined : bpLayouts}
-          hiddenWidgets={isEditorVisible ? undefined : hiddenWidgets}
-          canvasWidth={scCanvasW}
-          canvasHeight={scCanvasH}
-        />
-      </div>
+      {/* 展示画布 — 数据就绪后才渲染，避免闪现默认配置 */}
+      {ready && (
+        <div style={canvasStyle}>
+          <ScreenCanvas
+            isEditing={isEditorVisible}
+            bpGrid={isEditorVisible ? undefined : bpGrid}
+            bpLayouts={isEditorVisible ? undefined : bpLayouts}
+            hiddenWidgets={isEditorVisible ? undefined : hiddenWidgets}
+            canvasWidth={scCanvasW}
+            canvasHeight={scCanvasH}
+          />
+        </div>
+      )}
 
       {/* 编辑器浮层 */}
       <EditorOverlay />

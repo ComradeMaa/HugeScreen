@@ -137,13 +137,18 @@ function mapText(raw: unknown, m: FieldMapping): Record<string, unknown> {
   if (typeof raw === 'string') return { text: raw };
   if (typeof raw === 'number' || typeof raw === 'boolean') return { text: String(raw) };
   if (Array.isArray(raw)) {
-    // 数组 → 取第一项的文本，或 JSON 序列化
-    const firstStr = raw.find((v) => typeof v === 'string');
-    if (firstStr) return { text: String(firstStr) };
-    if (raw.length > 0 && typeof raw[0] === 'object') {
-      return mapText(raw[0], m); // 递归取第一个对象的文本
+    // 数组 → 拼接所有项的文本（jsonPath 留空时显示全部，填了 path 时该 path 切片后的数组也在这一步拼接）
+    const texts: string[] = [];
+    for (const item of raw) {
+      if (typeof item === 'string') { texts.push(item); }
+      else if (typeof item === 'number' || typeof item === 'boolean') { texts.push(String(item)); }
+      else if (item && typeof item === 'object') {
+        const r = mapText(item, m);
+        if (r.text) texts.push(r.text as string);
+      }
     }
-    return { text: JSON.stringify(raw) };
+    if (texts.length > 0) return { text: texts.join('\n') };
+    return { text: '' };
   }
   if (!raw || typeof raw !== 'object') return {};
 
