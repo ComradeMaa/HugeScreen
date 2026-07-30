@@ -12,19 +12,27 @@ const router = Router();
 // 所有模板路由需要认证
 router.use(requireAuth);
 
-// ─── GET /api/templates — 列出当前用户的模板（不含 config 字段）───
+// ─── GET /api/templates — 列出当前用户的模板（不含 config 字段，含 thumbnail）───
 router.get('/', (req, res) => {
   try {
     const db = getDb();
     const rows = db.prepare(
-      'SELECT id, name, created_at, updated_at FROM templates WHERE user_id = ? ORDER BY updated_at DESC'
+      'SELECT id, name, config, created_at, updated_at FROM templates WHERE user_id = ? ORDER BY updated_at DESC'
     ).all(req.user.id);
-    res.json(rows.map(r => ({
-      id: r.id,
-      name: r.name,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    })));
+    res.json(rows.map(r => {
+      let thumbnail = null;
+      try {
+        const cfg = JSON.parse(r.config);
+        thumbnail = cfg.thumbnail || null;
+      } catch { /* ignore */ }
+      return {
+        id: r.id,
+        name: r.name,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        thumbnail,
+      };
+    }));
   } catch (e) {
     console.error('[templates] list error:', e.message);
     res.status(500).json({ error: '获取模板列表失败' });

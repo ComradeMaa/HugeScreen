@@ -137,7 +137,7 @@ interface EditorState {
   lastSavedConfig: string;  // 最近一次保存时的配置快照，供未保存检测用
   markConfigSaved: () => void;
 
-  saveConfig: () => string | Promise<string>;
+  saveConfig: (thumbnail?: string) => string | Promise<string>;
   loadConfig: (json: string) => void;
   exportConfig: () => void;
   importConfig: () => void;
@@ -766,10 +766,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
 
   setCurrentTemplateId: (id) => set({ currentTemplateId: id }),
 
-  saveConfig: async () => {
+  saveConfig: async (thumbnail?: string) => {
     const state = get();
-    let config = { ...state.config };
+    let config: any = { ...state.config };
     let dirty = false;
+
+    if (thumbnail) { config.thumbnail = thumbnail; }
 
     // 上传待处理的本地文件
     if (state.backgroundImage && state.backgroundImage.startsWith('blob:')) {
@@ -807,7 +809,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     // 模板模式：保存到 API
     if (state.currentTemplateId) {
       const token = localStorage.getItem('hugescreen-token');
-      fetch(`/api/templates/${state.currentTemplateId}`, {
+      await fetch(`/api/templates/${state.currentTemplateId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ config }),

@@ -5,13 +5,14 @@ interface TemplateCardProps {
   id: string;
   name: string;
   updatedAt: string;
+  thumbnail?: string | null;
   onDeleted: () => void;
   onPublish: (id: string) => void;
   onDeleteRequest: (id: string, name: string) => void;
   onRename: (id: string, name: string) => void;
 }
 
-export function TemplateCard({ id, name, updatedAt, onDeleted, onPublish, onDeleteRequest, onRename }: TemplateCardProps) {
+export function TemplateCard({ id, name, updatedAt, thumbnail, onDeleted, onPublish, onDeleteRequest, onRename }: TemplateCardProps) {
   const relative = useRelativeTime(updatedAt);
   const navigate = useNavigate();
 
@@ -24,13 +25,17 @@ export function TemplateCard({ id, name, updatedAt, onDeleted, onPublish, onDele
       onClick={() => navigate(`/editor/${id}`)}
     >
       {/* Thumbnail */}
-      <div className="h-[120px] bg-[#1B2238]/40 flex items-center justify-center border-b border-[rgba(183,172,178,0.1)]">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-          <rect x="2" y="4" width="18" height="12" rx="2" stroke="#F1EFF2" strokeOpacity="0.3" strokeWidth="1" />
-          <rect x="24" y="4" width="22" height="12" rx="2" stroke="#F1EFF2" strokeOpacity="0.12" strokeWidth="1" />
-          <rect x="2" y="20" width="10" height="10" rx="2" stroke="#F1EFF2" strokeOpacity="0.2" strokeWidth="1" />
-          <rect x="16" y="20" width="30" height="22" rx="2" stroke="#F1EFF2" strokeOpacity="0.15" strokeWidth="1" />
-        </svg>
+      <div className="h-[120px] bg-[#1B2238]/40 flex items-center justify-center border-b border-[rgba(183,172,178,0.1)] overflow-hidden">
+        {thumbnail ? (
+          <img src={thumbnail} alt={name} className="w-full h-full object-cover" />
+        ) : (
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+            <rect x="2" y="4" width="18" height="12" rx="2" stroke="#F1EFF2" strokeOpacity="0.3" strokeWidth="1" />
+            <rect x="24" y="4" width="22" height="12" rx="2" stroke="#F1EFF2" strokeOpacity="0.12" strokeWidth="1" />
+            <rect x="2" y="20" width="10" height="10" rx="2" stroke="#F1EFF2" strokeOpacity="0.2" strokeWidth="1" />
+            <rect x="16" y="20" width="30" height="22" rx="2" stroke="#F1EFF2" strokeOpacity="0.15" strokeWidth="1" />
+          </svg>
+        )}
       </div>
 
       {/* Info */}

@@ -65,17 +65,282 @@ export function MainScreen() {
     }
   }, [templateId, loadConfig, setCurrentTemplateId]);
 
-  const handleBack = () => {
+  const handleBack = async () => {
     const current = JSON.stringify(useEditorStore.getState().config);
     if (current !== lastSavedConfig) {
       setShowUnsaved(true);
     } else {
+      // 无改动也保存一次——生成缩略图
+      const thumb = captureThumbnail();
+      await useEditorStore.getState().saveConfig(thumb);
       navigate('/templates');
     }
   };
 
-  const handleSaveAndExit = () => {
-    useEditorStore.getState().saveConfig();
+  const captureThumbnail = useCallback((): string | undefined => {
+    const cfg = useEditorStore.getState().config;
+    const { width, height } = cfg.canvas;
+    const { cols, rows, gap } = cfg.grid;
+    const widgets = cfg.widgets || [];
+    const customComps = (cfg as any).customComponents as any[] || [];
+
+    const cellW = (width - gap * (cols + 1)) / cols;
+    const cellH = (height - gap * (rows + 1)) / rows;
+    const tw = 400;
+    const th = Math.round(tw * (height / width));
+    const sc = tw / width;
+
+    const c = document.createElement('canvas');
+    c.width = tw; c.height = th;
+    const ctx = c.getContext('2d')!;
+
+    ctx.fillStyle = '#2C2C34';
+    ctx.fillRect(0, 0, tw, th);
+
+    // 虚线网格
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.setLineDash([2, 4]);
+    for (let col = 1; col < cols; col++) {
+      const x = (gap + col * (cellW + gap)) * sc;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, th); ctx.stroke();
+    }
+    for (let row = 1; row < rows; row++) {
+      const y = (gap + row * (cellH + gap)) * sc;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(tw, y); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    const COLORS = { stat: '#FF8C42', chart: '#34d399', table: '#00D4FF', '3d': '#7c3aed', media: '#c084fc', decorator: '#9E9EA8' };
+
+    // 查找自定义组件定义
+    function findComposite(type: string) { return customComps.find((d: any) => d.type === type); }
+
+    function drawWidget(area: { x: number; y: number; w: number; h: number }, type: string, cat: string, name: string) {
+      const { x, y, w: rw, h: rh } = area;
+      const color = COLORS[cat] || 'rgba(255,255,255,0.06)';
+      const m = 2; // margin
+      const pad = 4;
+
+      // 背景 + 边框
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.12;
+      ctx.fillRect(x + m, y + m, rw - m * 2, rh - m * 2);
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x + m, y + m, rw - m * 2, rh - m * 2);
+      ctx.globalAlpha = 1;
+
+      const cx = x + rw / 2, cy = y + rh / 2;
+      const innerW = rw - pad * 2, innerH = rh - pad * 4;
+      const innerX = x + pad, innerY = y + pad * 3;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x + m, y + m, rw - m * 2, rh - m * 2);
+      ctx.clip();
+
+      // ── 按类型绘制简化图 ──
+      switch (type) {
+        case 'pie-chart': {
+          const r = Math.min(innerW, innerH) * 0.35;
+          ctx.beginPath(); ctx.arc(cx, cy - 2, r, 0, Math.PI * 2);
+          ctx.fillStyle = color; ctx.globalAlpha = 0.15; ctx.fill();
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.stroke();
+          // 切片
+          const slices = [0, Math.PI * 0.6, Math.PI * 1.2, Math.PI * 1.7, Math.PI * 2.2];
+          ctx.globalAlpha = 0.4;
+          for (let i = 1; i < slices.length; i++) {
+            ctx.beginPath(); ctx.moveTo(cx, cy - 2);
+            ctx.arc(cx, cy - 2, r, slices[i - 1], slices[i]);
+            ctx.closePath();
+            ctx.fillStyle = i % 2 ? color : '#fff'; ctx.globalAlpha = i % 2 ? 0.3 : 0.1; ctx.fill();
+            ctx.beginPath(); ctx.moveTo(cx, cy - 2); ctx.lineTo(cx + Math.cos(slices[i]) * r, cy - 2 + Math.sin(slices[i]) * r);
+            ctx.strokeStyle = color; ctx.globalAlpha = 0.5; ctx.lineWidth = 0.5; ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'bar-chart': {
+          const barCount = 4, barGap = 3, totalW = innerW - 8;
+          const barW = (totalW - barGap * (barCount - 1)) / barCount;
+          const maxH = innerH * 0.6;
+          const vals = [0.7, 0.45, 0.9, 0.55];
+          ctx.fillStyle = color; ctx.globalAlpha = 0.5;
+          for (let i = 0; i < barCount; i++) {
+            const bh = maxH * vals[i];
+            ctx.fillRect(innerX + i * (barW + barGap), innerY + maxH - bh, barW, bh);
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'line-chart':
+        case 'bar-line-chart': {
+          const pts = [{x: 0.1, y: 0.6}, {x: 0.3, y: 0.3}, {x: 0.5, y: 0.7}, {x: 0.7, y: 0.2}, {x: 0.9, y: 0.5}];
+          ctx.beginPath();
+          pts.forEach((p, i) => {
+            const px = innerX + innerW * p.x, py = innerY + innerH * p.y;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          });
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.7; ctx.lineWidth = 1.2; ctx.stroke();
+          pts.forEach(p => { ctx.beginPath(); ctx.arc(innerX + innerW * p.x, innerY + innerH * p.y, 1.5, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill(); });
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'stat-card': {
+          ctx.fillStyle = color; ctx.globalAlpha = 0.7;
+          ctx.font = `bold ${Math.round(Math.min(innerH * 0.5, innerW * 0.15))}px JetBrains Mono,monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText('1,234', cx, cy - 2);
+          ctx.globalAlpha = 0.4;
+          ctx.font = `${Math.round(Math.min(innerH * 0.18, innerW * 0.08))}px Inter,sans-serif`;
+          ctx.fillText(name || '指标', cx, cy + innerH * 0.25);
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'text-widget': {
+          const lineH = Math.max(2, innerH * 0.12);
+          ctx.fillStyle = color; ctx.globalAlpha = 0.3;
+          for (let i = 0; i < 5; i++) {
+            const lw = innerW * (0.5 + Math.random() * 0.5);
+            ctx.fillRect(innerX, innerY + i * lineH * 2, lw, lineH);
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'image-widget': {
+          // 简化山峰+太阳图标
+          ctx.fillStyle = color; ctx.globalAlpha = 0.3;
+          ctx.beginPath(); ctx.arc(cx + rw * 0.18, cy - rh * 0.1, rw * 0.1, 0, Math.PI * 2); ctx.fill(); // sun
+          ctx.beginPath(); ctx.moveTo(cx - rw * 0.25, cy + rh * 0.25);
+          ctx.lineTo(cx - rw * 0.05, cy - rh * 0.15); ctx.lineTo(cx + rw * 0.1, cy + rh * 0.25);
+          ctx.lineTo(cx + rw * 0.2, cy - rh * 0.05); ctx.lineTo(cx + rw * 0.3, cy + rh * 0.25);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'data-table': {
+          const cellRows = 3, cellCols = 3;
+          const cw = innerW / cellCols, ch2 = innerH / cellRows;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.25; ctx.lineWidth = 0.5;
+          for (let ri = 0; ri <= cellRows; ri++) { ctx.beginPath(); ctx.moveTo(innerX, innerY + ri * ch2); ctx.lineTo(innerX + innerW, innerY + ri * ch2); ctx.stroke(); }
+          for (let ci = 0; ci <= cellCols; ci++) { ctx.beginPath(); ctx.moveTo(innerX + ci * cw, innerY); ctx.lineTo(innerX + ci * cw, innerY + innerH); ctx.stroke(); }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'rank-list': {
+          for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = color; ctx.globalAlpha = 0.3;
+            ctx.font = `${Math.round(innerH * 0.16)}px Inter,sans-serif`; ctx.textAlign = 'left';
+            ctx.fillText(`${i + 1}.`, innerX, innerY + i * innerH * 0.22 + innerH * 0.16);
+            ctx.fillRect(innerX + innerW * 0.15, innerY + i * innerH * 0.22 + innerH * 0.06, innerW * 0.7, innerH * 0.08);
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'cyber-city':
+        case 'cyber-globe':
+        case 'cyber-sphere':
+        case 'cyber-map':
+        case 'particle-field': {
+          // 简化建筑群/地球
+          ctx.fillStyle = color; ctx.globalAlpha = 0.15;
+          ctx.beginPath(); ctx.arc(cx, cy, Math.min(rw, rh) * 0.35, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke();
+          ctx.beginPath(); ctx.arc(cx - rw * 0.08, cy - rh * 0.05, Math.min(rw, rh) * 0.12, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'border-frame':
+        case 'screen-header':
+        case 'header-title':
+        case 'header-datetime': {
+          // 边框/装饰条
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.3; ctx.lineWidth = 1;
+          ctx.strokeRect(innerX, innerY, innerW, innerH);
+          ctx.fillStyle = color; ctx.globalAlpha = 0.2;
+          ctx.fillRect(innerX, innerY, innerW, innerH * 0.15);
+          ctx.globalAlpha = 1;
+          break;
+        }
+        default: {
+          // 自定义组合组件 → 在内部绘制子组件
+          const comp = findComposite(type);
+          if (comp && comp.composite) {
+            const { layoutTemplate, slots: subSlots } = comp.composite;
+            const subWidgets = (subSlots || []).map((s: any, i: number) => ({
+              type: s.chartType, cat: s.chartType?.startsWith('stat') ? 'stat' : 'chart', name: s.chartType || `slot${i}`,
+            }));
+            drawCompositeArea({ x: innerX, y: innerY, w: innerW, h: innerH }, layoutTemplate, subWidgets);
+          }
+          break;
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function drawCompositeArea(area: { x: number; y: number; w: number; h: number }, template: string, subWidgets: any[]) {
+      // 使用与 CompositeChartWidget 相同的网格模板
+      const TEMPLATE_AREAS: Record<string, string> = {
+        '2col': '"a a b b" "a a b b" "a a b b" "a a b b"',
+        '2row': '"a a a a" "a a a a" "b b b b" "b b b b"',
+        '3col': '"a a b b c c" "a a b b c c" "a a b b c c" "a a b b c c"',
+        '2x2': '"a a b b" "a a b b" "c c d d" "c c d d"',
+        '1top2bottom': '"a a a a" "a a a a" "b b c c" "b b c c"',
+        '1left2right': '"a a b b" "a a b b" "a a c c" "a a c c"',
+        'topNarrow': '"a a a a" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b"',
+      };
+      const tpl = template || '2col';
+      const areaStr = TEMPLATE_AREAS[tpl] || TEMPLATE_AREAS['2col'];
+      const rows2 = areaStr.split('" "').length;
+      // Parse grid areas
+      const lines = areaStr.split('" "').map((s: string) => s.replace(/"/g, ''));
+      const areas = lines.map((l: string) => l.split(' '));
+      const gridRows = areas.length;
+      const gridCols = areas[0]?.length || 4;
+      const cw = area.w / gridCols, ch = area.h / gridRows;
+
+      // Find bounding box for each slot letter
+      const slotAreas: Record<string, { x1: number; y1: number; x2: number; y2: number; }> = {};
+      for (let row = 0; row < gridRows; row++) {
+        for (let col = 0; col < gridCols; col++) {
+          const letter = areas[row]?.[col];
+          if (!letter || letter === '.') continue;
+          if (!slotAreas[letter]) slotAreas[letter] = { x1: col, y1: row, x2: col + 1, y2: row + 1 };
+          else {
+            slotAreas[letter].x2 = Math.max(slotAreas[letter].x2, col + 1);
+            slotAreas[letter].y2 = Math.max(slotAreas[letter].y2, row + 1);
+          }
+        }
+      }
+
+      const letters = Object.keys(slotAreas).sort();
+      subWidgets.slice(0, letters.length).forEach((sw: any, i: number) => {
+        const sa = slotAreas[letters[i]];
+        if (!sa) return;
+        const sx = area.x + sa.x1 * cw + 1;
+        const sy = area.y + sa.y1 * ch + 1;
+        const sw2 = (sa.x2 - sa.x1) * cw - 2;
+        const sh2 = (sa.y2 - sa.y1) * ch - 2;
+        drawWidget({ x: sx, y: sy, w: sw2, h: sh2 }, sw.type, sw.cat, sw.name);
+      });
+    }
+
+    for (const w of widgets) {
+      const l = w.layout;
+      const x = (gap + l.col * (cellW + gap)) * sc;
+      const y = (gap + l.row * (cellH + gap)) * sc;
+      const rw = (l.colSpan * cellW + (l.colSpan - 1) * gap) * sc;
+      const rh = (l.rowSpan * cellH + (l.rowSpan - 1) * gap) * sc;
+      drawWidget({ x, y, w: rw, h: rh }, w.type, w.category, w.displayName);
+    }
+    return c.toDataURL('image/jpeg', 0.65);
+  }, []);
+
+  const handleSaveAndExit = async () => {
+    const thumb = captureThumbnail();
+    await useEditorStore.getState().saveConfig(thumb);
     setShowUnsaved(false);
     navigate('/templates');
   };

@@ -13,6 +13,7 @@ interface TemplateItem {
   id: string;
   name: string;
   updatedAt: string;
+  thumbnail?: string | null;
 }
 
 export function TemplatePage() {
@@ -221,6 +222,7 @@ export function TemplatePage() {
                     id={tpl.id}
                     name={tpl.name}
                     updatedAt={tpl.updatedAt}
+                    thumbnail={tpl.thumbnail}
                     onDeleted={fetchTemplates}
                     onPublish={handlePublish}
                     onDeleteRequest={(id, name) => setDeleteTarget({ id, name })}
