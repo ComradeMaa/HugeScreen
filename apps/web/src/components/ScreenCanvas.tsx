@@ -1184,7 +1184,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
             `}
             style={{
               left: px.left, top: px.top, width: px.width, height: px.height,
-              backgroundColor: widget.style.backgroundColor || 'rgba(30, 30, 36, 0.82)',
+              backgroundColor: widget.style.backgroundColor || 'rgba(30, 30, 36, 0.72)',
               borderColor: isEditing ? (isSelected ? '#FF8C42' : 'rgba(255,255,255,0.12)') : 'transparent',
               borderWidth: isEditing ? (isSelected ? 2 : 1) : 0,
               borderStyle: isEditing ? (isSelected ? 'solid' : 'dashed') : 'solid',
