@@ -237,8 +237,12 @@ ECharts Three.js       CSS/Canvas
 PM2 以 `/home/ubuntu/hugescreen/` 为工作目录运行 `server.mjs`，所有路径均相对于此目录。
 
 ```
-服务器: 221.131.69.161:55906 (SSH: 221.131.69.161:60222)
+服务器: 221.131.69.161:55906
+SSH: ubuntu@221.131.69.161:60222
 PM2 进程: hugescreen (fork mode, /home/ubuntu/hugescreen/server.mjs)
+PM2 路径: /home/ubuntu/.npm-global/bin/pm2（非交互 SSH 需 export PATH）
+
+⚠️ 本项目仅使用 55906 端口。禁止操作服务器上的其他端口、其他文件或 data-dashboard 等其他 PM2 进程。
 
 /home/ubuntu/hugescreen/
 ├── server.mjs              # Express 一体化服务器（PM2 入口）
@@ -289,21 +293,62 @@ PM2 进程: hugescreen (fork mode, /home/ubuntu/hugescreen/server.mjs)
 
 ### 部署流程
 
+**方式一：一键部署（仅 dist 更新）**
+
+```bash
+# 1. 本地构建
+cd apps/web && npx vite build
+
+# 2. 打包上传（tar 管道）
+cd apps/web/dist && tar czf - . | ssh -n -o StrictHostKeyChecking=no \
+  ubuntu@221.131.69.161 -p 60222 \
+  "cd /home/ubuntu/hugescreen/dist && rm -rf assets index.html viewer.html && tar xzf -"
+
+# 3. 重启服务
+ssh -n -o StrictHostKeyChecking=no ubuntu@221.131.69.161 -p 60222 \
+  "export PATH=\$PATH:/home/ubuntu/.npm-global/bin && pm2 restart hugescreen"
+```
+
+> SSH 认证通过 `SSH_ASKPASS` 环境变量传递密码，详见下方「SSH 认证」章节。
+
+**方式二：完整部署（含服务器代码变更）**
+
 ```bash
 # 1. 本地构建
 cd apps/web && npx vite build    # 产出 dist/
 
-# 2. 上传到服务器（注意目标路径是 /home/ubuntu/hugescreen/，不是 apps/web/）
-scp -r dist/ ubuntu@server:/home/ubuntu/hugescreen/
-scp server.mjs ubuntu@server:/home/ubuntu/hugescreen/
-scp -r db/ middleware/ routes/ ubuntu@server:/home/ubuntu/hugescreen/
-scp package.server.json ubuntu@server:/home/ubuntu/hugescreen/
+# 2. 上传所有文件到服务器（注意目标路径是 /home/ubuntu/hugescreen/，不是 apps/web/）
+# 用 tar 管道分别上传 dist/ 和服务器代码
+cd apps/web && tar czf - dist/ | ssh ubuntu@221.131.69.161 -p 60222 "cd /home/ubuntu/hugescreen && tar xzf -"
+scp server.mjs ubuntu@221.131.69.161:/home/ubuntu/hugescreen/
+scp -r db/ middleware/ routes/ ubuntu@221.131.69.161:/home/ubuntu/hugescreen/
+scp package.server.json ubuntu@221.131.69.161:/home/ubuntu/hugescreen/
 
 # 3. 服务器上
+ssh ubuntu@221.131.69.161 -p 60222
 cd /home/ubuntu/hugescreen
 cp package.server.json package.json
 npm install --omit=dev          # 仅运行时依赖
-npx pm2 restart hugescreen      # 重启进程
+export PATH=$PATH:/home/ubuntu/.npm-global/bin
+pm2 restart hugescreen          # 重启进程
+```
+
+### SSH 认证
+
+服务器 SSH 使用密码认证。本地需设置 `SSH_ASKPASS` 环境变量指向密码提供脚本：
+
+```bash
+# 创建密码脚本（一次性）
+cat > ~/.ssh/askpass.sh << 'EOF'
+#!/bin/bash
+echo 'YOUR_PASSWORD'
+EOF
+chmod 700 ~/.ssh/askpass.sh
+
+# 使用时设置环境变量
+export SSH_ASKPASS=~/.ssh/askpass.sh
+export DISPLAY=1
+# SSH/SCP 命令需加 -n 标志（ssh）或直接使用（scp）
 ```
 
 **⚠️ 常见错误：不要把文件传到 `/home/ubuntu/hugescreen/apps/web/`。**
