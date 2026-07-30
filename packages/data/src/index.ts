@@ -1,3 +1,4 @@
+export { dataHub, type SubEntry } from './DataHub';
 export { DataSourceManager, dataSourceManager, type DataAdapter } from './DataSourceManager';
 export { StaticAdapter } from './adapters/StaticAdapter';
 export { RESTAdapter } from './adapters/RESTAdapter';

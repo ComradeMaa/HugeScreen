@@ -1,66 +1,60 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CompositeSlotConfig } from '@hugescreen/shared';
-import { RESTAdapter } from '@hugescreen/data/adapters/RESTAdapter';
-import { mapData } from '@hugescreen/data/transform';
-// WebSocket adapter available for future use
+import { dataHub, mapData } from '@hugescreen/data';
+import { eventBus } from '@hugescreen/core';
 
 /**
  * Hook that manages live data subscriptions per composite sub-slot.
- * Returns a map from slotId to the latest data payload (already mapped to the
- * sub-chart's prop shape via mapData). Only disconnects removed slots; unchanged
- * slots keep their connections.
+ * Routes through DataHub — slots sharing the same URL get a single Fetcher,
+ * no duplicate HTTP requests.
+ *
+ * Returns a map from slotId to the latest data payload (already mapped via mapData).
  */
 export function useCompositeData(slots: CompositeSlotConfig[]): Record<string, unknown> {
   const [liveData, setLiveData] = useState<Record<string, unknown>>({});
-  const adaptersRef = useRef<Map<string, RESTAdapter>>(new Map());
-  const unsubsRef = useRef<Map<string, () => void>>(new Map());
+  const subscribedRef = useRef<Set<string>>(new Set());
 
-  // Selective connect/disconnect — only changed slots are affected
   useEffect(() => {
-    const adapters = adaptersRef.current;
-    const unsubs = unsubsRef.current;
-
-    // Disconnect adapters for removed slots only
+    const subscribed = subscribedRef.current;
     const currentSlotIds = new Set(slots.map(s => s.id));
-    for (const [id, adapter] of adapters) {
-      if (!currentSlotIds.has(id)) {
-        adapter.disconnect();
-        adapters.delete(id);
-        unsubs.get(id)?.();
-        unsubs.delete(id);
-      }
-    }
 
-    // Connect new slots that have REST data sources
     for (const slot of slots) {
       const ds = slot.dataSource;
-      if (!ds || ds.type !== 'rest' || adapters.has(slot.id)) continue;
+      // slot.id 不是全局唯一的 widgetId，需要合成一个全局唯一的标识
+      // 使用 slot.id 本身（它在同一个 composite 内唯一，且 DataHub 用 widgetId 仅作订阅跟踪）
+      const subId = `composite:${slot.id}`;
 
-      const adapter = new RESTAdapter();
-      adapters.set(slot.id, adapter);
+      if (!ds || ds.type !== 'rest' || !ds.config?.url || subscribed.has(slot.id)) continue;
+      subscribed.add(slot.id);
 
-      const unsub = adapter.onData((data) => {
+      console.log(`[useCompositeData] ${subId} subscribing: url=${ds.config.url} jsonPath=${ds.config.jsonPath} interval=${ds.config.interval}`);
+      const channelKey = dataHub.subscribe(subId, ds, slot.chartType);
+
+      const handler = (data: unknown) => {
+        console.log(`[useCompositeData] ${subId} received data on ${channelKey}`);
         setLiveData(prev => ({
           ...prev,
-          [slot.id]: mapData(data, slot.chartType, slot.dataSource?.mapping ?? {}),
+          [slot.id]: data,
         }));
-      });
-      unsubs.set(slot.id, unsub);
+      };
+      eventBus.on(`data:updated:${channelKey}`, handler);
+    }
 
-      adapter.connect(ds).catch(() => {
-        // Will retry on next poll interval
-      });
+    // Cleanup removed slots
+    for (const id of subscribed) {
+      if (!currentSlotIds.has(id)) {
+        subscribed.delete(id);
+        dataHub.unsubscribe(`composite:${id}`);
+      }
     }
   }, [slots]);
 
-  // Full cleanup only on unmount
+  // Full cleanup on unmount
   useEffect(() => () => {
-    const adapters = adaptersRef.current;
-    const unsubs = unsubsRef.current;
-    for (const [, adapter] of adapters) { adapter.disconnect(); }
-    adapters.clear();
-    for (const [, unsub] of unsubs) { unsub(); }
-    unsubs.clear();
+    for (const id of subscribedRef.current) {
+      dataHub.unsubscribe(`composite:${id}`);
+    }
+    subscribedRef.current.clear();
   }, []);
 
   return liveData;

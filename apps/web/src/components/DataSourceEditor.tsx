@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { DataSourceConfig, DataSourceOptions } from '@hugescreen/shared';
-import { getByPath, mapData } from '@hugescreen/data/transform';
+import { getByPath, mapData } from '@hugescreen/data';
 
 const DEFAULT_DS: DataSourceConfig = { type: 'static', config: {}, mapping: {} };
 
@@ -203,6 +203,15 @@ const mappingRows = Object.entries(mapping);
           >
             {test.loading ? '测试中…' : '测试连接'}
           </button>
+
+          {/* 独立请求 */}
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">发送独立请求</span>
+            <input type="checkbox" checked={!!(cfg as any).independent}
+              onChange={(e) => patchConfig({ ...cfg, independent: e.target.checked } as any)}
+              className="rounded" />
+          </label>
+          <p className="text-[10px] text-textSecondary/40 -mt-1">勾选后不与其他组件共享请求，拥有独立的轮询周期</p>
           {test.msg && (
             <div className={`text-[11px] ${test.ok ? 'text-positive' : 'text-negative'}`}>{test.msg}</div>
           )}
