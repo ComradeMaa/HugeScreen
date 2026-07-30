@@ -123,12 +123,21 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.globalAlpha = 1;
 
   } else if (type === 'bar-chart') {
-    const bars = [[22, 45, 48], [42, 30, 34], [62, 55, 58], [82, 20, 24]];
-    bars.forEach(([x, top, bottom]) => {
-      ctx.fillStyle = 'rgba(0,212,255,0.7)';
-      roundRect(ctx, x - 6, top, 12, bottom - top, 2);
+    const baseY = 58, barW = 10, gap = 9, startX = 22;
+    const heights = [38, 24, 44, 18];
+    heights.forEach((bh, i) => {
+      const bx = startX + i * (barW + gap);
+      ctx.fillStyle = i === 2 ? 'rgba(0,212,255,0.85)' : 'rgba(0,212,255,0.55)';
+      roundRect(ctx, bx, baseY - bh, barW, bh, 2);
       ctx.fill();
     });
+    // 基线
+    ctx.strokeStyle = 'rgba(0,212,255,0.2)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(14, baseY);
+    ctx.lineTo(106, baseY);
+    ctx.stroke();
 
   } else if (type === 'pie-chart') {
     const slices = [[0, 0.35], [0.35, 0.65], [0.65, 1]];

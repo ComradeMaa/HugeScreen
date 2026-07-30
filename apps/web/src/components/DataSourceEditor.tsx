@@ -99,7 +99,14 @@ const mappingRows = Object.entries(mapping);
     setTest({ loading: true });
     try {
       const hdrs = buildCleanHeaders(cfg);
-      const res = await fetch(cfg.url, { method: cfg.method ?? 'GET', headers: hdrs });
+      const fetchOpts: RequestInit = { method: cfg.method ?? 'GET', headers: hdrs };
+      if (cfg.method === 'POST' && cfg.body !== undefined) {
+        fetchOpts.body = JSON.stringify(cfg.body);
+        if (!hdrs['Content-Type'] && !hdrs['content-type']) {
+          hdrs['Content-Type'] = 'application/json';
+        }
+      }
+      const res = await fetch(cfg.url!, fetchOpts);
       if (!res.ok) { setTest({ loading: false, ok: false, msg: `HTTP ${res.status} ${res.statusText}` }); return; }
       const raw = await res.json();
       const extracted = cfg.jsonPath ? getByPath(raw, cfg.jsonPath) : raw;
@@ -141,6 +148,37 @@ const mappingRows = Object.entries(mapping);
             <input type="text" value={cfg.url ?? ''} placeholder="http://host:port/api/xxx"
               onChange={(e) => patchConfig({ url: e.target.value })} className={inputCls} />
           </label>
+
+          <div className="flex gap-1.5">
+            <span className="text-[11px] text-textSecondary/70 whitespace-nowrap pt-1.5">Method</span>
+            {(['GET', 'POST'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => patchConfig({ method: m, ...(m === 'GET' ? { body: undefined } : {}) })}
+                className={`flex-1 text-[11px] py-1 rounded border transition-colors ${
+                  (cfg.method ?? 'GET') === m
+                    ? 'border-accent-cool/50 text-accent-cool bg-accent-cool/5'
+                    : 'border-[rgba(255,255,255,0.06)] text-textSecondary/60 hover:text-textSecondary'
+                }`}
+              >{m}</button>
+            ))}
+          </div>
+
+          {cfg.method === 'POST' && (
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] text-textSecondary/70">POST Body (JSON)</span>
+              <textarea
+                rows={4}
+                value={cfg.body ? JSON.stringify(cfg.body, null, 2) : ''}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  try { patchConfig({ body: v ? JSON.parse(v) : undefined }); } catch { /* allow partial JSON */ }
+                }}
+                placeholder='{"source":"mydb","query":"SELECT * FROM users"}'
+                className={`${inputCls} font-mono resize-y`}
+              />
+            </label>
+          )}
 
           <label className="flex flex-col gap-1">
             <span className="text-[11px] text-textSecondary/70">鉴权 Token（Bearer）</span>

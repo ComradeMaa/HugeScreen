@@ -43,7 +43,20 @@ export function initTables() {
     CREATE INDEX IF NOT EXISTS idx_templates_user ON templates(user_id, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_views_user ON published_views(user_id);
     CREATE INDEX IF NOT EXISTS idx_views_created ON published_views(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS datasources (
+      id          TEXT    PRIMARY KEY,
+      name        TEXT    NOT NULL UNIQUE,
+      type        TEXT    NOT NULL DEFAULT 'mysql',
+      host        TEXT    NOT NULL,
+      port        INTEGER NOT NULL DEFAULT 3306,
+      database    TEXT    NOT NULL,
+      username    TEXT    NOT NULL,
+      password    TEXT    NOT NULL,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      created_by  TEXT    REFERENCES users(id) ON DELETE SET NULL
+    );
   `);
 
-  console.log('[db] Tables ready: users, templates, published_views');
+  console.log('[db] Tables ready: users, templates, published_views, datasources');
 }

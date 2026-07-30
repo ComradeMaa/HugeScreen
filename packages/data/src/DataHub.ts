@@ -47,10 +47,13 @@ class DataFetcher {
   private _initPromise: Promise<void> | null = null; // 共享首次 fetch，防止并发请求
   private _initialFetchDone = false;                 // 首次 fetch 成功后不再重复
 
-  constructor(url: string, method: string, headers: Record<string, string>) {
+  private body: unknown;
+
+  constructor(url: string, method: string, headers: Record<string, string>, body?: unknown) {
     this.url = url;
     this.method = method;
     this.headers = headers;
+    this.body = body;
   }
 
   // ─── 订阅管理 ───
@@ -137,12 +140,23 @@ class DataFetcher {
 
   private _fetchCount = 0;
 
+  private buildFetchOptions(hdrs: Record<string, string>): RequestInit {
+    const opts: RequestInit = { method: this.method, headers: hdrs };
+    if (this.method === 'POST' && this.body !== undefined) {
+      opts.body = JSON.stringify(this.body);
+      if (!hdrs['Content-Type'] && !hdrs['content-type']) {
+        hdrs['Content-Type'] = 'application/json';
+      }
+    }
+    return opts;
+  }
+
   private async doFetch(): Promise<void> {
     this._fetchCount++;
     const n = this._fetchCount;
     console.log(`[DataHub] ▶ FETCH #${n} START  ${this.url} (subs=${this.subs.size}, polling=${this._activePollingInterval}ms)`);
     const headers = this.cleanHeaders(this.headers);
-    const resp = await fetch(this.url, { method: this.method, headers });
+    const resp = await fetch(this.url, this.buildFetchOptions(headers));
     if (!resp.ok) {
       console.warn(`[DataHub] ✗ FETCH #${n} FAIL  ${this.url} HTTP ${resp.status}`);
       return;
@@ -215,7 +229,7 @@ class DataFetcher {
     if (!sub) return;
     try {
       const headers = this.cleanHeaders(this.headers);
-      const resp = await fetch(this.url, { method: this.method, headers });
+      const resp = await fetch(this.url, this.buildFetchOptions(headers));
       if (!resp.ok) {
         console.warn(`[DataHub] forceRefresh failed: ${this.url} HTTP ${resp.status}`);
         return;
@@ -305,6 +319,7 @@ class DataHub {
         ds.config?.url || '',
         ds.config?.method || 'GET',
         ds.config?.headers || {},
+        ds.config?.body,
       );
       this.fetchers.set(uKey, fetcher);
     }
@@ -362,7 +377,14 @@ class DataHub {
     const headers = this.normalizeTestHeaders(ds.config?.headers || {});
     const method = ds.config?.method || 'GET';
 
-    const resp = await fetch(url, { method, headers });
+    const fetchOpts: RequestInit = { method, headers };
+    if (method === 'POST' && ds.config?.body !== undefined) {
+      fetchOpts.body = JSON.stringify(ds.config.body);
+      if (!headers['Content-Type'] && !headers['content-type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+    }
+    const resp = await fetch(url, fetchOpts);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const raw: unknown = await resp.json();
 

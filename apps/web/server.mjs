@@ -35,12 +35,14 @@ import { readFileSync, existsSync, mkdirSync, createWriteStream, unlinkSync } fr
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import { getDb, closeDb } from './db/connection.mjs';
 import { initTables } from './db/init.mjs';
 import { migrateViewsJson } from './db/migrate.mjs';
-import { getDb, closeDb } from './db/connection.mjs';
 import { startCleanupScheduler } from './db/cleanup.mjs';
+import { closeAllPools } from './db/mysql.mjs';
 import authRouter from './routes/auth.mjs';
 import templatesRouter from './routes/templates.mjs';
+import datasourcesRouter from './routes/datasources.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_FILE = join(__dirname, 'views.json');
@@ -173,6 +175,7 @@ app.use('/overpass', createProxyMiddleware({
 // ─── API 路由 ───
 app.use('/api/auth', authRouter);
 app.use('/api/templates', templatesRouter);
+app.use('/api/data', datasourcesRouter);
 
 // ─── 上传文件静态服务 ───
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '30d', etag: true }));
@@ -303,8 +306,8 @@ app.get('*', (req, res, next) => {
 });
 
 // ─── 优雅关闭 ───
-process.on('SIGINT', () => { closeDb(); process.exit(0); });
-process.on('SIGTERM', () => { closeDb(); process.exit(0); });
+process.on('SIGINT', () => { closeAllPools(); closeDb(); process.exit(0); });
+process.on('SIGTERM', () => { closeAllPools(); closeDb(); process.exit(0); });
 
 // ─── 启动 ───
 app.listen(PORT, () => {

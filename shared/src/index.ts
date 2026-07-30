@@ -150,6 +150,7 @@ export interface DataSourceOptions {
   headers?: Record<string, string>;
   jsonPath?: string;
   reconnectInterval?: number;
+  body?: unknown;
 }
 
 export interface TransformStep {

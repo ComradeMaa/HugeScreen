@@ -68,11 +68,18 @@ export class RESTAdapter implements DataAdapter {
         // Normalize headers — clean any token corruption from earlier bugs
         const rawHeaders = config.config?.headers ?? {};
         const cleanHeaders = normalizeAuthHeader(rawHeaders);
-        const resp = await fetch(url, {
+        const fetchOpts: RequestInit = {
           method: config.config?.method ?? 'GET',
           headers: cleanHeaders,
           signal,
-        });
+        };
+        if (config.config?.method === 'POST' && config.config?.body !== undefined) {
+          fetchOpts.body = JSON.stringify(config.config.body);
+          if (!cleanHeaders['Content-Type'] && !cleanHeaders['content-type']) {
+            cleanHeaders['Content-Type'] = 'application/json';
+          }
+        }
+        const resp = await fetch(url, fetchOpts);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         let json: unknown = await resp.json();
 
