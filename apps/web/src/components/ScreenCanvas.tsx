@@ -80,6 +80,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "bar-line-chart": ["xLabels", "mixedSeries"],
     "stat-card": ["title", "value", "suffix", "ringPercent"],
     "text-widget": ["text"],
+    "image-widget": ["images"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};
@@ -87,7 +88,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
   return out;
 }
 
-/** 合并新数据时保留已有 per-item 元数据（如 showLabelLine） */
+/** 合并新数据时保留已有 per-item 元数据（如 showLabelLine），图片组件追加 API 图片而不覆盖手动上传 */
 function mergePreservingMeta(newData: Record<string, unknown>, currentOpts: Record<string, unknown>, chartType: string): Record<string, unknown> {
   const merged = { ...newData };
   // For categories-based charts, preserve showLabelLine from current options
@@ -100,6 +101,20 @@ function mergePreservingMeta(newData: Record<string, unknown>, currentOpts: Reco
       }
       return item;
     });
+  }
+  // 图片组件：保留 pinned=true 的图片，替换 pinned=false 的图片为 API 新数据
+  if (chartType === "image-widget" && Array.isArray(newData.images)) {
+    const rawOld = Array.isArray(currentOpts.images) ? currentOpts.images : [];
+    // 向后兼容：旧数据是 string[] → 视为 {url, pinned:true}（不丢失已有图片）
+    const oldImages = rawOld.map((e: any) =>
+      typeof e === 'string' ? { url: e, pinned: true } : e
+    ) as Array<{ url: string; pinned?: boolean }>;
+    const pinned = oldImages.filter((e: any) => e?.pinned);
+    const pinnedUrls = new Set(pinned.map((p: any) => p.url));
+    const newEntries = (newData.images as Array<{ url: string; pinned?: boolean }>).filter(
+      (e: any) => !pinnedUrls.has(e.url)
+    );
+    merged.images = [...pinned, ...newEntries];
   }
   return merged;
 }

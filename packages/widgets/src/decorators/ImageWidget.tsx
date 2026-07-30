@@ -2,12 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 
 interface ImageWidgetProps {
   src?: string;
-  /** 多图模式：图片 URL 数组 */
-  images?: string[];
+  /** 图片列表 — string[] 或 {url, pinned?}[] */
+  images?: (string | { url: string; pinned?: boolean })[];
   /** 轮播间隔（秒），0 = 不轮播 */
   slideshowInterval?: number;
   fit?: 'contain' | 'cover' | 'fill';
   opacity?: number;
+}
+
+function toUrl(item: string | { url: string }): string {
+  return typeof item === 'string' ? item : item.url;
 }
 
 /**
@@ -22,8 +26,9 @@ export function ImageWidget({
   fit = 'contain',
   opacity = 1,
 }: ImageWidgetProps) {
-  // 解析有效图片列表：多图优先，向后兼容旧数据 src
-  const imageList: string[] = (images && images.length > 0) ? images : (src ? [src] : []);
+  // 统一从 images 提取 URL（兼容旧 string[] 和新 {url,pinned?}[] 格式），向后兼容旧数据 src
+  const imageList: string[] = (images || []).map(toUrl);
+  if (imageList.length === 0 && src) imageList.push(src);
   const isSlideshow = imageList.length > 1 && slideshowInterval > 0;
 
   const [currentIndex, setCurrentIndex] = useState(0);

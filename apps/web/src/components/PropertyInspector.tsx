@@ -201,12 +201,12 @@ function SlotChartEditors({
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 if (files.length === 0) return;
-                const existing: string[] = [...(opts.images || [])];
+                const existing: any[] = [...(opts.images || [])];
                 let loaded = 0;
                 files.forEach((file) => {
                   const reader = new FileReader();
                   reader.onload = () => {
-                    existing.push(reader.result as string);
+                    existing.push({ url: reader.result as string, pinned: true });
                     loaded++;
                     if (loaded === files.length) {
                       onUpdate({ images: [...existing] });
@@ -217,25 +217,47 @@ function SlotChartEditors({
               }}
               className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
           </label>
-          {(opts.images as string[])?.length > 0 && (
+          {(opts.images as any[])?.length > 0 && (
             <div className="space-y-1 mt-1">
-              {(opts.images as string[]).map((img: string, i: number) => (
-                <div key={i} className="flex items-center gap-2 bg-surface-base/50 rounded p-1">
-                  <img src={img} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                  <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">图片 {i + 1}</span>
-                  <button
-                    onClick={() => {
-                      const next = [...(opts.images as string[])];
-                      next.splice(i, 1);
-                      onUpdate({ images: next.length > 0 ? next : undefined });
-                    }}
-                    className="text-[10px] text-negative/60 hover:text-negative flex-shrink-0 px-1"
-                  >×</button>
-                </div>
-              ))}
+              {(opts.images as any[]).map((img: any, i: number) => {
+                const url = typeof img === 'string' ? img : img?.url || '';
+                const pinned = !!(img && typeof img === 'object' && img.pinned);
+                return (
+                  <div key={i} className={`flex items-center gap-2 rounded p-1 transition-colors ${pinned ? 'bg-accent-warm/10 border border-accent-warm/25' : 'bg-surface-base/50'}`}>
+                    <img src={url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                    <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">图片 {i + 1}</span>
+                    <button
+                      onClick={(e2) => {
+                        e2.stopPropagation();
+                        const next = (opts.images as any[]).map((item: any, j: number) =>
+                          j === i ? { url: typeof item === 'string' ? item : item.url, pinned: !pinned } : item
+                        );
+                        onUpdate({ images: next });
+                      }}
+                      className={`flex-shrink-0 p-1 rounded transition-all ${pinned ? 'text-accent-warm bg-accent-warm/15 hover:bg-accent-warm/25' : 'text-textSecondary/20 hover:text-textSecondary/50 hover:bg-surface-hover'}`}
+                      title={pinned ? '已固定 · 点击取消' : '未固定 · 点击保护'}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={pinned ? '1' : '1.5'} strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2v2" />
+                        <path d="M4 7h16" />
+                        <path d="M17 7l-1.5 9.5a2 2 0 0 1-2 1.5h-3a2 2 0 0 1-2-1.5L7 7" />
+                        <path d="M9.5 21h5" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e2) => {
+                        e2.stopPropagation();
+                        const next = (opts.images as any[]).filter((_: any, j: number) => j !== i);
+                        onUpdate({ images: next.length > 0 ? next : undefined });
+                      }}
+                      className="text-negative/40 hover:text-negative flex-shrink-0 p-1 hover:bg-negative/10 rounded transition-colors"
+                    >×</button>
+                  </div>
+                );
+              })}
             </div>
           )}
-          {opts.src && !(opts.images as string[])?.length && (
+          {opts.src && !(opts.images as any[])?.length && (
             <button onClick={() => onUpdate({ src: undefined })}
               className="text-[11px] text-negative/60 hover:text-negative mt-1"
             >移除图片</button>
@@ -855,12 +877,12 @@ export function PropertyInspector() {
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
                   if (files.length === 0) return;
-                  const existing: string[] = [...((widget.options as any).images || [])];
+                  const existing: any[] = [...((widget.options as any).images || [])];
                   let loaded = 0;
                   files.forEach((file) => {
                     const reader = new FileReader();
                     reader.onload = () => {
-                      existing.push(reader.result as string);
+                      existing.push({ url: reader.result as string, pinned: true });
                       loaded++;
                       if (loaded === files.length) {
                         updateWidget(widget.id, { options: { ...(widget.options as object), images: [...existing] } });
@@ -872,23 +894,45 @@ export function PropertyInspector() {
                 className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
             </label>
 
-            {/* 图片列表 */}
-            {((widget.options as any).images as string[])?.length > 0 && (
+            {/* 图片列表 — 统一数组，图钉标记保护 */}
+            {((widget.options as any).images as any[])?.length > 0 && (
               <div className="space-y-1 mt-1">
-                {((widget.options as any).images as string[]).map((img: string, i: number) => (
-                  <div key={i} className="flex items-center gap-2 bg-surface-base/50 rounded p-1">
-                    <img src={img} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                    <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">图片 {i + 1}</span>
-                    <button
-                      onClick={() => {
-                        const next = [...((widget.options as any).images as string[])];
-                        next.splice(i, 1);
-                        updateWidget(widget.id, { options: { ...(widget.options as object), images: next.length > 0 ? next : undefined } });
-                      }}
-                      className="text-[10px] text-negative/60 hover:text-negative flex-shrink-0 px-1"
-                    >×</button>
-                  </div>
-                ))}
+                {((widget.options as any).images as any[]).map((img: any, i: number) => {
+                  const url = typeof img === 'string' ? img : img?.url || '';
+                  const pinned = !!(img && typeof img === 'object' && img.pinned);
+                  return (
+                    <div key={i} className={`flex items-center gap-2 rounded p-1 transition-colors ${pinned ? 'bg-accent-warm/10 border border-accent-warm/25' : 'bg-surface-base/50'}`}>
+                      <img src={url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                      <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">图片 {i + 1}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const next = ((widget.options as any).images as any[]).map((item: any, j: number) =>
+                            j === i ? { url: typeof item === 'string' ? item : item.url, pinned: !pinned } : item
+                          );
+                          updateWidget(widget.id, { options: { ...(widget.options as object), images: next } });
+                        }}
+                        className={`flex-shrink-0 p-1 rounded transition-all ${pinned ? 'text-accent-warm bg-accent-warm/15 hover:bg-accent-warm/25' : 'text-textSecondary/20 hover:text-textSecondary/50 hover:bg-surface-hover'}`}
+                        title={pinned ? '已固定 · 点击取消' : '未固定 · 点击保护'}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={pinned ? '1' : '1.5'} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2v2" />
+                          <path d="M4 7h16" />
+                          <path d="M17 7l-1.5 9.5a2 2 0 0 1-2 1.5h-3a2 2 0 0 1-2-1.5L7 7" />
+                          <path d="M9.5 21h5" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const next = ((widget.options as any).images as any[]).filter((_: any, j: number) => j !== i);
+                          updateWidget(widget.id, { options: { ...(widget.options as object), images: next.length > 0 ? next : undefined } });
+                        }}
+                        className="text-negative/40 hover:text-negative flex-shrink-0 p-1 hover:bg-negative/10 rounded transition-colors"
+                      >×</button>
+                    </div>
+                  );
+                })}
               </div>
             )}
 

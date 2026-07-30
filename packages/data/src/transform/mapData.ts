@@ -37,6 +37,7 @@ export function mapData(
     case 'bar-line-chart': return mapBarLine(raw, mapping);
     case 'stat-card': return mapStat(raw, mapping);
     case 'text-widget': return mapText(raw, mapping);
+    case 'image-widget': return mapImage(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -173,6 +174,30 @@ function mapText(raw: unknown, m: FieldMapping): Record<string, unknown> {
     if (typeof v === 'string') return { text: v };
   }
 
+  return {};
+}
+
+/** 图片组件：提取图片 URL 数组 → { images: {url, pinned?:boolean}[] }，pinned=false 表示可被覆盖 */
+function mapImage(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const build = (urls: string[]) => urls.length > 0 ? { images: urls.map(url => ({ url, pinned: false })) } : {};
+  if (typeof raw === 'string') return build([raw]);
+  if (Array.isArray(raw)) {
+    const urls: string[] = [];
+    const urlKey = m.url || m.images || 'url';
+    for (const item of raw) {
+      if (typeof item === 'string') { urls.push(item); }
+      else if (item && typeof item === 'object') {
+        const v = getByPath(item, urlKey) ?? getByPath(item, 'url') ?? getByPath(item, 'src') ?? getByPath(item, 'download_url') ?? getByPath(item, 'image');
+        if (typeof v === 'string') urls.push(v);
+      }
+    }
+    return build(urls);
+  }
+  if (typeof raw === 'object') {
+    const v = getByPath(raw, m.url || m.images || 'url') ?? getByPath(raw, 'src') ?? getByPath(raw, 'download_url');
+    if (typeof v === 'string') return build([v]);
+  }
   return {};
 }
 
