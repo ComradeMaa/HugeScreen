@@ -130,13 +130,45 @@ function mapStat(raw: unknown, m: FieldMapping): Record<string, unknown> {
   return out;
 }
 
-/** 文本组件：仅提取 text 字段，不引入外观配置 */
+/** 文本组件：自动探测常见文本字段名，提高 API 适配性 */
 function mapText(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  // 基础类型直接转字符串显示
+  if (raw == null) return { text: '' };
   if (typeof raw === 'string') return { text: raw };
-  const out: Record<string, unknown> = {};
-  const txt = getByPath(raw, m.text || 'text');
-  if (txt != null) out.text = String(txt);
-  return out;
+  if (typeof raw === 'number' || typeof raw === 'boolean') return { text: String(raw) };
+  if (Array.isArray(raw)) {
+    // 数组 → 取第一项的文本，或 JSON 序列化
+    const firstStr = raw.find((v) => typeof v === 'string');
+    if (firstStr) return { text: String(firstStr) };
+    if (raw.length > 0 && typeof raw[0] === 'object') {
+      return mapText(raw[0], m); // 递归取第一个对象的文本
+    }
+    return { text: JSON.stringify(raw) };
+  }
+  if (!raw || typeof raw !== 'object') return {};
+
+  // mapping 显式指定 → 优先
+  if (m.text) {
+    const txt = getByPath(raw, m.text);
+    if (txt != null) return { text: String(txt) };
+    return {};
+  }
+
+  // 自动探测常见文本字段名（按优先级）
+  const candidates = ['text', 'content', 'message', 'hitokoto', 'quote', 'body', 'title', 'sentence', 'desc', 'description', 'value', 'name'];
+  for (const key of candidates) {
+    const v = (raw as any)[key];
+    if (v != null && (typeof v === 'string' || typeof v === 'number')) {
+      return { text: String(v) };
+    }
+  }
+
+  // 兜底：取对象里第一个字符串值
+  for (const v of Object.values(raw as Record<string, unknown>)) {
+    if (typeof v === 'string') return { text: v };
+  }
+
+  return {};
 }
 
 function applyTitle(raw: unknown, m: FieldMapping, out: Record<string, unknown>): void {
