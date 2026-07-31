@@ -219,6 +219,30 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'video-widget': {
+          // 2×2 网格 + 播放按钮
+          const hw = innerW / 2, hh = innerH / 2;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.2; ctx.lineWidth = 0.5;
+          ctx.strokeRect(innerX, innerY, hw, hh);
+          ctx.strokeRect(innerX + hw, innerY, hw, hh);
+          ctx.strokeRect(innerX, innerY + hh, hw, hh);
+          ctx.strokeRect(innerX + hw, innerY + hh, hw, hh);
+          // 四个播放三角
+          const drawPlay = (qx: number, qy: number, s: number) => {
+            ctx.fillStyle = color; ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(qx - s, qy - s * 1.4);
+            ctx.lineTo(qx - s, qy + s * 1.4);
+            ctx.lineTo(qx + s * 1.2, qy);
+            ctx.closePath(); ctx.fill();
+          };
+          drawPlay(innerX + hw / 2, innerY + hh / 2, Math.min(hw, hh) * 0.2);
+          drawPlay(innerX + hw + hw / 2, innerY + hh / 2, Math.min(hw, hh) * 0.2);
+          drawPlay(innerX + hw / 2, innerY + hh + hh / 2, Math.min(hw, hh) * 0.2);
+          drawPlay(innerX + hw + hw / 2, innerY + hh + hh / 2, Math.min(hw, hh) * 0.2);
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'data-table': {
           const cellRows = 3, cellCols = 3;
           const cw = innerW / cellCols, ch2 = innerH / cellRows;

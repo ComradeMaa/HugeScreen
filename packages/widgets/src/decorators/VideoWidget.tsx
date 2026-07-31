@@ -12,6 +12,7 @@ interface VideoWidgetProps {
   autoplay?: boolean;
   loop?: boolean;
   controls?: boolean;
+  preload?: 'metadata' | 'auto' | 'none';
 }
 
 function toVideoItem(v: string | VideoItem): VideoItem {
@@ -39,6 +40,7 @@ export function VideoWidget({
   autoplay = true,
   loop = true,
   controls = false,
+  preload = 'metadata',
 }: VideoWidgetProps) {
   const items: VideoItem[] = (videos || []).map(toVideoItem);
   const grid = fillGrid(items);
@@ -71,6 +73,7 @@ export function VideoWidget({
           autoPlay={autoplay}
           loop={loop}
           controls={controls}
+          preload={preload}
           playsInline
         />
       </div>
@@ -101,6 +104,7 @@ export function VideoWidget({
               autoPlay={autoplay}
               loop={loop}
               controls={controls}
+              preload={preload}
               playsInline
             />
             {vid.pinned && (

@@ -1065,6 +1065,10 @@ export function PropertyInspector() {
                 </label>
               ))}
             </div>
+            <LabelSelectRow label="预加载" value={String((widget.options as any).preload ?? 'metadata')}
+              options={['metadata','auto','none']}
+              labels={['仅元数据','自动','不预加载']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), preload: v } })} />
           </CollapsibleFieldGroup>
         )}
 

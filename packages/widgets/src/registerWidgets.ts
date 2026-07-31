@@ -303,6 +303,7 @@ export function registerBuiltinWidgets(): void {
           autoplay: { type: 'boolean', title: '自动播放' },
           loop: { type: 'boolean', title: '循环播放' },
           controls: { type: 'boolean', title: '播放控件' },
+          preload: { type: 'string', title: '预加载', enum: ['metadata', 'auto', 'none'] },
         },
       },
       defaultConfig: {
@@ -312,6 +313,7 @@ export function registerBuiltinWidgets(): void {
         autoplay: true,
         loop: true,
         controls: false,
+        preload: 'metadata',
       },
     },
 
