@@ -3,7 +3,7 @@ import { useEditorStore } from '../store/editorStore';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetStyle } from '@hugescreen/shared';
 import type { CompositeSubChartType, CompositeConfig } from '@hugescreen/shared';
-import { SUB_CHART_LABELS, TEMPLATE_LABELS, getCompositeConfig } from '@hugescreen/widgets/composite';
+import { getSubChartLabel, TEMPLATE_LABELS, getCompositeConfig } from '@hugescreen/widgets/composite';
 import { ChevronDown, Ban } from 'lucide-react';
 import { DataSourceEditor } from './DataSourceEditor';
 
@@ -477,7 +477,7 @@ export function PropertyInspector() {
             <div className="text-xs text-textSecondary/60 space-y-1">
               <div className="flex justify-between py-0.5">
                 <span>类型</span>
-                <span className="font-mono text-accent-cool">{SUB_CHART_LABELS[chartType] ?? chartType}</span>
+                <span className="font-mono text-accent-cool">{getSubChartLabel(chartType)}</span>
               </div>
             </div>
           </FieldGroup>
@@ -686,7 +686,7 @@ export function PropertyInspector() {
                     <div key={slot.id} className="flex justify-between py-1">
                       <span className="text-[11px]">槽位 {String.fromCharCode(65 + i)}</span>
                       <span className="font-mono text-[11px]">
-                        {SUB_CHART_LABELS[slot.chartType as CompositeSubChartType] ?? slot.chartType}
+                        {getSubChartLabel(slot.chartType)}
                       </span>
                     </div>
                   ))}

@@ -1,4 +1,5 @@
 import type { CompositeLayoutTemplate, CompositeSubChartType } from '@hugescreen/shared';
+import { widgetRegistry } from '@hugescreen/core';
 
 /** All available layout templates */
 export const LAYOUT_TEMPLATES: CompositeLayoutTemplate[] = [
@@ -55,27 +56,16 @@ export const TEMPLATE_LABELS: Record<CompositeLayoutTemplate, string> = {
   'topNarrow': '上窄条',
 };
 
-/** Display name for sub-chart types */
-export const SUB_CHART_LABELS: Record<CompositeSubChartType, string> = {
-  'line-chart': '折线图',
-  'bar-chart': '柱状图',
-  'bar-line-chart': '柱线组合图',
-  'pie-chart': '饼图',
-  'stat-card': '统计卡',
-  'text-widget': '文本',
-  'image-widget': '图片',
-};
+/** Display name for sub-chart types — 动态从 widgetRegistry 获取 */
+export function getSubChartLabel(type: string): string {
+  const def = widgetRegistry.get(type);
+  return def?.name || type;
+}
 
-/** Valid sub-chart types (only regular widgets, no header elements) */
-export const VALID_SUB_TYPES: CompositeSubChartType[] = [
-  'line-chart',
-  'bar-chart',
-  'bar-line-chart',
-  'pie-chart',
-  'stat-card',
-  'text-widget',
-  'image-widget',
-];
+/** 所有已注册的 widget 类型均可用作组合成员 */
+export function getValidSubTypes(): string[] {
+  return widgetRegistry.getAll().map(d => d.type);
+}
 
 /** Check if a template fits within the given grid dimensions */
 export function isTemplateViableForSize(

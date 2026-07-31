@@ -1,7 +1,7 @@
 import { Suspense, useState, useEffect } from 'react';
 import type { CompositeSubChartType } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
-import { VALID_SUB_TYPES } from './types';
+import { getValidSubTypes } from './types';
 
 interface SlotDropZoneProps {
   slotIndex: number;
@@ -94,7 +94,7 @@ export function SlotDropZone({
         if (disabled) return;
         e.stopPropagation();
         const type = e.dataTransfer.getData('application/widget-type');
-        if (VALID_SUB_TYPES.includes(type as CompositeSubChartType)) {
+        if (type && getValidSubTypes().includes(type)) {
           onDrop(slotIndex, type as CompositeSubChartType);
         }
       }}
