@@ -17,6 +17,7 @@ import {
   Map,
   Building2,
   Video,
+  Droplets,
   Plus,
   Trash2,
   type LucideIcon,
@@ -37,6 +38,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Map,
   Building2,
   Video,
+  Droplets,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -184,6 +186,25 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.lineTo(cx + 6, h - 22); ctx.lineTo(cx + 12, h - 12); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(0,212,255,0.6)';
     ctx.beginPath(); ctx.arc(cx - 4, h - 24, 2, 0, Math.PI * 2); ctx.fill();
+
+  } else if (type === 'water-pond') {
+    // 圆形 + 波浪线
+    ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,212,255,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(cx - 20, cy + 8);
+    for (let x = -20; x <= 20; x += 2) {
+      ctx.lineTo(cx + x, cy + 6 + Math.sin(x * 0.5) * 8);
+    }
+    ctx.lineTo(cx + 20, cy + 24);
+    ctx.lineTo(cx - 20, cy + 24);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px JetBrains Mono,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('60%', cx, cy + 2);
 
   } else if (type === 'video-widget') {
     // 2x2 grid with play icons

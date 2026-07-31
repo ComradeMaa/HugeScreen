@@ -317,6 +317,39 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    {
+      type: 'water-pond',
+      name: '水位球',
+      description: '波浪水位动画',
+      icon: 'Droplets',
+      category: 'chart',
+      defaultSize: { colSpan: 2, rowSpan: 2 },
+      minSize: { colSpan: 1, rowSpan: 1 },
+      maxSize: { colSpan: 4, rowSpan: 4 },
+      component: lazy(() => import('./charts/WaterLevelPond').then(m => ({ default: m.WaterLevelPond }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          value: { type: 'number', title: '水位百分比' },
+          title: { type: 'string', title: '标题' },
+          suffix: { type: 'string', title: '后缀' },
+          shape: { type: 'string', title: '形状', enum: ['rect', 'roundRect', 'round'] },
+          waveHeight: { type: 'number', title: '波浪高度' },
+          waveNum: { type: 'number', title: '波浪层数' },
+        },
+      },
+      defaultConfig: {
+        value: 60,
+        title: '',
+        titleColor: '#E8E8EC',
+        titleFontSize: 14,
+        suffix: '%',
+        shape: 'round',
+        waveHeight: 30,
+        waveNum: 3,
+      },
+    },
+
   ]);
 
   console.log(

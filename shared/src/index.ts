@@ -186,7 +186,7 @@ export interface WidgetStyle {
   opacity?: number;
   title?: WidgetTitleConfig;
   /** 边框样式：none=无, style1/styl2=科技感边框, style3+ 后续扩展 */
-  borderStyle?: 'none' | 'style1' | 'style2' | 'DataV_1' | 'style3' | 'style4' | 'style5' | 'style6';
+  borderStyle?: 'none' | 'style1' | 'style2' | 'DataV_1' | 'DataV_2' | 'DataV_3' | 'DataV_4' | 'DataV_5' | 'DataV_6' | 'DataV_7' | 'DataV_8' | 'DataV_9' | 'DataV_10' | 'DataV_11' | 'DataV_12' | 'DataV_13';
 }
 
 /** 一级/二级标题配置。存在即显示，不存在即不占空间 */

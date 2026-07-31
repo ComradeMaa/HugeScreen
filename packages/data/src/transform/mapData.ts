@@ -39,6 +39,7 @@ export function mapData(
     case 'text-widget': return mapText(raw, mapping);
     case 'image-widget': return mapImage(raw, mapping);
     case 'video-widget': return mapVideo(raw, mapping);
+    case 'water-pond': return mapWaterPond(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -226,6 +227,21 @@ function mapVideo(raw: unknown, m: FieldMapping): Record<string, unknown> {
     const v = getByPath(raw, m.url || m.videos || 'url') ?? getByPath(raw, 'src')
       ?? getByPath(raw, 'download_url') ?? getByPath(raw, 'stream_url');
     if (typeof v === 'string') return build([v]);
+  }
+  return {};
+}
+
+/** 水位球 — 自动提取数值 */
+function mapWaterPond(raw: unknown, _m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  if (typeof raw === 'number') return { value: Math.round(raw) };
+  if (Array.isArray(raw) && raw.length > 0) {
+    const n = typeof raw[0] === 'number' ? raw[0] : Number(raw[0]);
+    return isNaN(n) ? {} : { value: Math.round(n) };
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    const vals = Object.values(raw as Record<string, unknown>).map(v => typeof v === 'number' ? v : Number(v)).filter(v => !isNaN(v));
+    return vals.length > 0 ? { value: Math.round(Math.max(...vals)) } : {};
   }
   return {};
 }

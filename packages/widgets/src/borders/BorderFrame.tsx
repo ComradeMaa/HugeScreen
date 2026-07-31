@@ -2,6 +2,18 @@ import { useState, useEffect } from 'react';
 import { CyberBorder1 } from './styles/CyberBorder1';
 import { CyberBorder2 } from './styles/CyberBorder2';
 import { DataVBorder1 } from './styles/DataVBorder1';
+import { DataVBorder2 } from './styles/DataVBorder2';
+import { DataVBorder3 } from './styles/DataVBorder3';
+import { DataVBorder4 } from './styles/DataVBorder4';
+import { DataVBorder5 } from './styles/DataVBorder5';
+import { DataVBorder6 } from './styles/DataVBorder6';
+import { DataVBorder7 } from './styles/DataVBorder7';
+import { DataVBorder8 } from './styles/DataVBorder8';
+import { DataVBorder9 } from './styles/DataVBorder9';
+import { DataVBorder10 } from './styles/DataVBorder10';
+import { DataVBorder11 } from './styles/DataVBorder11';
+import { DataVBorder12 } from './styles/DataVBorder12';
+import { DataVBorder13 } from './styles/DataVBorder13';
 import './border.css';
 
 export interface BorderFrameProps {
@@ -23,7 +35,10 @@ export interface BorderFrameProps {
 export const BORDER_REGISTRY: Record<string, React.ComponentType<BorderStyleProps>> = {
   style1: CyberBorder1,
   style2: CyberBorder2,
-  DataV_1: DataVBorder1,
+  DataV_1: DataVBorder1, DataV_2: DataVBorder2, DataV_3: DataVBorder3,
+  DataV_4: DataVBorder4, DataV_5: DataVBorder5, DataV_6: DataVBorder6,
+  DataV_7: DataVBorder7, DataV_8: DataVBorder8, DataV_9: DataVBorder9,
+  DataV_10: DataVBorder10, DataV_11: DataVBorder11, DataV_12: DataVBorder12, DataV_13: DataVBorder13,
 };
 
 export interface BorderStyleProps {

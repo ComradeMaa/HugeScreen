@@ -1072,6 +1072,66 @@ export function PropertyInspector() {
           </CollapsibleFieldGroup>
         )}
 
+        {/* ═══ 水位球专属配置 ═══ */}
+        {widget.type === 'water-pond' && (
+          <CollapsibleFieldGroup label="数据" defaultOpen={true}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">百分比</span>
+              <input type="number" min={0} max={100} step={1}
+                value={Number((widget.options as any).value ?? 60)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), value: Math.max(0, Math.min(100, Number(e.target.value))) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">标题</span>
+              <input type="text" value={(widget.options as any).title ?? ''}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), title: e.target.value } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-28 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">后缀</span>
+              <input type="text" value={(widget.options as any).suffix ?? '%'}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), suffix: e.target.value } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">标题颜色</span>
+              <select value={(widget.options as any).titleColor ?? '#E8E8EC'}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), titleColor: e.target.value } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-1 w-24 text-[11px] text-text focus:outline-none focus:border-accent-cool/50 transition-colors">
+                {['#E8E8EC','#00D4FF','#FF8C42','#34d399','#f87171','#FFFFFF','#9E9EA8'].map(c => (
+                  <option key={c} value={c} style={{backgroundColor:'#2C2C34',color:c}}>{c}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">标题字号</span>
+              <input type="number" min={10} max={24} step={1}
+                value={Number((widget.options as any).titleFontSize ?? 14)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), titleFontSize: Number(e.target.value) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <LabelSelectRow label="形状" value={String((widget.options as any).shape ?? 'round')}
+              options={['round','roundRect','rect']}
+              labels={['圆形','圆角矩形','矩形']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), shape: v } })} />
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">波浪高度</span>
+              <input type="number" min={5} max={100} step={5}
+                value={Number((widget.options as any).waveHeight ?? 30)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), waveHeight: Number(e.target.value) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">波浪层数</span>
+              <input type="number" min={1} max={6} step={1}
+                value={Number((widget.options as any).waveNum ?? 3)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), waveNum: Number(e.target.value) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+          </CollapsibleFieldGroup>
+        )}
+
         {/* ═══ 文本专属配置 ═══ */}
         {widget.type === 'text-widget' && (
           <CollapsibleFieldGroup label="文本" defaultOpen={true}>
@@ -1557,9 +1617,18 @@ const BORDER_STYLES: { value: WidgetStyle['borderStyle']; label: string }[] = [
   { value: 'style1', label: '电光蓝角标' },
   { value: 'style2', label: '琥珀橙扫描线' },
   { value: 'DataV_1', label: 'DataV_1' },
-  { value: 'style4', label: '样式4' },
-  { value: 'style5', label: '样式5' },
-  { value: 'style6', label: '样式6' },
+  { value: 'DataV_2', label: 'DataV_2' },
+  { value: 'DataV_3', label: 'DataV_3' },
+  { value: 'DataV_4', label: 'DataV_4' },
+  { value: 'DataV_5', label: 'DataV_5' },
+  { value: 'DataV_6', label: 'DataV_6' },
+  { value: 'DataV_7', label: 'DataV_7' },
+  { value: 'DataV_8', label: 'DataV_8' },
+  { value: 'DataV_9', label: 'DataV_9' },
+  { value: 'DataV_10', label: 'DataV_10' },
+  { value: 'DataV_11', label: 'DataV_11' },
+  { value: 'DataV_12', label: 'DataV_12' },
+  { value: 'DataV_13', label: 'DataV_13' },
 ];
 
 function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
@@ -1567,9 +1636,6 @@ function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
   const PAD = 8;
   if (style === 'none') return <Ban size={18} strokeWidth={1.5} className="text-textSecondary/40" />;
   // 尚未实现的样式 → 占位符
-  if (style === 'style3' || style === 'style4' || style === 'style5' || style === 'style6') {
-    return <span className="text-[9px] text-textSecondary/30">即将推出</span>;
-  }
   return (
     <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
       <rect x="0" y="0" width={SIZE} height={SIZE} rx="3" fill="#1E1E24" />
@@ -1643,6 +1709,114 @@ function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
           <polygon points={`${SIZE/2},${PAD+1} ${SIZE/2+2},${PAD+3} ${SIZE/2},${PAD+5} ${SIZE/2-2},${PAD+3}`} fill="#00D4FF" opacity="0.5" />
           {/* Inner rect hint */}
           <rect x={PAD+6} y={PAD+7} width={SIZE-PAD*2-12} height={SIZE-PAD*2-14} rx="1" fill="none" stroke="#00D4FF" strokeWidth="0.3" opacity="0.3" />
+        </>
+      )}
+      {style === 'DataV_2' && (
+        <>
+          {/* 双层矩形 + 四角圆点 */}
+          <rect x={PAD} y={PAD} width={SIZE-PAD*2} height={SIZE-PAD*2} rx="1" fill="none" stroke="#00D4FF" strokeWidth="1" opacity="0.8" />
+          <rect x={PAD+4} y={PAD+4} width={SIZE-PAD*2-8} height={SIZE-PAD*2-8} rx="1" fill="none" stroke="#00D4FF" strokeWidth="0.8" opacity="0.4" />
+          <circle cx={PAD+3} cy={PAD+3} r="1.2" fill="#00D4FF" />
+          <circle cx={SIZE-PAD-3} cy={PAD+3} r="1.2" fill="#00D4FF" />
+          <circle cx={SIZE-PAD-3} cy={SIZE-PAD-3} r="1.2" fill="#00D4FF" />
+          <circle cx={PAD+3} cy={SIZE-PAD-3} r="1.2" fill="#00D4FF" />
+        </>
+      )}
+      {style === 'DataV_3' && (
+        <>
+          <rect x={PAD-2} y={PAD-2} width={SIZE-PAD*2+4} height={SIZE-PAD*2+4} fill="none" stroke="#00D4FF" strokeWidth="2" />
+          <rect x={PAD+4} y={PAD+4} width={SIZE-PAD*2-8} height={SIZE-PAD*2-8} fill="none" stroke="#00D4FF" strokeWidth="0.8" opacity="0.6" />
+          <rect x={PAD+10} y={PAD+10} width={SIZE-PAD*2-20} height={SIZE-PAD*2-20} fill="none" stroke="#00D4FF" strokeWidth="0.6" opacity="0.4" />
+          <rect x={PAD+16} y={PAD+16} width={SIZE-PAD*2-32} height={SIZE-PAD*2-32} fill="none" stroke="#00D4FF" strokeWidth="0.4" opacity="0.25" />
+        </>
+      )}
+      {style === 'DataV_4' && (
+        <>
+          {/* 顶部横线 + 虚线 */}
+          <line x1={PAD} y1={PAD} x2={SIZE-PAD} y2={PAD} stroke="#00D4FF" strokeWidth="1" />
+          <line x1={PAD} y1={PAD+4} x2={SIZE/2} y2={PAD+4} stroke="#00D4FF" strokeWidth="0.5" strokeDasharray="3 2" />
+          <line x1={PAD-2} y1={PAD+10} x2={PAD-2} y2={SIZE/2} stroke="#00D4FF" strokeWidth="1.5" />
+          <line x1={SIZE/2} y1={SIZE-PAD} x2={SIZE-PAD} y2={SIZE-PAD} stroke="#00D4FF" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+        </>
+      )}
+      {style === 'DataV_5' && (
+        <>
+          {/* 多层不等距框 + 缺口 */}
+          <rect x={PAD-1} y={PAD-1} width={SIZE-PAD*2+2} height={SIZE-PAD*2+2} fill="none" stroke="#00D4FF" strokeWidth="1" />
+          <rect x={PAD+3} y={PAD+3} width={SIZE-PAD*2-6} height={SIZE-PAD*2-8} fill="none" stroke="#00D4FF" strokeWidth="0.6" opacity="0.5" />
+          <line x1={PAD+8} y1={PAD+6} x2={SIZE-PAD-8} y2={PAD+6} stroke="#00D4FF" strokeWidth="2" opacity="0.6" />
+        </>
+      )}
+      {style === 'DataV_6' && (
+        <>
+          {/* 四角圆点 + 十字线 */}
+          <circle cx={PAD+2} cy={PAD+2} r="1.5" fill="#00D4FF" />
+          <circle cx={SIZE-PAD-2} cy={PAD+2} r="1.5" fill="#00D4FF" />
+          <circle cx={PAD+2} cy={SIZE-PAD-2} r="1.5" fill="#00D4FF" />
+          <circle cx={SIZE-PAD-2} cy={SIZE-PAD-2} r="1.5" fill="#00D4FF" />
+          <line x1={PAD+6} y1={PAD} x2={SIZE-PAD-6} y2={PAD} stroke="#00D4FF" strokeWidth="0.8" />
+          <line x1={PAD+6} y1={SIZE-PAD} x2={SIZE-PAD-6} y2={SIZE-PAD} stroke="#00D4FF" strokeWidth="0.8" />
+          <line x1={PAD-1} y1={PAD+8} x2={PAD-1} y2={SIZE-PAD-8} stroke="#00D4FF" strokeWidth="0.6" opacity="0.5" />
+          <line x1={SIZE-PAD+1} y1={PAD+8} x2={SIZE-PAD+1} y2={SIZE-PAD-8} stroke="#00D4FF" strokeWidth="0.6" opacity="0.5" />
+        </>
+      )}
+      {style === 'DataV_7' && (
+        <>
+          {/* 四角双层 L */}
+          <polyline points={`${PAD-2},${PAD+4} ${PAD-2},${PAD-2} ${PAD+4},${PAD-2}`} fill="none" stroke="#00D4FF" strokeWidth="1.5" />
+          <polyline points={`${PAD},${PAD+8} ${PAD},${PAD} ${PAD+8},${PAD}`} fill="none" stroke="#00D4FF" strokeWidth="2.5" opacity="0.6" />
+          <polyline points={`${SIZE-PAD-4},${PAD-2} ${SIZE-PAD+2},${PAD-2} ${SIZE-PAD+2},${PAD+4}`} fill="none" stroke="#00D4FF" strokeWidth="1.5" />
+          <polyline points={`${SIZE-PAD-8},${PAD} ${SIZE-PAD},${PAD} ${SIZE-PAD},${PAD+8}`} fill="none" stroke="#00D4FF" strokeWidth="2.5" opacity="0.6" />
+        </>
+      )}
+      {style === 'DataV_8' && (
+        <>
+          {/* 跑马灯虚线框 */}
+          <rect x={PAD-2} y={PAD-2} width={SIZE-PAD*2+4} height={SIZE-PAD*2+4} fill="none" stroke="#00D4FF" strokeWidth="0.8" />
+          <rect x={PAD-2} y={PAD-2} width={SIZE-PAD*2+4} height={SIZE-PAD*2+4} fill="none" stroke="#00D4FF" strokeWidth="2" strokeDasharray="6 4" opacity="0.6" />
+        </>
+      )}
+      {style === 'DataV_9' && (
+        <>
+          {/* 渐变呼吸框 */}
+          <rect x={PAD} y={PAD} width={SIZE-PAD*2} height={SIZE-PAD*2} rx="2" fill="none" stroke="#00D4FF" strokeWidth="1.5" />
+          <rect x={PAD+4} y={PAD+4} width={SIZE-PAD*2-8} height={SIZE-PAD*2-8} rx="1" fill="none" stroke="#00D4FF" strokeWidth="0.5" opacity="0.4" />
+        </>
+      )}
+      {style === 'DataV_10' && (
+        <>
+          {/* 四角三角 + 外框 */}
+          <rect x={PAD} y={PAD} width={SIZE-PAD*2} height={SIZE-PAD*2} fill="none" stroke="#00D4FF" strokeWidth="0.8" />
+          <polygon points={`${PAD+4},${PAD-2} ${PAD-2},${PAD-2} ${PAD-2},${PAD+4}`} fill="#00D4FF" opacity="0.5" />
+          <polygon points={`${SIZE-PAD-4},${PAD-2} ${SIZE-PAD+2},${PAD-2} ${SIZE-PAD+2},${PAD+4}`} fill="#00D4FF" opacity="0.5" />
+          <polygon points={`${PAD+4},${SIZE-PAD+2} ${PAD-2},${SIZE-PAD+2} ${PAD-2},${SIZE-PAD-4}`} fill="#00D4FF" opacity="0.5" />
+          <polygon points={`${SIZE-PAD-4},${SIZE-PAD+2} ${SIZE-PAD+2},${SIZE-PAD+2} ${SIZE-PAD+2},${SIZE-PAD-4}`} fill="#00D4FF" opacity="0.5" />
+        </>
+      )}
+      {style === 'DataV_11' && (
+        <>
+          {/* 标题凹槽 + 光点 */}
+          <path d={`M${PAD+4},${PAD+6} L${SIZE/2-6},${PAD+6} L${SIZE/2-4},${PAD+10} L${SIZE/2+4},${PAD+10} L${SIZE/2+6},${PAD+6} L${SIZE-PAD-4},${PAD+6}`} fill="none" stroke="#00D4FF" strokeWidth="0.8" />
+          <rect x={PAD+2} y={PAD+10} width={SIZE-PAD*2-4} height={SIZE-PAD*2-12} fill="none" stroke="#00D4FF" strokeWidth="0.5" opacity="0.5" />
+          <circle cx={PAD+4} cy={PAD+4} r="1" fill="#00D4FF" />
+          <circle cx={SIZE-PAD-4} cy={PAD+4} r="1" fill="#00D4FF" />
+        </>
+      )}
+      {style === 'DataV_12' && (
+        <>
+          {/* 四角双层 L + 虚线 */}
+          <path d={`M${PAD},${PAD+5} L${PAD},${PAD} L${PAD+5},${PAD}`} fill="none" stroke="#00D4FF" strokeWidth="1.5" />
+          <path d={`M${PAD+2},${PAD+9} L${PAD+2},${PAD+2} L${PAD+9},${PAD+2}`} fill="none" stroke="#00D4FF" strokeWidth="0.8" opacity="0.4" />
+          <path d={`M${SIZE-PAD-5},${PAD} L${SIZE-PAD},${PAD} L${SIZE-PAD},${PAD+5}`} fill="none" stroke="#00D4FF" strokeWidth="1.5" />
+          <rect x={PAD+2} y={PAD+2} width={SIZE-PAD*2-4} height={SIZE-PAD*2-4} fill="none" stroke="#00D4FF" strokeWidth="0.4" strokeDasharray="3 2" opacity="0.4" />
+        </>
+      )}
+      {style === 'DataV_13' && (
+        <>
+          {/* 虚线框 + 四角小 L */}
+          <rect x={PAD+2} y={PAD+2} width={SIZE-PAD*2-4} height={SIZE-PAD*2-4} rx="1" fill="none" stroke="#00D4FF" strokeWidth="2" strokeDasharray="4 2" />
+          <path d={`M${PAD-1},${PAD+6} L${PAD-1},${PAD-1} L${PAD+4},${PAD-3}`} fill="none" stroke="#00D4FF" strokeWidth="0.8" opacity="0.5" />
+          <path d={`M${SIZE-PAD+1},${PAD+6} L${SIZE-PAD+1},${PAD-1} L${SIZE-PAD-4},${PAD-3}`} fill="none" stroke="#00D4FF" strokeWidth="0.8" opacity="0.5" />
         </>
       )}
     </svg>
