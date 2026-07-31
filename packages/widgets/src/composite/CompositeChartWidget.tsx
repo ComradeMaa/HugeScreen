@@ -1,9 +1,13 @@
-import { useState, Suspense } from 'react';
+import { createContext, useContext, useState, Suspense } from 'react';
 import type { CompositeConfig } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
 import { TEMPLATE_GRID_AREAS, templateColumns, templateRows } from './types';
 import { useCompositeData } from './useCompositeData';
 import { getCompositeConfig } from './compositeConfigStore';
+
+/** 嵌套深度上下文 — 防止过深嵌套导致性能问题 */
+const NestDepth = createContext(0);
+const MAX_DEPTH = 5;
 
 interface CompositeChartWidgetProps {
   /** Key pointing to a stored CompositeConfig in compositeConfigStore */
@@ -17,10 +21,20 @@ interface CompositeChartWidgetProps {
  * Looks up configuration via compositeKey in the session store.
  */
 export function CompositeChartWidget({ composite, compositeKey }: CompositeChartWidgetProps) {
+  const depth = useContext(NestDepth);
+
   // Resolve config: prefer direct composite, then key lookup
   const resolved = composite ?? (compositeKey ? getCompositeConfig(compositeKey) : null);
   const slots = resolved?.slots ?? [];
   const liveData = useCompositeData(resolved ? slots : []);
+
+  if (depth >= MAX_DEPTH) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-[#f87171]/60 text-xs">
+        嵌套已达上限（{MAX_DEPTH}层）
+      </div>
+    );
+  }
 
   // Entry animation: bump version on first render
   const [buildVersion] = useState(() => {
@@ -38,6 +52,7 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
   }
 
   return (
+    <NestDepth.Provider value={depth + 1}>
     <div
       className="w-full h-full p-1"
       style={{
@@ -79,5 +94,6 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
         );
       })}
     </div>
+    </NestDepth.Provider>
   );
 }
