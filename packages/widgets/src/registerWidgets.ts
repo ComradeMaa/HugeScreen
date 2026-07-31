@@ -284,6 +284,37 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    {
+      type: 'video-widget',
+      name: '视频',
+      description: '本地视频或直播流播放',
+      icon: 'Video',
+      category: 'media',
+      defaultSize: { colSpan: 3, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 6, rowSpan: 6 },
+      component: lazy(() => import('./decorators/VideoWidget').then(m => ({ default: m.VideoWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          videos: { type: 'array', title: '视频列表' },
+          fit: { type: 'string', title: '填充方式', enum: ['contain', 'cover', 'fill'] },
+          muted: { type: 'boolean', title: '静音' },
+          autoplay: { type: 'boolean', title: '自动播放' },
+          loop: { type: 'boolean', title: '循环播放' },
+          controls: { type: 'boolean', title: '播放控件' },
+        },
+      },
+      defaultConfig: {
+        videos: [],
+        fit: 'contain',
+        muted: true,
+        autoplay: true,
+        loop: true,
+        controls: false,
+      },
+    },
+
   ]);
 
   console.log(

@@ -81,7 +81,14 @@ export class RESTAdapter implements DataAdapter {
         }
         const resp = await fetch(url, fetchOpts);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        let json: unknown = await resp.json();
+        const ct = resp.headers.get('content-type') || '';
+        let json: unknown;
+        if (ct.includes('application/json') || ct.includes('text/') || ct === '') {
+          try { json = await resp.json(); }
+          catch { json = { url }; }
+        } else {
+          json = { url };
+        }
 
         // Apply jsonPath extraction (supports dot + array index, e.g. items[0].value)
         if (config.config?.jsonPath) {

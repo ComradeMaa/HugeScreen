@@ -108,7 +108,18 @@ const mappingRows = Object.entries(mapping);
       }
       const res = await fetch(cfg.url!, fetchOpts);
       if (!res.ok) { setTest({ loading: false, ok: false, msg: `HTTP ${res.status} ${res.statusText}` }); return; }
-      const raw = await res.json();
+      const ct = res.headers.get('content-type') || '';
+      let raw: unknown;
+      if (ct.includes('application/json') || ct.includes('text/') || ct === '') {
+        try { raw = await res.json(); }
+        catch {
+          setTest({ loading: false, ok: true, msg: '非 JSON 响应 — 将作为直接 URL 使用', mapped: JSON.stringify({ url: cfg.url }, null, 2).slice(0, 600) });
+          return;
+        }
+      } else {
+        setTest({ loading: false, ok: true, msg: '非 JSON 响应 — 将作为直接 URL 使用', mapped: JSON.stringify({ url: cfg.url }, null, 2).slice(0, 600) });
+        return;
+      }
       const extracted = cfg.jsonPath ? getByPath(raw, cfg.jsonPath) : raw;
       const mapped = mapData(extracted, chartType, mapping);
       const keys = Object.keys(mapped);

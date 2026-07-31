@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   Map,
   Building2,
+  Video,
   Plus,
   Trash2,
   type LucideIcon,
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
   Map,
   Building2,
+  Video,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -182,6 +184,25 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.lineTo(cx + 6, h - 22); ctx.lineTo(cx + 12, h - 12); ctx.closePath(); ctx.fill();
     ctx.fillStyle = 'rgba(0,212,255,0.6)';
     ctx.beginPath(); ctx.arc(cx - 4, h - 24, 2, 0, Math.PI * 2); ctx.fill();
+
+  } else if (type === 'video-widget') {
+    // 2x2 grid with play icons
+    ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+    ctx.lineWidth = 0.5;
+    // 2x2 grid lines
+    ctx.beginPath(); ctx.moveTo(cx, 8); ctx.lineTo(cx, h - 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(8, cy); ctx.lineTo(w - 8, cy); ctx.stroke();
+    // Play triangles in 4 quadrants
+    const playTriangle = (qx: number, qy: number) => {
+      ctx.fillStyle = 'rgba(0,212,255,0.45)';
+      ctx.beginPath();
+      ctx.moveTo(qx - 3, qy - 5); ctx.lineTo(qx - 3, qy + 5); ctx.lineTo(qx + 4, qy);
+      ctx.closePath(); ctx.fill();
+    };
+    playTriangle(cx / 2, cy / 2);
+    playTriangle(cx + cx / 2, cy / 2);
+    playTriangle(cx / 2, cy + cy / 2);
+    playTriangle(cx + cx / 2, cy + cy / 2);
 
   } else if (type === 'text-widget') {
     // Text lines

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useEditorStore } from '../store/editorStore';
+import { useEditorStore, stageUploadFile } from '../store/editorStore';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetStyle } from '@hugescreen/shared';
 import type { CompositeSubChartType, CompositeConfig } from '@hugescreen/shared';
@@ -964,6 +964,107 @@ export function PropertyInspector() {
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), opacity: Number(e.target.value) } })}
                 className="w-24" />
             </label>
+          </CollapsibleFieldGroup>
+        )}
+
+        {/* ═══ 视频专属配置 ═══ */}
+        {widget.type === 'video-widget' && (
+          <CollapsibleFieldGroup label="视频" defaultOpen={true}>
+            {/* 文件上传 — 延迟上传模式（选文件不立刻上传，保存时才上传） */}
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] text-textSecondary/70">
+                视频文件 (MP4/WebM，可多选)
+                <span className="ml-1 text-accent-cool/60">{((widget.options as any).videos?.length ?? 0)}/4</span>
+              </span>
+              {((widget.options as any).videos?.length ?? 0) >= 4 ? (
+                <p className="text-[10px] text-accent-warm/60">已达上限（4个），请先删除旧视频再添加</p>
+              ) : (
+                <input
+                  type="file"
+                  multiple
+                  accept=".mp4,.webm,video/mp4,video/webm"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length === 0) return;
+                    const existing: any[] = [...((widget.options as any).videos || [])];
+                    const remaining = 4 - existing.length;
+                    const toAdd = files.slice(0, remaining);
+                    let loaded = 0;
+                    toAdd.forEach((file) => {
+                      const blobUrl = stageUploadFile(file);
+                      existing.push({ url: blobUrl, pinned: true });
+                      loaded++;
+                      if (loaded === toAdd.length) {
+                        updateWidget(widget.id, { options: { ...(widget.options as object), videos: [...existing] } });
+                      }
+                    });
+                  }}
+                  className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
+              )}
+            </label>
+
+            {/* 视频列表 — 图钉保护 */}
+            {((widget.options as any).videos as any[])?.length > 0 && (
+              <div className="space-y-1 mt-1">
+                {((widget.options as any).videos as any[]).map((vid: any, i: number) => {
+                  const url = typeof vid === 'string' ? vid : vid?.url || '';
+                  const pinned = !!(vid && typeof vid === 'object' && vid.pinned);
+                  const isBlob = url.startsWith('blob:');
+                  return (
+                    <div key={i} className={`flex items-center gap-2 rounded p-1 transition-colors ${pinned ? 'bg-accent-warm/10 border border-accent-warm/25' : 'bg-surface-base/50'}`}>
+                      <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">
+                        {isBlob ? `📹 待上传` : `🎬 视频 ${i + 1}`}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const next = ((widget.options as any).videos as any[]).map((item: any, j: number) =>
+                            j === i ? { url: typeof item === 'string' ? item : item.url, pinned: !pinned } : item
+                          );
+                          updateWidget(widget.id, { options: { ...(widget.options as object), videos: next } });
+                        }}
+                        className={`flex-shrink-0 p-1 rounded transition-all ${pinned ? 'text-accent-warm bg-accent-warm/15 hover:bg-accent-warm/25' : 'text-textSecondary/20 hover:text-textSecondary/50 hover:bg-surface-hover'}`}
+                        title={pinned ? '已固定 · 点击取消' : '未固定 · 点击保护'}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={pinned ? '1' : '1.5'}>
+                          <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v4h1.6v-4H18v-2l-2-2z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const next = ((widget.options as any).videos as any[]).filter((_: any, j: number) => j !== i);
+                          updateWidget(widget.id, { options: { ...(widget.options as object), videos: next.length > 0 ? next : undefined } });
+                        }}
+                        className="text-negative/40 hover:text-negative flex-shrink-0 p-1 hover:bg-negative/10 rounded transition-colors"
+                      >×</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <LabelSelectRow label="填充方式" value={String((widget.options as any).fit ?? 'contain')}
+              options={['contain','cover','fill']}
+              labels={['适配','裁剪','拉伸']}
+              onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), fit: v } })} />
+
+            {/* 播放选项 */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[
+                ['muted', '静音'],
+                ['autoplay', '自动播放'],
+                ['loop', '循环'],
+                ['controls', '控件'],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-1 text-[11px] text-textSecondary/70">
+                  <input type="checkbox" checked={!!(widget.options as any)[key]}
+                    onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), [key]: e.target.checked } })}
+                    className="w-3 h-3" />
+                  {label}
+                </label>
+              ))}
+            </div>
           </CollapsibleFieldGroup>
         )}
 

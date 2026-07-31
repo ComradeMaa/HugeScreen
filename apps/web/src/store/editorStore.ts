@@ -32,18 +32,32 @@ export function stageUploadFile(file: File): string {
 /** 上传单个文件到服务器，返回永久 URL */
 async function uploadFileToServer(file: File): Promise<string> {
   const token = localStorage.getItem('hugescreen-token');
+  const formData = new FormData();
+  formData.append('file', file, file.name);
   const resp = await fetch('/api/upload', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type,
-      'X-Filename': encodeURIComponent(file.name),
-      'Authorization': `Bearer ${token}`,
-    },
-    body: file,
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
   });
-  if (!resp.ok) throw new Error('上传失败');
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+    throw new Error((err as any).error || `上传失败 HTTP ${resp.status}`);
+  }
   const { url } = await resp.json();
   return url;
+}
+
+async function deleteFileFromServer(fileUrl: string): Promise<void> {
+  const token = localStorage.getItem('hugescreen-token');
+  const resp = await fetch('/api/upload', {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ url: fileUrl }),
+  });
+  if (!resp.ok) throw new Error(`删除失败 HTTP ${resp.status}`);
 }
 
 export type Breakpoint = 'desktop' | 'tablet' | 'mobile';
@@ -805,6 +819,78 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
           pendingFiles.delete(state.backgroundVideo);
           dirty = true;
         } catch { /* 上传失败，保留本地 URL */ }
+      }
+    }
+
+    // 收集旧文件 URL + 上传视频组件暂存文件 + 清理残留
+    const oldUploadUrls = new Set<string>();
+    let widgetBlobsDirty = false;
+
+    if (config.widgets) {
+      const updatedWidgets = await Promise.all(config.widgets.map(async (widget) => {
+        for (const v of ((widget.options as any).videos || (widget.options as any).images || [])) {
+          const u = typeof v === 'string' ? v : v?.url;
+          if (u && u.startsWith('/uploads/')) oldUploadUrls.add(u);
+        }
+
+        if (widget.type !== 'video-widget' || !Array.isArray((widget.options as any).videos)) {
+          return widget;
+        }
+
+        const rawVideos: any[] = (widget.options as any).videos;
+        let hasBlob = false;
+        const uploaded: any[] = [];
+
+        for (const vid of rawVideos) {
+          const url = typeof vid === 'string' ? vid : vid?.url;
+          if (url && url.startsWith('blob:')) {
+            hasBlob = true;
+            const file = pendingFiles.get(url);
+            if (file) {
+              // 串行上传 + 300ms 间隔避免 TCP 连接复用导致 ERR_CONNECTION_RESET
+              if (uploaded.length > 0) await new Promise(r => setTimeout(r, 300));
+              try {
+                const newUrl = await uploadFileToServer(file);
+                pendingFiles.delete(url);
+                uploaded.push({ url: newUrl, pinned: true });
+              } catch (e) {
+                console.warn(`[save] video upload failed:`, e);
+                uploaded.push(vid);
+              }
+            } else {
+              uploaded.push(vid);
+              uploaded.push(vid);
+            }
+          } else {
+            uploaded.push(vid);
+          }
+        }
+
+        if (hasBlob) widgetBlobsDirty = true;
+        return { ...widget, options: { ...widget.options, videos: uploaded } };
+      }));
+
+      if (widgetBlobsDirty) {
+        config = { ...config, widgets: updatedWidgets };
+        dirty = true;
+      }
+
+      // 计算新引用并清理残留
+      const newUploadUrls = new Set<string>();
+      for (const w of updatedWidgets) {
+        for (const v of ((w.options as any).videos || (w.options as any).images || [])) {
+          const u = typeof v === 'string' ? v : v?.url;
+          if (u && u.startsWith('/uploads/')) newUploadUrls.add(u);
+        }
+      }
+      for (const oldUrl of oldUploadUrls) {
+        if (!newUploadUrls.has(oldUrl)) {
+          try {
+            await deleteFileFromServer(oldUrl);
+          } catch (e) {
+            console.warn(`[save] cleanup failed: ${oldUrl}`, e);
+          }
+        }
       }
     }
 

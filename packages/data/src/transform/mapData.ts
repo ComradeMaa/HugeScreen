@@ -38,6 +38,7 @@ export function mapData(
     case 'stat-card': return mapStat(raw, mapping);
     case 'text-widget': return mapText(raw, mapping);
     case 'image-widget': return mapImage(raw, mapping);
+    case 'video-widget': return mapVideo(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -196,6 +197,34 @@ function mapImage(raw: unknown, m: FieldMapping): Record<string, unknown> {
   }
   if (typeof raw === 'object') {
     const v = getByPath(raw, m.url || m.images || 'url') ?? getByPath(raw, 'src') ?? getByPath(raw, 'download_url');
+    if (typeof v === 'string') return build([v]);
+  }
+  return {};
+}
+
+/** 视频数据源 — 同 mapImage 逻辑，API 视频 pinned: false */
+function mapVideo(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const build = (urls: string[]) =>
+    urls.length > 0 ? { videos: urls.slice(0, 4).map(url => ({ url, pinned: false })) } : {};
+  if (typeof raw === 'string') return build([raw]);
+  if (Array.isArray(raw)) {
+    const urls: string[] = [];
+    const urlKey = m.url || m.videos || 'url';
+    for (const item of raw) {
+      if (typeof item === 'string') { urls.push(item); }
+      else if (item && typeof item === 'object') {
+        const v = getByPath(item, urlKey) ?? getByPath(item, 'url') ?? getByPath(item, 'src')
+          ?? getByPath(item, 'download_url') ?? getByPath(item, 'video')
+          ?? getByPath(item, 'stream_url') ?? getByPath(item, 'hls_url');
+        if (typeof v === 'string') urls.push(v);
+      }
+    }
+    return build(urls);
+  }
+  if (typeof raw === 'object') {
+    const v = getByPath(raw, m.url || m.videos || 'url') ?? getByPath(raw, 'src')
+      ?? getByPath(raw, 'download_url') ?? getByPath(raw, 'stream_url');
     if (typeof v === 'string') return build([v]);
   }
   return {};

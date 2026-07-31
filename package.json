@@ -18,6 +18,7 @@
     "pnpm": ">=9"
   },
   "dependencies": {
+    "multer": "^2.2.0",
     "mysql2": "^3.23.2"
   }
 }

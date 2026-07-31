@@ -140,6 +140,26 @@ class DataFetcher {
 
   private _fetchCount = 0;
 
+  /** 安全获取响应数据：JSON → 解析; 非JSON(视频流/图片等) → 返回 {url} 供直接使用 */
+  private static async safeResponseData(resp: Response, url: string): Promise<unknown> {
+    const ct = resp.headers.get('content-type') || '';
+    if (ct.includes('application/json') || ct.includes('text/') || ct === '') {
+      try {
+        return await resp.json();
+      } catch {
+        // JSON 解析失败（如 M3U8/纯文本）→ 把 URL 本身当数据
+        return { url };
+      }
+    }
+    // 非文本类型（视频流、图片等）→ 直接用 URL
+    const text = await resp.text().catch(() => '');
+    // 如果返回的是纯文本 URL 列表（每行一个），也尝试解析
+    if (text && text.split('\n').every(l => l.trim().startsWith('http'))) {
+      return text.trim().split('\n').map((u: string) => u.trim());
+    }
+    return { url };
+  }
+
   private buildFetchOptions(hdrs: Record<string, string>): RequestInit {
     const opts: RequestInit = { method: this.method, headers: hdrs };
     if (this.method === 'POST' && this.body !== undefined) {
@@ -161,7 +181,7 @@ class DataFetcher {
       console.warn(`[DataHub] ✗ FETCH #${n} FAIL  ${this.url} HTTP ${resp.status}`);
       return;
     }
-    const raw: unknown = await resp.json();
+    const raw: unknown = await DataFetcher.safeResponseData(resp, this.url);
     console.log(`[DataHub] ✓ FETCH #${n} DONE  ${this.url} → dispatching to ${this.subs.size} subs`);
     this.dispatch(raw);
   }
@@ -234,7 +254,7 @@ class DataFetcher {
         console.warn(`[DataHub] forceRefresh failed: ${this.url} HTTP ${resp.status}`);
         return;
       }
-      const raw: unknown = await resp.json();
+      const raw: unknown = await DataFetcher.safeResponseData(resp, this.url);
       this.dispatchTo(sub, raw, true);
     } catch (err) {
       console.warn(`[DataHub] forceRefresh error for ${this.url}:`, err);
@@ -386,7 +406,7 @@ class DataHub {
     }
     const resp = await fetch(url, fetchOpts);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const raw: unknown = await resp.json();
+    const raw: unknown = await DataFetcher.safeResponseData(resp, url);
 
     if (chartType) {
       const slice = ds.config?.jsonPath ? getByPath(raw, ds.config.jsonPath) : raw;

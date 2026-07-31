@@ -81,6 +81,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "stat-card": ["title", "value", "suffix", "ringPercent"],
     "text-widget": ["text"],
     "image-widget": ["images"],
+    "video-widget": ["videos"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};
@@ -115,6 +116,18 @@ function mergePreservingMeta(newData: Record<string, unknown>, currentOpts: Reco
       (e: any) => !pinnedUrls.has(e.url)
     );
     merged.images = [...pinned, ...newEntries];
+  }
+  if (chartType === "video-widget" && Array.isArray(newData.videos)) {
+    const rawOld = Array.isArray(currentOpts.videos) ? currentOpts.videos : [];
+    const oldVideos = rawOld.map((e: any) =>
+      typeof e === 'string' ? { url: e, pinned: true } : e
+    ) as Array<{ url: string; pinned?: boolean }>;
+    const pinned = oldVideos.filter((e: any) => e?.pinned);
+    const pinnedUrls = new Set(pinned.map((p: any) => p.url));
+    const newEntries = (newData.videos as Array<{ url: string; pinned?: boolean }>).filter(
+      (e: any) => !pinnedUrls.has(e.url)
+    ).slice(0, 4 - pinned.length); // 最多4个
+    merged.videos = [...pinned, ...newEntries];
   }
   return merged;
 }

@@ -31,7 +31,8 @@
 
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { readFileSync, existsSync, mkdirSync, createWriteStream, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import multer from 'multer';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
@@ -90,47 +91,40 @@ app.use(express.json({ limit: '5mb' }));
 const UPLOADS_DIR = join(__dirname, 'uploads');
 if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// ─── 文件上传（原始二进制，无需 multipart）───
+// ─── 文件上传（multer + FormData multipart）───
 const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm']);
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;   // 10MB
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;  // 100MB
 
-app.put('/api/upload', requireAuth, (req, res) => {
-  const filename = decodeURIComponent(String(req.headers['x-filename'] || 'file'));
-  const ext = extname(filename).toLowerCase();
-  if (!ALLOWED_EXT.has(ext)) {
-    return res.status(400).json({ error: `不支持的文件类型: ${ext}` });
-  }
-
-  const isVideo = ['.mp4', '.webm'].includes(ext);
-  const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
-  const contentLength = parseInt(req.headers['content-length'], 10);
-  if (contentLength > maxSize) {
-    return res.status(413).json({ error: `文件过大，最大 ${maxSize / 1024 / 1024}MB` });
-  }
-
-  const safeName = nanoid(16) + ext;
-  const filePath = join(UPLOADS_DIR, safeName);
-  const ws = createWriteStream(filePath);
-  let size = 0;
-
-  req.on('data', (chunk) => {
-    size += chunk.length;
-    if (size > maxSize) {
-      req.destroy();
-      ws.close();
-      unlinkSync(filePath);
-      return;
+// multer 存储配置 — 用原始文件名 + nanoid 防冲突
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const ext = extname(file.originalname).toLowerCase();
+    if (!ALLOWED_EXT.has(ext)) {
+      return cb(new Error(`不支持的文件类型: ${ext}`), '');
     }
-  });
+    cb(null, nanoid(16) + ext);
+  },
+});
 
-  req.pipe(ws);
-  ws.on('finish', () => {
-    res.json({ url: '/uploads/' + safeName });
-  });
-  ws.on('error', () => {
-    res.status(500).json({ error: '写入文件失败' });
-  });
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_VIDEO_SIZE },
+  fileFilter: (_req, file, cb) => {
+    const ext = extname(file.originalname).toLowerCase();
+    if (!ALLOWED_EXT.has(ext)) {
+      return cb(new Error(`不支持的文件类型: ${ext}`));
+    }
+    cb(null, true);
+  },
+});
+
+app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: '未接收到文件' });
+  }
+  res.json({ url: '/uploads/' + req.file.filename });
 });
 
 // 删除上传文件
