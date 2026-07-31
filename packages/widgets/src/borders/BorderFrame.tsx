@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CyberBorder1 } from './styles/CyberBorder1';
 import { CyberBorder2 } from './styles/CyberBorder2';
+import { DataVBorder1 } from './styles/DataVBorder1';
 import './border.css';
 
 export interface BorderFrameProps {
@@ -22,6 +23,7 @@ export interface BorderFrameProps {
 export const BORDER_REGISTRY: Record<string, React.ComponentType<BorderStyleProps>> = {
   style1: CyberBorder1,
   style2: CyberBorder2,
+  DataV_1: DataVBorder1,
 };
 
 export interface BorderStyleProps {

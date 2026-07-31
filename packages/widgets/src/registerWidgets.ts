@@ -180,7 +180,7 @@ export function registerBuiltinWidgets(): void {
     {
       type: 'image-widget',
       name: '图片',
-      description: '本地图片展示',
+      description: '图片展示',
       icon: 'Image',
       category: 'decorator',
       defaultSize: { colSpan: 2, rowSpan: 2 },

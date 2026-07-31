@@ -18,6 +18,7 @@
     "pnpm": ">=9"
   },
   "dependencies": {
+    "@jiaminghi/data-view-react": "^1.2.5",
     "multer": "^2.2.0",
     "mysql2": "^3.23.2"
   }

@@ -10,6 +10,7 @@ export const LAYOUT_TEMPLATES: CompositeLayoutTemplate[] = [
   '1top2bottom',
   '1left2right',
   'topNarrow',
+  'sandwich',
 ];
 
 /** Number of sub-slots per template */
@@ -21,6 +22,7 @@ export const TEMPLATE_SLOT_COUNTS: Record<CompositeLayoutTemplate, number> = {
   '1top2bottom': 3,
   '1left2right': 3,
   'topNarrow': 2,
+  'sandwich': 3,
 };
 
 /** CSS grid-template-areas for each template */
@@ -33,16 +35,18 @@ export const TEMPLATE_GRID_AREAS: Record<CompositeLayoutTemplate, string> = {
   '1left2right':   '"a a b b" "a a b b" "a a c c" "a a c c"',
   // 上 1/8 窄条 + 下 7/8：8 行 × 4 列
   'topNarrow':     '"a a a a" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b"',
+  // 上 1/8 窄条 + 中 6/8 + 下 1/8 窄条：8 行 × 4 列，3 槽位
+  'sandwich':      '"a a a a" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "c c c c"',
 };
 
 /** Grid column count per template */
 const TEMPLATE_COLUMNS: Record<CompositeLayoutTemplate, number> = {
-  '2col': 4, '2row': 4, '3col': 6, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 4,
+  '2col': 4, '2row': 4, '3col': 6, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 4, 'sandwich': 4,
 };
 
 /** Grid row count per template */
 const TEMPLATE_ROWS: Record<CompositeLayoutTemplate, number> = {
-  '2col': 4, '2row': 4, '3col': 4, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 8,
+  '2col': 4, '2row': 4, '3col': 4, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 8, 'sandwich': 8,
 };
 
 /** Human-readable labels */
@@ -54,6 +58,7 @@ export const TEMPLATE_LABELS: Record<CompositeLayoutTemplate, string> = {
   '1top2bottom': '上一下二',
   '1left2right': '左一右二',
   'topNarrow': '上窄条',
+  'sandwich': '三明治',
 };
 
 /** Display name for sub-chart types — 动态从 widgetRegistry 获取 */
@@ -74,10 +79,10 @@ export function isTemplateViableForSize(
   rowSpan: number,
 ): boolean {
   const minCols: Record<CompositeLayoutTemplate, number> = {
-    '2col': 3, '2row': 2, '3col': 4, '2x2': 4, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 2,
+    '2col': 3, '2row': 2, '3col': 4, '2x2': 4, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 2, 'sandwich': 3,
   };
   const minRows: Record<CompositeLayoutTemplate, number> = {
-    '2col': 2, '2row': 3, '3col': 2, '2x2': 3, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 3,
+    '2col': 2, '2row': 3, '3col': 2, '2x2': 3, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 3, 'sandwich': 5,
   };
   return colSpan >= minCols[template] && rowSpan >= minRows[template];
 }

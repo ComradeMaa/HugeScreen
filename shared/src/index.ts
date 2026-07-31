@@ -91,7 +91,8 @@ export type CompositeLayoutTemplate =
   | '2x2'           // 2×2 网格 (4 子图)
   | '1top2bottom'   // 上宽下两
   | '1left2right'   // 左宽右两叠
-  | 'topNarrow';    // 上 1/8 窄条 + 下 7/8
+  | 'topNarrow'     // 上 1/8 窄条 + 下 7/8
+  | 'sandwich';     // 上 1/8 窄条 + 中 6/8 + 下 1/8 窄条
 
 export type CompositeSubChartType = string;
 
@@ -185,7 +186,7 @@ export interface WidgetStyle {
   opacity?: number;
   title?: WidgetTitleConfig;
   /** 边框样式：none=无, style1/styl2=科技感边框, style3+ 后续扩展 */
-  borderStyle?: 'none' | 'style1' | 'style2' | 'style3' | 'style4' | 'style5' | 'style6';
+  borderStyle?: 'none' | 'style1' | 'style2' | 'DataV_1' | 'style3' | 'style4' | 'style5' | 'style6';
 }
 
 /** 一级/二级标题配置。存在即显示，不存在即不占空间 */

@@ -1556,7 +1556,7 @@ const BORDER_STYLES: { value: WidgetStyle['borderStyle']; label: string }[] = [
   { value: 'none', label: '无' },
   { value: 'style1', label: '电光蓝角标' },
   { value: 'style2', label: '琥珀橙扫描线' },
-  { value: 'style3', label: '样式3' },
+  { value: 'DataV_1', label: 'DataV_1' },
   { value: 'style4', label: '样式4' },
   { value: 'style5', label: '样式5' },
   { value: 'style6', label: '样式6' },
@@ -1624,6 +1624,25 @@ function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
           <circle cx={SIZE-PAD} cy={SIZE-PAD} r="1.5" fill="#00D4FF" />
           {/* Center triangle */}
           <polygon points={`${SIZE/2-3},${PAD} ${SIZE/2},${PAD+3} ${SIZE/2+3},${PAD}`} fill="#00D4FF" opacity="0.6" />
+        </>
+      )}
+      {style === 'DataV_1' && (
+        <>
+          {/* DataV BorderBox1 风格 — 四角折线 + 上下横线 */}
+          <polyline points={`${PAD+2},${PAD+6} ${PAD+2},${PAD+2} ${PAD+6},${PAD+2}`} stroke="#00D4FF" strokeWidth="1" fill="none" />
+          <polyline points={`${SIZE-PAD-6},${PAD+2} ${SIZE-PAD-2},${PAD+2} ${SIZE-PAD-2},${PAD+6}`} stroke="#00D4FF" strokeWidth="1" fill="none" />
+          <polyline points={`${PAD+2},${SIZE-PAD-6} ${PAD+2},${SIZE-PAD-2} ${PAD+6},${SIZE-PAD-2}`} stroke="#00D4FF" strokeWidth="1" fill="none" />
+          <polyline points={`${SIZE-PAD-6},${SIZE-PAD-2} ${SIZE-PAD-2},${SIZE-PAD-2} ${SIZE-PAD-2},${SIZE-PAD-6}`} stroke="#00D4FF" strokeWidth="1" fill="none" />
+          {/* Top/bottom double lines */}
+          <line x1={PAD+4} y1={PAD-0.5} x2={SIZE/2-3} y2={PAD-0.5} stroke="#00D4FF" strokeWidth="0.8" />
+          <line x1={SIZE/2+3} y1={PAD-0.5} x2={SIZE-PAD-4} y2={PAD-0.5} stroke="#00D4FF" strokeWidth="0.8" />
+          <line x1={PAD+1} y1={PAD+1.5} x2={SIZE/2-3} y2={PAD+1.5} stroke="#00D4FF" strokeWidth="0.4" opacity="0.5" />
+          <line x1={SIZE/2+3} y1={PAD+1.5} x2={SIZE-PAD-1} y2={PAD+1.5} stroke="#00D4FF" strokeWidth="0.4" opacity="0.5" />
+          <line x1={PAD+4} y1={SIZE-PAD+0.5} x2={SIZE-PAD-4} y2={SIZE-PAD+0.5} stroke="#00D4FF" strokeWidth="0.8" />
+          {/* Center diamond */}
+          <polygon points={`${SIZE/2},${PAD+1} ${SIZE/2+2},${PAD+3} ${SIZE/2},${PAD+5} ${SIZE/2-2},${PAD+3}`} fill="#00D4FF" opacity="0.5" />
+          {/* Inner rect hint */}
+          <rect x={PAD+6} y={PAD+7} width={SIZE-PAD*2-12} height={SIZE-PAD*2-14} rx="1" fill="none" stroke="#00D4FF" strokeWidth="0.3" opacity="0.3" />
         </>
       )}
     </svg>
