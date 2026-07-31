@@ -299,12 +299,14 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   type DragSwap = { targetWidgetId: string; originSlot: BlockSlot; targetSlot: BlockSlot };
   const [dragSwap, setDragSwap] = useState<DragSwap | null>(null);
 
-  const dynamicHRows = headerRows(activeGrid.cols);
+  const dynamicHRows = header?.visible !== false ? headerRows(activeGrid.cols) : 0;
   const isNarrowHeader = activeGrid.cols <= 2;
 
+  // 顶栏隐藏时，有效行数减 1（row 0 不再被顶栏占用），cellH 自动变大 → 组件拉伸
+  const effectiveRows = header?.visible !== false ? activeGrid.rows : activeGrid.rows - BASE_HEADER_ROWS;
   const { cellW, cellH } = useMemo(
-    () => cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, activeGrid.rows),
-    [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, activeGrid.rows],
+    () => cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows),
+    [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows],
   );
 
   const headerPx = useMemo(
@@ -339,11 +341,16 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   // Widget 像素位置（canvas 相对坐标）
   // 如果有断点布局覆盖，使用覆盖值；否则使用 widget 自身 layout
   const positions = useMemo(() => {
+    const headerHidden = header?.visible === false;
     return visibleWidgets.map((w) => {
       const layout = bpLayouts?.[w.id] || w.layout;
+      // 顶栏隐藏时，所有组件向上平移一行占据顶栏空间
+      const adjustedLayout = headerHidden
+        ? { ...layout, row: Math.max(0, layout.row - BASE_HEADER_ROWS) }
+        : layout;
       return {
         id: w.id,
-        ...slotToPx(layout, cellW, cellH, activeGrid.gap),
+        ...slotToPx(adjustedLayout, cellW, cellH, activeGrid.gap),
       };
     });
   }, [visibleWidgets, bpLayouts, cellW, cellH, activeGrid.gap]);
@@ -933,6 +940,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       {isEditing && <GridOverlay grid={grid} canvasWidth={activeCanvasW} canvasHeight={activeCanvasH} />}
 
       {/* ═══ 固定顶栏 ═══ */}
+      {header?.visible !== false && (
+      <>
       <div
         className="absolute z-30"
         style={{ left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height }}
@@ -1106,6 +1115,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           }}>不可拖拽至此处</span>
         </div>
       )}
+      </>)}
 
       {/* ═══ 拖拽已有组件 → 主体区域蓝框提示 ═══ */}
       {showWidgetSlotsHint && (
@@ -1149,7 +1159,12 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         <div
           className="absolute pointer-events-none z-40"
           style={{
-            ...slotToPx(dropPreview, cellW, cellH, grid.gap),
+            ...slotToPx(
+              header?.visible === false
+                ? { ...dropPreview, row: Math.max(0, dropPreview.row - BASE_HEADER_ROWS) }
+                : dropPreview,
+              cellW, cellH, grid.gap
+            ),
             backgroundColor: dropPreview.blocked
               ? 'rgba(248,113,113,0.12)'
               : 'rgba(0,212,255,0.12)',
@@ -1176,7 +1191,11 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         // 交换预览：被"挤"走的组件渲染在原位置
         const isSwapTarget = dragSwap?.targetWidgetId === widget.id;
         const px = isSwapTarget
-          ? slotToPx(dragSwap.originSlot, cellW, cellH, grid.gap)
+          ? slotToPx(
+              header?.visible === false
+                ? { ...dragSwap.originSlot, row: Math.max(0, dragSwap.originSlot.row - BASE_HEADER_ROWS) }
+                : dragSwap.originSlot,
+              cellW, cellH, grid.gap)
           : positions.find(p => p.id === widget.id);
         if (!px) return null;
         const def = widgetRegistry.get(widget.type);

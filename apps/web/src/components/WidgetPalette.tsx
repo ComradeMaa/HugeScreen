@@ -440,6 +440,8 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
   const headerElements = headerElementRegistry.getAll();
   const deleteCustomComponent = useEditorStore((s) => s.deleteCustomComponent);
   const instances = useEditorStore((s) => s.config.widgets);
+  const toggleHeader = useEditorStore((s) => s.toggleHeader);
+  const headerVisible = useEditorStore((s) => s.config.header?.visible !== false);
   if (allWidgets.length === 0 && headerElements.length === 0) {
     return (
       <div className="p-4 text-center text-xs text-textSecondary/50 py-12">
@@ -453,8 +455,18 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
       {/* ─── 顶栏组件 ─── */}
       {headerElements.length > 0 && (
         <div>
-          <div className="text-[10px] font-semibold text-accent-warm/50 uppercase tracking-wider mb-2 px-1">
-            顶栏
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-[10px] font-semibold text-accent-warm/50 uppercase tracking-wider">顶栏</span>
+            <button
+              onClick={toggleHeader}
+              className={`text-[9px] px-2 py-0.5 rounded-full border transition-colors ${
+                headerVisible
+                  ? 'bg-accent-cool/10 text-accent-cool border-accent-cool/25'
+                  : 'bg-surface-hover text-textSecondary/40 border-[rgba(255,255,255,0.06)]'
+              }`}
+            >
+              {headerVisible ? '显示' : '隐藏'}
+            </button>
           </div>
           <div className="space-y-1">
             {headerElements.map((el) => (

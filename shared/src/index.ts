@@ -9,6 +9,7 @@ export interface HeaderSlotConfig {
 
 export interface HeaderConfig {
   slots: HeaderSlotConfig[];
+  visible?: boolean;
 }
 
 // ─── 大屏完整配置 ───

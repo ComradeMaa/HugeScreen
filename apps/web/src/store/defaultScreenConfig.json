@@ -15,6 +15,7 @@
     "snapToGrid": true
   },
   "header": {
+    "visible": true,
     "slots": [
       {
         "id": "mrtzm4ht-3wjx-2",

@@ -95,6 +95,7 @@ interface EditorState {
   removeHeaderElement: (slotId: string) => void;
   swapHeaderSlots: (fromId: string, toId: string) => void;
   selectHeaderSlot: (id: string | null) => void;
+  toggleHeader: () => void;
 
   setBreakpoint: (bp: Breakpoint) => void;
   toggleEditor: () => void;
@@ -330,9 +331,10 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetCon
   });
 }
 
-function createDefaultHeader(): { slots: HeaderSlotConfig[] } {
+function createDefaultHeader(): { slots: HeaderSlotConfig[]; visible: boolean } {
   // 8 个等宽 1 列槽位；标题占 2 列(=合并 slot0+slot1)；datetime 占 1 列
   return {
+    visible: true,
     slots: [
       { id: generateId(), colSpan: 2, elementType: 'header-title',   options: { text: '数据监控中心' } },
       // slot1 已被合并到 slot0（colSpan=2），故不存在
@@ -555,6 +557,15 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       },
     }));
   },
+
+  // ─── 顶栏显示/隐藏 ───
+  toggleHeader: () =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        header: { ...s.config.header!, visible: !(s.config.header?.visible !== false) },
+      },
+    })),
 
   // ─── 顶栏槽位管理（支持多列组件合并/拆分） ───
   setHeaderSlot: (slotId: string, elementType: string | null, options?: Record<string, unknown>) =>
@@ -828,6 +839,10 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       // 迁移：旧版配置没有 header → 补默认值
       if (!raw.header || !(raw.header as { slots?: unknown })?.slots) {
         raw.header = createDefaultHeader();
+      }
+      // 迁移：旧版配置 header 没有 visible → 默认显示
+      if (raw.header && (raw.header as Record<string, unknown>).visible === undefined) {
+        (raw.header as Record<string, unknown>).visible = true;
       }
       // 清理旧版残留：screen-header 组件、row 0 的组件（现在属于固定顶栏区域）
       if (raw.widgets) {
