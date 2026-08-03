@@ -318,6 +318,37 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'box-plot',
+      name: '箱线图',
+      description: '数据分布盒须图，展示最小值/Q1/中位数/Q3/最大值',
+      icon: 'BarChart4',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 3, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/BoxPlotWidget').then(m => ({ default: m.BoxPlotWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          boxColor: { type: 'string', title: '盒子颜色' },
+          boxWidth: { type: 'number', title: '盒子宽度' },
+          categories: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        boxColor: '#00D4FF',
+        boxWidth: 20,
+        categories: [
+          { name: 'A组', min: 10, q1: 30, median: 45, q3: 60, max: 85 },
+          { name: 'B组', min: 15, q1: 35, median: 50, q3: 65, max: 90 },
+          { name: 'C组', min: 20, q1: 40, median: 55, q3: 70, max: 95 },
+          { name: 'D组', min: 12, q1: 32, median: 48, q3: 62, max: 88 },
+          { name: 'E组', min: 8,  q1: 28, median: 42, q3: 58, max: 80 },
+        ],
+      },
+    },
+
+    {
       type: 'water-pond',
       name: '水位球',
       description: '波浪水位动画',

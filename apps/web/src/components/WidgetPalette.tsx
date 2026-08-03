@@ -207,6 +207,22 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.textAlign = 'center';
     ctx.fillText('60%', cx, cy + 2);
 
+  } else if (type === 'box-plot') {
+    const drawBox = (bx, min, q1, med, q3, max) => {
+      const s = (v) => cy + 24 - v * 0.8;
+      ctx.strokeStyle = "rgba(0,212,255,0.6)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(bx, s(max)); ctx.lineTo(bx, s(min)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx - 3, s(min)); ctx.lineTo(bx + 3, s(min)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx - 3, s(max)); ctx.lineTo(bx + 3, s(max)); ctx.stroke();
+      ctx.fillStyle = "rgba(0,212,255,0.25)"; ctx.strokeStyle = "rgba(0,212,255,0.6)"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.rect(bx - 6, s(q3), 12, s(q1) - s(q3)); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(bx - 6, s(med)); ctx.lineTo(bx + 6, s(med)); ctx.stroke();
+    };
+    drawBox(20, 10, 20, 30, 45, 55);
+    drawBox(60, 15, 25, 35, 48, 60);
+    drawBox(100, 5, 18, 28, 40, 50);
+
   } else if (type === 'video-widget') {
     // 2x2 grid with play icons
     ctx.strokeStyle = 'rgba(0,212,255,0.3)';

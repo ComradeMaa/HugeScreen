@@ -482,6 +482,26 @@ function SlotChartEditors({
         </CollapsibleFieldGroup>
       )}
 
+      {/* ═══ 箱线图 — 与主编辑器一致 ═══ */}
+      {chartType === 'box-plot' && (
+        <>
+          <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+            <BoxPlotDataEditor
+              categories={Array.isArray(opts.categories) ? opts.categories as any[] : []}
+              onChange={(cats) => onUpdate({ categories: cats })} />
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+            <ColorSwatchRow label="盒子颜色" value={(opts.boxColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => onUpdate({ boxColor: c })} />
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">盒子宽度</span>
+              <input type="number" value={Number(opts.boxWidth ?? 20)} min={5} max={50}
+                onChange={(e) => onUpdate({ boxWidth: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+          </CollapsibleFieldGroup>
+        </>
+      )}
+
       {/* ═══ 水位球 — 与主编辑器一致 ═══ */}
       {chartType === 'water-pond' && (
         <>
@@ -572,6 +592,32 @@ function SlotChartEditors({
         </CollapsibleFieldGroup>
       )}
     </>
+  );
+}
+
+/** 箱线图数据编辑器 */
+function BoxPlotDataEditor({ categories, onChange }: { categories: any[]; onChange: (cats: any[]) => void }) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right w-12';
+  const cats = categories.length ? categories : [{ name: 'A组', min: 10, q1: 30, median: 45, q3: 60, max: 85 }];
+  return (
+    <div className="space-y-1.5">
+      <button onClick={() => onChange([...cats, { name: `E组`, min: 10, q1: 30, median: 50, q3: 70, max: 90 }])}
+        className="w-full text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加组</button>
+      {cats.map((c: any, i: number) => (
+        <div key={i} className="flex items-center gap-1 flex-wrap p-1 rounded bg-surface-base/50">
+          <input type="text" value={c.name ?? ''} placeholder="名称"
+            onChange={(e) => { const n = [...cats]; n[i] = { ...c, name: e.target.value }; onChange(n); }}
+            className={`${inputCls} w-10 text-left`} />
+          {['min','q1','median','q3','max'].map((f) => (
+            <input key={f} type="number" value={c[f] ?? 0} title={f}
+              onChange={(e) => { const n = [...cats]; n[i] = { ...c, [f]: Number(e.target.value) }; onChange(n); }}
+              className={inputCls} />
+          ))}
+          <button onClick={() => onChange(cats.filter((_: any, j: number) => j !== i))}
+            className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1375,6 +1421,26 @@ export function PropertyInspector() {
               labels={['仅元数据','自动','不预加载']}
               onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), preload: v } })} />
           </CollapsibleFieldGroup>
+        )}
+
+        {/* ═══ 箱线图配置 ═══ */}
+        {widget.type === 'box-plot' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <BoxPlotDataEditor
+                categories={Array.isArray((widget.options as Record<string, unknown>).categories) ? (widget.options as Record<string, unknown>).categories as any[] : []}
+                onChange={(cats) => updateWidget(widget.id, { options: { ...(widget.options as object), categories: cats } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="盒子颜色" value={((widget.options as Record<string, unknown>).boxColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), boxColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">盒子宽度</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).boxWidth ?? 20)} min={5} max={50}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), boxWidth: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
         )}
 
         {/* ═══ 滚动表格配置 ═══ */}

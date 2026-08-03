@@ -40,6 +40,7 @@ export function mapData(
     case 'image-widget': return mapImage(raw, mapping);
     case 'video-widget': return mapVideo(raw, mapping);
     case 'water-pond': return mapWaterPond(raw, mapping);
+    case 'box-plot': return mapBoxPlot(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -235,6 +236,91 @@ function mapVideo(raw: unknown, m: FieldMapping): Record<string, unknown> {
       ?? getByPath(raw, 'download_url') ?? getByPath(raw, 'stream_url');
     if (typeof v === 'string') return build([v]);
   }
+  return {};
+}
+
+/**
+ * 箱线图 — 参照 mapPie/mapBar 模式：
+ *   1. resolveSrc 提取数组（支持 mapping 自定义路径 + 常见键名 fallback）
+ *   2. 支持 mapping 自定义字段名（min/q1/median/q3/max/name）
+ *   3. 若对象数组未命中 → 尝试列式格式 {groups/names:[], min:[], q1:[],…}（统计分析 API 常见）
+ */
+function mapBoxPlot(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+
+  // ── 标准格式：对象数组 [{name, min, q1, median, q3, max}, …] ──
+  const src = resolveSrc(raw, m, 'categories', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const nameKey = m.name || 'name';
+    const minKey = m.min || 'min';
+    const q1Key = m.q1 || 'q1';
+    const medianKey = m.median || 'median';
+    const q3Key = m.q3 || 'q3';
+    const maxKey = m.max || 'max';
+    const categories = src.map((it) => {
+      const r = asRecord(it);
+      return {
+        name: String(r[nameKey] ?? r.label ?? r.category ?? ''),
+        min: toNum(r[minKey] ?? r.Q1 ?? r.firstQuartile),
+        q1: toNum(r[q1Key] ?? r.Q1 ?? r.firstQuartile),
+        median: toNum(r[medianKey] ?? r.med ?? r.medianValue),
+        q3: toNum(r[q3Key] ?? r.Q3 ?? r.thirdQuartile),
+        max: toNum(r[maxKey] ?? r.maximum),
+        ...(r.outliers != null && (Array.isArray(r.outliers) ? r.outliers.length > 0 : true)
+          ? { outliers: Array.isArray(r.outliers) ? r.outliers.map(Number) : [Number(r.outliers)] }
+          : {}),
+      };
+    });
+    return categories.length > 0 ? { categories } : {};
+  }
+
+  // ── 列式格式：{groups/names:[], min:[], q1:[], median:[], q3:[], max:[]} ──
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const groupsKey = m.name || 'groups';
+    const groups = asArray(rec[groupsKey] || rec['names'] || rec['labels'] || rec['categories']);
+    const minArr = asArray(rec[m.min || 'min']);
+    const q1Arr = asArray(rec[m.q1 || 'q1'] || rec['Q1'] || rec['firstQuartile']);
+    const medianArr = asArray(rec[m.median || 'median'] || rec['med']);
+    const q3Arr = asArray(rec[m.q3 || 'q3'] || rec['Q3'] || rec['thirdQuartile']);
+    const maxArr = asArray(rec[m.max || 'max'] || rec['maximum']);
+
+    if (minArr.length > 0 || q1Arr.length > 0 || medianArr.length > 0) {
+      const len = Math.max(
+        groups.length, minArr.length, q1Arr.length,
+        medianArr.length, q3Arr.length, maxArr.length,
+      );
+      const categories: Record<string, unknown>[] = [];
+      for (let i = 0; i < len; i++) {
+        categories.push({
+          name: String(groups[i] ?? `组${i + 1}`),
+          min: toNum(minArr[i]),
+          q1: toNum(q1Arr[i]),
+          median: toNum(medianArr[i]),
+          q3: toNum(q3Arr[i]),
+          max: toNum(maxArr[i]),
+        });
+      }
+      return { categories };
+    }
+  }
+
+  // ── 单对象兜底 ──
+  const r = asRecord(raw);
+  const nameKey = m.name || 'name';
+  if (r[nameKey] != null || r['min'] != null || r['q1'] != null) {
+    return {
+      categories: [{
+        name: String(r[nameKey] ?? r.label ?? r.category ?? ''),
+        min: toNum(r[m.min || 'min']),
+        q1: toNum(r[m.q1 || 'q1'] ?? r['Q1']),
+        median: toNum(r[m.median || 'median'] ?? r['med']),
+        q3: toNum(r[m.q3 || 'q3'] ?? r['Q3']),
+        max: toNum(r[m.max || 'max']),
+      }],
+    };
+  }
+
   return {};
 }
 
