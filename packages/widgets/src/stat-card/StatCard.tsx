@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { IconPresetRenderer } from './IconPresets';
 
 interface StatCardProps {
   title?: string;
   value?: number | string;
   prefix?: string;
   suffix?: string;
-  trend?: number;       // 正数上涨，负数下跌
+  trend?: number;       // 正数上涨，负数下跌（手动模式 or API 传入）
   trendLabel?: string;  // 如 "vs 昨日"
   format?: 'number' | 'currency' | 'percent';
   decimals?: number;
@@ -21,6 +22,14 @@ interface StatCardProps {
   valueColor?: string;
   /** 单位颜色 */
   suffixColor?: string;
+  /** 是否显示增长率/降低率 */
+  showTrend?: boolean;
+  /** 增长率模式：auto=根据 value 前后变化自动计算，manual=使用 trend 字段 */
+  trendMode?: 'auto' | 'manual';
+  /** 是否显示图标（与 showRing 互斥，同位置） */
+  showIcon?: boolean;
+  /** 自定义图标图片 URL（支持 PNG/JPG/SVG） */
+  customIconImage?: string;
 }
 
 /**
@@ -43,6 +52,10 @@ export function StatCard({
   ringColor = '#00D4FF',
   valueColor = '#FFFFFF',
   suffixColor = '#9E9EA8',
+  showTrend = false,
+  trendMode = 'auto',
+  showIcon = false,
+  customIconImage,
 }: StatCardProps) {
   const [animatedValue, setAnimatedValue] = useState(0);
   const animRef = useRef<number>();
@@ -71,7 +84,24 @@ export function StatCard({
     };
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const trendUp = trend !== undefined ? trend >= 0 : undefined;
+  // ─── 自动增长率计算 ───
+  const prevValueRef = useRef<number | undefined>(undefined);
+  const [autoTrend, setAutoTrend] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (trendMode !== 'auto' || typeof value !== 'number') return;
+    const prev = prevValueRef.current;
+    if (prev !== undefined && prev !== 0) {
+      const change = ((value - prev) / Math.abs(prev)) * 100;
+      setAutoTrend(change);
+    }
+    prevValueRef.current = value;
+  }, [value, trendMode]);
+
+  // 实际使用的 trend：手动模式用 trend prop，自动模式用 autoTrend
+  const effectiveTrend = trendMode === 'manual' ? trend : autoTrend;
+
+  const trendUp = effectiveTrend !== undefined ? effectiveTrend >= 0 : undefined;
   const formattedValue = formatValue(animated ? animatedValue : value, format, decimals);
   const pct = Math.max(0, Math.min(100, ringPercent));
 
@@ -99,13 +129,13 @@ export function StatCard({
         )}
       </div>
 
-      {trend !== undefined && (
+      {showTrend && effectiveTrend !== undefined && (
         <div className="flex items-center gap-1 mt-0.5">
           <span
             className={`font-medium font-mono ${trendUp ? 'text-positive' : 'text-negative'}`}
             style={{ fontSize: 'clamp(9px, 9cqh, 14px)' }}
           >
-            {trendUp ? '↑' : '↓'} {Math.abs(trend).toFixed(1)}%
+            {trendUp ? '▲' : '▼'} {Math.abs(effectiveTrend).toFixed(1)}%
           </span>
           {trendLabel && (
             <span className="text-textSecondary/50" style={{ fontSize: 'clamp(8px, 8cqh, 12px)' }}>{trendLabel}</span>
@@ -117,10 +147,19 @@ export function StatCard({
 
   return (
     <div
-      className="w-full h-full flex items-center gap-2 px-3 select-none overflow-hidden"
+      className="w-full h-full flex items-center gap-1.5 px-1.5 select-none overflow-hidden"
       style={{ containerType: 'size' }}
     >
-      {showRing && (
+      {showIcon && customIconImage && (
+        <div className="flex-shrink-0 h-[50%] aspect-square flex items-center justify-center" style={{ color: '#00D4FF' }}>
+          {customIconImage.startsWith('supercons:') ? (
+            <IconPresetRenderer name={customIconImage.slice(10)} size={48} />
+          ) : (
+            <img src={customIconImage} alt="" className="w-full h-full object-contain" draggable={false} />
+          )}
+        </div>
+      )}
+      {!showIcon && showRing && (
         <div className="flex-shrink-0 h-[68%] aspect-square">
           <ProgressRing percent={pct} color={ringColor} />
         </div>

@@ -119,7 +119,7 @@ function mapBarLine(raw: unknown, m: FieldMapping): Record<string, unknown> {
   return out;
 }
 
-/** 统计卡：单个 item → {title,value,suffix,ringPercent}（raw 应已用 jsonPath 定位到该 item） */
+/** 统计卡：单个 item → {title,value,suffix,ringPercent,trend,trendLabel}（raw 应已用 jsonPath 定位到该 item） */
 function mapStat(raw: unknown, m: FieldMapping): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const title = getByPath(raw, m.title || 'name');
@@ -130,6 +130,13 @@ function mapStat(raw: unknown, m: FieldMapping): Record<string, unknown> {
   if (suffix != null) out.suffix = String(suffix);
   const ring = getByPath(raw, m.ring || 'occupancy_rate');
   if (ring != null) out.ringPercent = toNum(ring);
+  // 增长率：优先 mapping 指定路径，否则自动探测常见字段名
+  const trendVal = getByPath(raw, m.trend || 'trend')
+    ?? getByPath(raw, 'growthRate') ?? getByPath(raw, 'changePercent')
+    ?? getByPath(raw, 'change') ?? getByPath(raw, 'growth');
+  if (trendVal != null) out.trend = toNum(trendVal);
+  const trendLabel = getByPath(raw, m.trendLabel || 'trendLabel');
+  if (trendLabel != null) out.trendLabel = String(trendLabel);
   return out;
 }
 

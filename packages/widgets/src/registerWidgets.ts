@@ -22,7 +22,7 @@ export function registerBuiltinWidgets(): void {
           format: { type: 'string', title: '格式', enum: ['number', 'currency', 'percent'] },
         },
       },
-      defaultConfig: { title: '指标', value: 0, format: 'number' },
+      defaultConfig: { title: '指标', value: 0, format: 'number', showTrend: false, trendMode: 'auto', trendLabel: '', showIcon: false },
     },
 
     // ─── HUD 环形仪表（暂时隐藏）───

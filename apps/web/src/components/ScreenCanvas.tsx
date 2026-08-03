@@ -78,7 +78,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "line-chart": ["xLabels", "lineSeries"],
     "bar-chart": ["categories"],
     "bar-line-chart": ["xLabels", "mixedSeries"],
-    "stat-card": ["title", "value", "suffix", "ringPercent"],
+    "stat-card": ["title", "value", "suffix", "ringPercent", "trend", "trendLabel"],
     "text-widget": ["text"],
     "image-widget": ["images"],
     "video-widget": ["videos"],

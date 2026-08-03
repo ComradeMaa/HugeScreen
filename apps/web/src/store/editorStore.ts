@@ -954,6 +954,26 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       dirty = true;
     }
 
+    // 上传自定义统计卡图标（widget.options.customIconImage）
+    let iconBlobsDirty = false;
+    if (config.widgets) {
+      for (const widget of config.widgets) {
+        const iconUrl = widget.options?.customIconImage;
+        if (!iconUrl || !iconUrl.startsWith('blob:')) continue;
+        const file = pendingFiles.get(iconUrl);
+        if (!file) continue;
+        try {
+          const url = await uploadFileToServer(file);
+          pendingFiles.delete(iconUrl);
+          widget.options.customIconImage = url;
+          iconBlobsDirty = true;
+        } catch { /* 失败保留原值 */ }
+      }
+    }
+    if (iconBlobsDirty) {
+      dirty = true;
+    }
+
     if (dirty) {
       set({ config, backgroundImage: config.backgroundImage ?? '', backgroundVideo: config.backgroundVideo ?? '' });
     }

@@ -9,13 +9,15 @@
     ".": "./src/index.ts",
     "./registerWidgets": "./src/registerWidgets.ts",
     "./borders": "./src/borders/index.ts",
-    "./composite": "./src/composite/index.ts"
+    "./composite": "./src/composite/index.ts",
+    "./stat-card/IconPresets": "./src/stat-card/IconPresets.tsx"
   },
   "dependencies": {
     "@hugescreen/core": "workspace:*",
     "@hugescreen/data": "workspace:*",
     "@hugescreen/shared": "workspace:*",
     "@types/three": "^0.185.1",
+    "supercons": "^0.2.0",
     "three": "^0.185.1"
   },
   "peerDependencies": {

@@ -6,6 +6,7 @@ import type { CompositeSubChartType, CompositeConfig } from '@hugescreen/shared'
 import { getSubChartLabel, TEMPLATE_LABELS, getCompositeConfig } from '@hugescreen/widgets/composite';
 import { ChevronDown, Ban } from 'lucide-react';
 import { DataSourceEditor } from './DataSourceEditor';
+import { ICON_PRESET_KEYS, IconPresetRenderer } from '@hugescreen/widgets/stat-card/IconPresets';
 
 /** 供复合槽位编辑时展示的图表专属配置（与画布组件编辑器相同） */
 function SlotChartEditors({
@@ -117,9 +118,55 @@ function SlotChartEditors({
       {chartType === 'stat-card' && (
         <CollapsibleFieldGroup label="统计卡" defaultOpen={false}>
           <label className="flex items-center justify-between">
+            <span className="text-[11px] text-textSecondary/70">显示图标</span>
+            <input type="checkbox" checked={!!opts.showIcon}
+              onChange={(e) => onUpdate({ showIcon: e.target.checked, showRing: e.target.checked ? false : opts.showRing })} className="rounded" />
+          </label>
+          {!!opts.showIcon && (
+            <div className="mt-2 space-y-2">
+              <div className="flex gap-2 flex-wrap">
+                {ICON_PRESET_KEYS.map((key) => {
+                  const active = opts.customIconImage === 'supercons:' + key;
+                  return (
+                    <button key={key}
+                      onClick={() => onUpdate({ customIconImage: active ? undefined : 'supercons:' + key })}
+                      title={key}
+                      className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${
+                        active ? 'border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40'
+                               : 'border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-accent-cool/50 hover:bg-accent-cool/5'
+                      }`}
+                      style={{ color: '#00D4FF' }}
+                    >
+                      <IconPresetRenderer name={key} size={20} />
+                    </button>
+                  );
+                })}
+                {opts.customIconImage && !String(opts.customIconImage).startsWith('supercons:') ? (
+                  <button onClick={() => onUpdate({ customIconImage: undefined })}
+                    className="w-9 h-9 rounded-md border border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40 flex flex-col items-center justify-center flex-shrink-0"
+                  >
+                    <img src={String(opts.customIconImage)} alt="" className="w-5 h-5 object-contain rounded" />
+                  </button>
+                ) : (
+                  <label className="w-9 h-9 rounded-md border border-dashed border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-accent-cool/50 hover:bg-accent-cool/5 transition-all flex items-center justify-center flex-shrink-0 cursor-pointer">
+                    <span className="text-[10px] text-textSecondary/30">+</span>
+                    <input type="file" accept=".png,.jpg,.jpeg,.svg" className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const url = stageUploadFile(file);
+                        onUpdate({ customIconImage: url });
+                      }} />
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+          <hr className="border-[rgba(255,255,255,0.04)] my-1" />
+          <label className="flex items-center justify-between">
             <span className="text-[11px] text-textSecondary/70">占比环</span>
             <input type="checkbox" checked={!!opts.showRing}
-              onChange={(e) => onUpdate({ showRing: e.target.checked })} className="rounded" />
+              onChange={(e) => onUpdate({ showRing: e.target.checked, showIcon: e.target.checked ? false : opts.showIcon })} className="rounded" />
           </label>
           {!!opts.showRing && (
             <label className="flex items-center justify-between mt-2">
@@ -150,6 +197,35 @@ function SlotChartEditors({
           </label>
           <ColorSwatchRow label="数值颜色" value={opts.valueColor ?? "#FFFFFF"} colors={PRESET_VALUE_COLORS} onChange={(c) => onUpdate({ valueColor: c })} />
           <ColorSwatchRow label="单位颜色" value={opts.suffixColor ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ suffixColor: c })} />
+
+          <hr className="border-[rgba(255,255,255,0.04)] my-1" />
+          <label className="flex items-center justify-between">
+            <span className="text-[11px] text-textSecondary/70">增长率</span>
+            <input type="checkbox" checked={!!opts.showTrend}
+              onChange={(e) => onUpdate({ showTrend: e.target.checked })} className="rounded" />
+          </label>
+          {!!opts.showTrend && (
+            <>
+              <LabelSelectRow label="数据来源" value={String(opts.trendMode ?? 'auto')}
+                options={['auto','manual']} labels={['自动计算','手动输入']}
+                onChange={(v) => onUpdate({ trendMode: v })} />
+              {opts.trendMode === 'manual' && (
+                <label className="flex items-center justify-between">
+                  <span className="text-[11px] text-textSecondary/70">增长率(%)</span>
+                  <input type="number" value={Number(opts.trend ?? 0)}
+                    onChange={(e) => onUpdate({ trend: Number(e.target.value) })}
+                    className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+                </label>
+              )}
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">对比标签</span>
+                <input type="text" value={String(opts.trendLabel ?? '')}
+                  onChange={(e) => onUpdate({ trendLabel: e.target.value })}
+                  placeholder="如: vs 昨日"
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+            </>
+          )}
         </CollapsibleFieldGroup>
       )}
 
@@ -1213,9 +1289,56 @@ export function PropertyInspector() {
         {widget.type === 'stat-card' && (
           <CollapsibleFieldGroup label="统计卡" defaultOpen={false}>
             <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">显示图标</span>
+              <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showIcon}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showIcon: e.target.checked, showRing: e.target.checked ? false : (widget.options as Record<string, unknown>).showRing } })}
+                className="rounded" />
+            </label>
+            {!!(widget.options as Record<string, unknown>).showIcon && (
+              <div className="mt-2 space-y-2">
+                <div className="flex gap-2 flex-wrap">
+                  {ICON_PRESET_KEYS.map((key) => {
+                    const active = (widget.options as Record<string, unknown>).customIconImage === 'supercons:' + key;
+                    return (
+                      <button key={key}
+                        onClick={() => updateWidget(widget.id, { options: { ...(widget.options as object), customIconImage: active ? undefined : 'supercons:' + key } })}
+                        title={key}
+                        className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${
+                          active ? 'border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40'
+                                 : 'border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-accent-cool/50 hover:bg-accent-cool/5'
+                        }`}
+                        style={{ color: '#00D4FF' }}
+                      >
+                        <IconPresetRenderer name={key} size={20} />
+                      </button>
+                    );
+                  })}
+                  {(widget.options as Record<string, unknown>).customIconImage && !String((widget.options as Record<string, unknown>).customIconImage).startsWith('supercons:') ? (
+                    <button onClick={() => updateWidget(widget.id, { options: { ...(widget.options as object), customIconImage: undefined } })}
+                      className="w-9 h-9 rounded-md border border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40 flex flex-col items-center justify-center flex-shrink-0"
+                    >
+                      <img src={String((widget.options as Record<string, unknown>).customIconImage)} alt="" className="w-5 h-5 object-contain rounded" />
+                    </button>
+                  ) : (
+                    <label className="w-9 h-9 rounded-md border border-dashed border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-accent-cool/50 hover:bg-accent-cool/5 transition-all flex items-center justify-center flex-shrink-0 cursor-pointer">
+                      <span className="text-[10px] text-textSecondary/30">+</span>
+                      <input type="file" accept=".png,.jpg,.jpeg,.svg" className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const url = stageUploadFile(file);
+                          updateWidget(widget.id, { options: { ...(widget.options as object), customIconImage: url } });
+                        }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            )}
+            <hr className="border-[rgba(255,255,255,0.04)] my-1" />
+            <label className="flex items-center justify-between">
               <span className="text-[11px] text-textSecondary/70">占比环</span>
               <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showRing}
-                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showRing: e.target.checked } })}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showRing: e.target.checked, showIcon: e.target.checked ? false : (widget.options as Record<string, unknown>).showIcon } })}
                 className="rounded" />
             </label>
             {!!(widget.options as Record<string, unknown>).showRing && (
@@ -1247,6 +1370,36 @@ export function PropertyInspector() {
             </label>
             <ColorSwatchRow label="数值颜色" value={((widget.options as Record<string, unknown>).valueColor as string) ?? "#FFFFFF"} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), valueColor: c } })} />
             <ColorSwatchRow label="单位颜色" value={((widget.options as Record<string, unknown>).suffixColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), suffixColor: c } })} />
+
+            <hr className="border-[rgba(255,255,255,0.04)] my-1" />
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">增长率</span>
+              <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showTrend}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTrend: e.target.checked } })}
+                className="rounded" />
+            </label>
+            {!!(widget.options as Record<string, unknown>).showTrend && (
+              <>
+                <LabelSelectRow label="数据来源" value={String((widget.options as Record<string, unknown>).trendMode ?? 'auto')}
+                  options={['auto','manual']} labels={['自动计算','手动输入']}
+                  onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), trendMode: v } })} />
+                {(widget.options as Record<string, unknown>).trendMode === 'manual' && (
+                  <label className="flex items-center justify-between">
+                    <span className="text-[11px] text-textSecondary/70">增长率(%)</span>
+                    <input type="number" value={Number((widget.options as Record<string, unknown>).trend ?? 0)}
+                      onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), trend: Number(e.target.value) } })}
+                      className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+                  </label>
+                )}
+                <label className="flex items-center justify-between">
+                  <span className="text-[11px] text-textSecondary/70">对比标签</span>
+                  <input type="text" value={String((widget.options as Record<string, unknown>).trendLabel ?? '')}
+                    onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), trendLabel: e.target.value } })}
+                    placeholder="如: vs 昨日"
+                    className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+                </label>
+              </>
+            )}
           </CollapsibleFieldGroup>
         )}
 
@@ -1707,7 +1860,7 @@ const BORDER_STYLES: { value: WidgetStyle['borderStyle']; label: string }[] = [
 function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
   const SIZE = 48;
   const PAD = 8;
-  if (style === 'none') return <Ban size={18} strokeWidth={1.5} className="text-textSecondary/40" />;
+  if (style === 'none') return <Ban size={20} strokeWidth={1.5} className="text-textSecondary/40" />;
   // 尚未实现的样式 → 占位符
   return (
     <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="block">
