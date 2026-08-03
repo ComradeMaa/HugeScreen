@@ -58,8 +58,14 @@ export function BoxPlotWidget({
         backgroundColor: '#2C2C34',
         borderColor: 'rgba(255,255,255,0.06)',
         textStyle: { color: '#E8E8EC', fontSize: 12 },
-        formatter: (p: any) => {
-          const d = p.data;
+        formatter: (ps: any) => {
+          // 多系列时 ECharts 传入数组，取 boxplot 那条（data 长度 ≥5）
+          const p = Array.isArray(ps) ? ps.find((x: any) => Array.isArray(x.data) && x.data.length >= 5) || ps[0] : ps;
+          // ★ ECharts boxplot 会在数据数组头部 unshift x 轴序号：
+          //   传入 [min,Q1,median,Q3,max] → 内部变 [index,min,Q1,median,Q3,max]
+          //   所以取「后 5 个」拿到真正的五段统计值
+          const raw = p.data as number[];
+          const d = (Array.isArray(raw) && raw.length >= 5) ? raw.slice(-5) : [];
           return `${p.name}<br/>
             上限: ${d[4]}<br/>
             Q3: ${d[3]}<br/>

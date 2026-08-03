@@ -608,9 +608,14 @@ function BoxPlotDataEditor({ categories, onChange }: { categories: any[]; onChan
           <input type="text" value={c.name ?? ''} placeholder="名称"
             onChange={(e) => { const n = [...cats]; n[i] = { ...c, name: e.target.value }; onChange(n); }}
             className={`${inputCls} w-10 text-left`} />
-          {['min','q1','median','q3','max'].map((f) => (
-            <input key={f} type="number" value={c[f] ?? 0} title={f}
-              onChange={(e) => { const n = [...cats]; n[i] = { ...c, [f]: Number(e.target.value) }; onChange(n); }}
+          {(['min','q1','median','q3','max'] as const).map((f) => (
+            <input key={f} type="number" value={c[f] ?? ''} title={f} placeholder="0" step="any"
+              onChange={(e) => {
+                const raw = e.target.value;
+                // 空字符串 → 保留原值，不写入 0（防止用户清空输入框时 Number('')=0 污染数据）
+                if (raw === '' || raw === '-') return;
+                const n = [...cats]; n[i] = { ...c, [f]: Number(raw) }; onChange(n);
+              }}
               className={inputCls} />
           ))}
           <button onClick={() => onChange(cats.filter((_: any, j: number) => j !== i))}
