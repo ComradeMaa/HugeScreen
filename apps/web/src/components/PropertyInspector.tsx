@@ -8,6 +8,11 @@ import { ChevronDown, Ban } from 'lucide-react';
 import { DataSourceEditor } from './DataSourceEditor';
 import { ICON_PRESET_KEYS, IconPresetRenderer } from '@hugescreen/widgets/stat-card/IconPresets';
 
+/** 图片类预设图标（URL 路径） */
+const IMAGE_ICON_PRESETS = [
+  { key: 'server-rack', label: '服务器机柜', url: '/presets/icons/server-rack.svg' },
+];
+
 /** 供复合槽位编辑时展示的图表专属配置（与画布组件编辑器相同） */
 function SlotChartEditors({
   chartType,
@@ -141,7 +146,22 @@ function SlotChartEditors({
                     </button>
                   );
                 })}
-                {opts.customIconImage && !String(opts.customIconImage).startsWith('supercons:') ? (
+                {IMAGE_ICON_PRESETS.map((p) => {
+                  const active = opts.customIconImage === p.url;
+                  return (
+                    <button key={p.key}
+                      onClick={() => onUpdate({ customIconImage: active ? undefined : p.url })}
+                      title={p.label}
+                      className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${
+                        active ? 'border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40'
+                               : 'border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-accent-cool/50 hover:bg-accent-cool/5'
+                      }`}
+                    >
+                      <img src={p.url} alt={p.label} className="w-5 h-5 object-contain" />
+                    </button>
+                  );
+                })}
+                {opts.customIconImage && !String(opts.customIconImage).startsWith('supercons:') && !IMAGE_ICON_PRESETS.some(p => p.url === opts.customIconImage) ? (
                   <button onClick={() => onUpdate({ customIconImage: undefined })}
                     className="w-9 h-9 rounded-md border border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40 flex flex-col items-center justify-center flex-shrink-0"
                   >
@@ -1313,7 +1333,22 @@ export function PropertyInspector() {
                       </button>
                     );
                   })}
-                  {(widget.options as Record<string, unknown>).customIconImage && !String((widget.options as Record<string, unknown>).customIconImage).startsWith('supercons:') ? (
+                  {IMAGE_ICON_PRESETS.map((p) => {
+                    const active = (widget.options as Record<string, unknown>).customIconImage === p.url;
+                    return (
+                      <button key={p.key}
+                        onClick={() => updateWidget(widget.id, { options: { ...(widget.options as object), customIconImage: active ? undefined : p.url } })}
+                        title={p.label}
+                        className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 transition-all ${
+                          active ? 'border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40'
+                                 : 'border-[rgba(255,255,255,0.08)] bg-surface-base/50 hover:border-accent-cool/50 hover:bg-accent-cool/5'
+                        }`}
+                      >
+                        <img src={p.url} alt={p.label} className="w-5 h-5 object-contain" />
+                      </button>
+                    );
+                  })}
+                  {(widget.options as Record<string, unknown>).customIconImage && !String((widget.options as Record<string, unknown>).customIconImage).startsWith('supercons:') && !IMAGE_ICON_PRESETS.some(p => p.url === (widget.options as Record<string, unknown>).customIconImage) ? (
                     <button onClick={() => updateWidget(widget.id, { options: { ...(widget.options as object), customIconImage: undefined } })}
                       className="w-9 h-9 rounded-md border border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40 flex flex-col items-center justify-center flex-shrink-0"
                     >

@@ -22,6 +22,8 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
   compact?: boolean;
 }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
+  const isDraggingWidget = useEditorStore((s) => s.isDraggingWidget);
+  const isDraggingHeaderEl = useEditorStore((s) => s.isDraggingHeaderEl);
   const pinEditWidgetId = useEditorStore((s) => s.pinEditWidgetId);
   const liveProps = useWidgetData(widget);
 
@@ -30,6 +32,8 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
   useEffect(() => {
     if (!liveProps || Object.keys(liveProps).length === 0) return;
     if (widget.dataSource?.type === 'static') return;
+    // ★ 拖拽期间跳过数据同步，避免 store 更新触发 Canvas 重渲染
+    if (isDraggingWidget || isDraggingHeaderEl) return;
     const currentOpts = widget.options as Record<string, unknown>;
     const dataFields = pickDataFields(liveProps, widget.type);
     if (Object.keys(dataFields).length === 0) return;
@@ -42,7 +46,7 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
     const merged = mergePreservingMeta(dataFields, currentOpts, widget.type);
     updateWidget(widget.id, { options: { ...currentOpts, ...merged } });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveProps, widget.id, widget.type]);
+  }, [liveProps, widget.id, widget.type, isDraggingWidget, isDraggingHeaderEl]);
 
   const setLastDraggedPinId = useEditorStore((s) => s.setLastDraggedPinId);
   const pinPosRef = useRef<Record<string, { lat: number; lng: number }>>({});
@@ -369,6 +373,13 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     });
   }, [visibleWidgets, bpLayouts, cellW, cellH, activeGrid.gap]);
 
+  // ★ positions 的 Map 索引，替代 O(N²) 的 positions.find()
+  const positionsMap = useMemo(() => {
+    const map = new Map<string, (typeof positions)[number]>();
+    for (const p of positions) map.set(p.id, p);
+    return map;
+  }, [positions]);
+
   const isCenterEmpty = useMemo(() => {
     return !visibleWidgets.some((w) => {
       const wEndCol = w.layout.col + w.layout.colSpan;
@@ -400,6 +411,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   const [headerBlockedIdx, setHeaderBlockedIdx] = useState<number | null>(null);
   const [widgetOverHeader, setWidgetOverHeader] = useState(false); // 一般组件拖入顶栏区域
   const [headerOverWidget, setHeaderOverWidget] = useState(false); // 顶栏元素拖入主区块
+  // ★ 拖拽去重：避免 dragover 高频事件对同一槽位反复 setState
+  const lastDropRef = useRef<string | null>(null);
   // 交换预览：拖拽顶栏组件到已占用槽位上时，目标槽位内容在原位显示
   const [headerSwapPreview, setHeaderSwapPreview] = useState<{ targetSlotId: string; sourceSlotId: string } | null>(null);
   const [headerDragHint, setHeaderDragHint] = useState(false); // 顶栏相关拖拽悬停时高亮可用槽位
@@ -444,6 +457,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       setDragSwap(null);
       setWidgetOverHeader(false);
       setHeaderOverWidget(false);
+      lastDropRef.current = null;
     }
   }, [isEditing]);
 
@@ -603,14 +617,17 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
 
     const { x, y } = clientToDesign(e.clientX, e.clientY);
     // 如果落点在顶栏区域内 → 不处理主区域逻辑
-    if (y < headerBottom) { setDropPreview(null); return; }
+    if (y < headerBottom) { setDropPreview(null); lastDropRef.current = null; return; }
 
     const cell = layoutEngine.pixelToCell(x, y, 1, 1, grid, canvas.width, canvas.height);
     const slot = findSlotAt(cell.col, cell.row);
-    if (!slot) { setDropPreview(null); return; }
+    if (!slot) { setDropPreview(null); lastDropRef.current = null; return; }
 
     if (e.dataTransfer.types.includes('application/widget-type')) {
       e.dataTransfer.dropEffect = 'copy';
+      const key = `copy:${slot.col}:${slot.row}`;
+      if (lastDropRef.current === key) return;
+      lastDropRef.current = key;
       setDragSwap(null);
       setDropPreview({ ...slot, blocked: isSlotBlockedByUnexpanded(slot, widgets) });
     } else if (e.dataTransfer.types.includes('application/widget-id')) {
@@ -622,6 +639,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       const dragged = blocker ? widgets.find((w) => w.id === wid) : null;
       if (blocker && dragged) {
         // 已有组件拖到同类组件上 → 交换预览（不检查大小）
+        const key = `swap:${blocker.id}:${slot.col}:${slot.row}`;
+        if (lastDropRef.current === key) return;
+        lastDropRef.current = key;
         lastSwapTargetId.current = blocker.id;
         setDragSwap({
           targetWidgetId: blocker.id,
@@ -631,6 +651,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         setDropPreview({ ...slot, swapping: true });
         return;
       }
+      const key = `move:${slot.col}:${slot.row}`;
+      if (lastDropRef.current === key) return;
+      lastDropRef.current = key;
       // 不在这里清 lastSwapTargetId：保留它让组件归位也有动画
       setDragSwap(null);
       setDropPreview({ ...slot, blocked: false });
@@ -1223,7 +1246,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
                 ? { ...dragSwap.originSlot, row: Math.max(0, dragSwap.originSlot.row - BASE_HEADER_ROWS) }
                 : dragSwap.originSlot,
               cellW, cellH, grid.gap)
-          : positions.find(p => p.id === widget.id);
+          : positionsMap.get(widget.id);
         if (!px) return null;
         const def = widgetRegistry.get(widget.type);
         const Comp = def?.component;

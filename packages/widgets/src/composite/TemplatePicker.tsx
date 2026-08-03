@@ -18,6 +18,7 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
     '1left2right':   { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
     'topNarrow':     { cols: 1, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
     'sandwich':      { cols: 1, rows: '1fr 6fr 1fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
+    'top4Bottom':    { cols: 4, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }, { area: 'd', label: 'D' }, { area: 'e', label: 'E' }] },
   };
 
   const { cols, cells, rows } = areas[template];
@@ -26,6 +27,7 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
   const is1t2b = template === '1top2bottom';
   const is1l2r = template === '1left2right';
   const isTopNarrow = template === 'topNarrow';
+  const isTop4Bottom = template === 'top4Bottom';
 
   return (
     <div
@@ -43,6 +45,7 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
         let rowSpan = 1;
         if (is1t2b && i === 0) colSpan = 2;
         if (is1l2r && i === 0) rowSpan = 2;
+        if (isTop4Bottom && i === 4) colSpan = 4;
 
         return (
           <div

@@ -58,10 +58,15 @@
       "Bash(where scoop *)",
       "Bash(where winget *)",
       "Bash(winget search *)",
-      "WebFetch(domain:potrace.sourceforge.net)"
+      "WebFetch(domain:potrace.sourceforge.net)",
+      "Bash(npm i *)",
+      "WebSearch",
+      "Bash(pnpm remove *)",
+      "Bash(mkdir -p /d/Python/HugeScreen/apps/web/public/presets/icons && cp \"C:\\\\Users\\\\R9000P\\\\Downloads\\\\os48ffbwPLmt6amQBQAvUCAyff7A7BZeYHtPgJ.svg\" /d/Python/HugeScreen/apps/web/public/presets/icons/server-rack.svg && echo \"copied\")"
     ],
     "additionalDirectories": [
-      "C:\\Users\\R9000P\\AppData\\Local\\Temp"
+      "C:\\Users\\R9000P\\AppData\\Local\\Temp",
+      "C:\\Users\\R9000P\\Downloads"
     ]
   }
 }
