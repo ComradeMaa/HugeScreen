@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import type { MapPinType, MapPinInstance, DataSourceConfig } from '@hugescreen/shared';
 import { computeRegionBounds, lngLatToWorld, worldToScreen, screenToWorld, xzToLngLat } from './projection';
-import { PIN_ICON_PATHS } from './types';
+import { PIN_ICON_PATHS, getPinCustomIcon } from './types';
 import { normalizeUrl } from '@hugescreen/shared/normalizeUrl';
 
 // ─── 坐标系说明 ───
@@ -404,6 +404,16 @@ export function CyberMapWidget({
 
   // ═══ 钉图标 ═══
   const renderPinIcon = (icon: string, color: string, size = 24) => {
+    // ★ 优先检查 react-icons 自定义图标
+    const CustomIcon = getPinCustomIcon(icon);
+    if (CustomIcon) {
+      return (
+        <div style={{ filter: `drop-shadow(0 0 3px ${color})`, color }}>
+          <CustomIcon size={size} color={color} />
+        </div>
+      );
+    }
+
     // A 字基站 + 两侧信号波纹
     if (icon === 'tower') {
       const s = size;
@@ -486,7 +496,7 @@ export function CyberMapWidget({
       );
     }
 
-    const d = PIN_ICON_PATHS[icon as keyof typeof PIN_ICON_PATHS] ?? PIN_ICON_PATHS.circle;
+    const d = PIN_ICON_PATHS[icon as keyof typeof PIN_ICON_PATHS] ?? PIN_ICON_PATHS.pulse;
     return (
       <svg width={size} height={size} viewBox="0 0 24 24"
         style={{ filter: `drop-shadow(0 0 4px ${color})` }}>

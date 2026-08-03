@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerBuiltinWidgets } from '@hugescreen/widgets/registerWidgets';
 import { registerHeaderElements } from '@hugescreen/widgets';
+import { registerCustomPinIcons } from '@hugescreen/widgets/geo';
 import { App } from './App';
 import './index.css';
 
@@ -9,6 +10,7 @@ import './index.css';
 registerBuiltinWidgets();
 // 注册顶栏元素
 registerHeaderElements();
+registerCustomPinIcons();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

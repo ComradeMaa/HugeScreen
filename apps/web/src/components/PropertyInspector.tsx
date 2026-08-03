@@ -7,6 +7,7 @@ import { getSubChartLabel, TEMPLATE_LABELS, getCompositeConfig } from '@hugescre
 import { ChevronDown, Ban } from 'lucide-react';
 import { DataSourceEditor } from './DataSourceEditor';
 import { ICON_PRESET_KEYS, IconPresetRenderer } from '@hugescreen/widgets/stat-card/IconPresets';
+import { getPinIconKeys, getPinIconLabel, PIN_ICON_PATHS, getPinCustomIcon } from '@hugescreen/widgets/geo';
 
 /** 图片类预设图标（URL 路径） */
 const IMAGE_ICON_PRESETS = [
@@ -415,14 +416,13 @@ function SlotChartEditors({
 /** 地图钉类型编辑器 */
 function PinTypeEditor({ pinTypes, onChange }: { pinTypes: any[]; onChange: (pts: any[]) => void }) {
   const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors';
-  const icons = ['circle', 'diamond', 'pin', 'square', 'triangle', 'hex', 'pulse', 'tower'] as const;
-  const iconLabels: Record<string, string> = { circle: '圆形', diamond: '菱形', pin: '图钉', square: '方形', triangle: '三角', hex: '六边形', pulse: '脉冲', tower: '基站' };
+  const icons = getPinIconKeys();
   const colors = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#c084fc', '#fbbf24'];
 
   return (
     <div className="space-y-2">
       <button
-        onClick={() => onChange([...pinTypes, { id: 'pt_' + Date.now(), name: '', icon: 'circle', color: '#FF8C42' }])}
+        onClick={() => onChange([...pinTypes, { id: 'pt_' + Date.now(), name: '', icon: 'pulse', color: '#FF8C42' }])}
         className="w-full text-[11px] py-1.5 rounded border border-[rgba(0,212,255,0.15)] text-accent-cool/70 hover:text-accent-cool transition-colors"
       >+ 添加类型</button>
       {pinTypes.map((pt: any, i: number) => (
@@ -430,13 +430,26 @@ function PinTypeEditor({ pinTypes, onChange }: { pinTypes: any[]; onChange: (pts
           <input type="text" value={pt.name ?? ''} placeholder="名称"
             onChange={(e) => { const next = [...pinTypes]; next[i] = { ...pt, name: e.target.value }; onChange(next); }}
             className={`${inputCls} flex-1 min-w-0 w-16`} />
-          <div className="flex gap-0.5">
-            {icons.map((ic) => (
-              <button key={ic} title={iconLabels[ic]}
-                onClick={() => { const next = [...pinTypes]; next[i] = { ...pt, icon: ic }; onChange(next); }}
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[15px] leading-none transition-colors ${pt.icon === ic ? 'bg-accent-cool/15 text-accent-cool' : 'text-textSecondary/30 hover:text-textSecondary/60'}`}
-              >{ic === 'circle' ? '●' : ic === 'diamond' ? '◆' : ic === 'pin' ? '📍' : ic === 'square' ? '■' : ic === 'triangle' ? '▲' : ic === 'hex' ? '⬢' : ic === 'pulse' ? '◎' : '△'}</button>
-            ))}
+          <div className="flex gap-1 flex-wrap" style={{ maxWidth: 148 }}>
+            {icons.map((ic) => {
+              const active = pt.icon === ic;
+              const CustomIcon = getPinCustomIcon(ic);
+              const pathD = PIN_ICON_PATHS[ic];
+              return (
+                <button key={ic} title={getPinIconLabel(ic)}
+                  onClick={() => { const next = [...pinTypes]; next[i] = { ...pt, icon: ic }; onChange(next); }}
+                  className={`w-8 h-8 rounded-md border flex items-center justify-center transition-all ${
+                    active ? 'border-accent-cool bg-accent-cool/10 ring-1 ring-accent-cool/40' : 'border-[rgba(255,255,255,0.06)] bg-surface-base/50 hover:border-accent-cool/50'
+                  }`}
+                >
+                  {CustomIcon ? (
+                    <CustomIcon size={16} color={active ? '#00D4FF' : '#9E9EA8'} />
+                  ) : pathD ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path d={pathD} fill={active ? '#00D4FF' : '#9E9EA8'} /></svg>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
           <div className="flex gap-0.5">
             {colors.map((c) => (
@@ -485,7 +498,7 @@ function PinInstanceEditor({ pinInstances, pinTypes, onChange }: { pinInstances:
               onChange={(e) => { const next = [...pinInstances]; next[i] = { ...pi, pinTypeId: e.target.value }; onChange(next); }}
               className={`${inputCls} flex-1 min-w-0`}>
               {pinTypes.map((t: any) => (
-                <option key={t.id} value={t.id}>{t.icon === 'circle' ? '●' : t.icon === 'diamond' ? '◆' : t.icon === 'pin' ? '📍' : t.icon === 'square' ? '■' : t.icon === 'triangle' ? '▲' : t.icon === 'hex' ? '⬢' : t.icon === 'pulse' ? '◎' : '△'} {t.name || '(未命名)'}</option>
+                <option key={t.id} value={t.id}>{getPinIconLabel(t.icon)} {t.name || '(未命名)'}</option>
               ))}
             </select>
             <input type="number" step="0.001" value={pi.lat ?? 0} placeholder="纬度"

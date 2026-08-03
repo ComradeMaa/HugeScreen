@@ -10,6 +10,7 @@
     "./registerWidgets": "./src/registerWidgets.ts",
     "./borders": "./src/borders/index.ts",
     "./composite": "./src/composite/index.ts",
+    "./geo": "./src/geo/index.ts",
     "./stat-card/IconPresets": "./src/stat-card/IconPresets.tsx"
   },
   "dependencies": {

@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerBuiltinWidgets } from '@hugescreen/widgets/registerWidgets';
 import { registerHeaderElements } from '@hugescreen/widgets';
+import { registerCustomPinIcons } from '@hugescreen/widgets/geo';
 import { ViewerScreen } from './pages/ViewerScreen';
 import './index.css';
 
