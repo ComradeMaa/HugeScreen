@@ -33,12 +33,15 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
   const [template, setTemplate] = useState<CompositeLayoutTemplate | null>(null);
   const [slots, setSlots] = useState<CompositeSlotConfig[]>([]);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
   const setCompositeSlotEdit = useEditorStore(s => s.setCompositeSlotEdit);
 
   const handleSelectTemplate = useCallback((tpl: CompositeLayoutTemplate) => {
     const count = TEMPLATE_SLOT_COUNTS[tpl];
+    const counter = getBuilderCounter();
     setTemplate(tpl);
     setSlots(createInitialSlots(count));
+    setDisplayName(`自定义组件 ${counter}`);
     setPhase('building');
   }, []);
 
@@ -140,15 +143,14 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
   const handleCommit = useCallback(() => {
     if (!template) return;
     if (!slots.every(s => s.chartType)) return;
+    if (!displayName.trim()) return;
 
-    const counter = getBuilderCounter();
     const typeName = `composite-${generateId()}`;
-    const displayName = `自定义组件 ${counter}`;
     const config: CompositeConfig = deepInlineSlots({ layoutTemplate: template, slots });
 
     setCompositeSlotEdit(null);
-    onComplete(typeName, displayName, config);
-  }, [template, slots, onComplete, setCompositeSlotEdit]);
+    onComplete(typeName, displayName.trim(), config);
+  }, [template, slots, displayName, onComplete, setCompositeSlotEdit]);
 
   const handleClose = useCallback(() => {
     setCompositeSlotEdit(null);
@@ -195,18 +197,25 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
 
           {phase === 'building' && template && (
             <div className="w-full h-full flex flex-col">
-              <div className="flex items-center justify-between mb-3 shrink-0">
-                <span className="text-[12px] text-[#E8E8EC] tracking-wide">
+              <div className="flex items-center justify-between mb-3 shrink-0 gap-4">
+                <span className="text-[12px] text-[#E8E8EC] tracking-wide whitespace-nowrap">
                   {TEMPLATE_SLOT_COUNTS[template]} 槽位 · 拖拽图表到槽位 · 点击槽位在左侧属性面板配置
                 </span>
                 <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="输入组件名称"
+                    className="w-32 px-2 py-1 text-xs text-[#E8E8EC] bg-surface-base border border-[rgba(255,255,255,0.08)] rounded focus:outline-none focus:border-accent-cool/50 transition-colors placeholder:text-textSecondary/30"
+                  />
                   <button
                     onClick={() => { setPhase('template'); setTemplate(null); setSelectedSlotId(null); setCompositeSlotEdit(null); }}
                     className="px-2 py-1 text-[11px] text-[#9E9EA8] border border-[rgba(255,255,255,0.06)] rounded hover:text-[#E8E8EC] transition-colors"
                   >
                     ← 返回选模板
                   </button>
-                  {slots.every(s => s.chartType) && (
+                  {slots.every(s => s.chartType) && displayName.trim() && (
                     <button
                       onClick={handleCommit}
                       className="px-3 py-1 text-[11px] font-medium text-[#2C2C34] bg-[#00D4FF] rounded hover:bg-[#00D4FF]/80 transition-colors"

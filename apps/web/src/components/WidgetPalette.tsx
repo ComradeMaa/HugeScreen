@@ -20,6 +20,7 @@ import {
   Droplets,
   Plus,
   Trash2,
+  Pencil,
   type LucideIcon,
 } from 'lucide-react';
 import { useEditorStore } from '../store/editorStore';
@@ -481,6 +482,7 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
   const allWidgets = widgetRegistry.getAll();
   const headerElements = headerElementRegistry.getAll();
   const deleteCustomComponent = useEditorStore((s) => s.deleteCustomComponent);
+  const renameCustomComponent = useEditorStore((s) => s.renameCustomComponent);
   const instances = useEditorStore((s) => s.config.widgets);
   const toggleHeader = useEditorStore((s) => s.toggleHeader);
   const headerVisible = useEditorStore((s) => s.config.header?.visible !== false);
@@ -541,6 +543,10 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
               <PaletteItem
                 key={widget.type}
                 widget={widget}
+                onRename={category === 'custom' ? () => {
+                  const name = window.prompt('重命名', widget.name);
+                  if (name && name.trim()) renameCustomComponent(widget.type, name.trim());
+                } : undefined}
                 onDelete={category === 'custom' ? () => {
                   const count = instances.filter((w) => w.type === widget.type).length;
                   const msg = count > 0
@@ -557,7 +563,7 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
   );
 }
 
-function PaletteItem({ widget, onDelete }: { widget: WidgetDefinition; onDelete?: () => void }) {
+function PaletteItem({ widget, onDelete, onRename }: { widget: WidgetDefinition; onDelete?: () => void; onRename?: () => void }) {
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/widget-type', widget.type);
     e.dataTransfer.effectAllowed = 'copy';
@@ -594,6 +600,17 @@ function PaletteItem({ widget, onDelete }: { widget: WidgetDefinition; onDelete?
         {widget.defaultSize.colSpan}×{widget.defaultSize.rowSpan}
       </div>
 
+      {onRename && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRename(); }}
+          onDragStart={(e) => e.stopPropagation()}
+          draggable={false}
+          title="重命名"
+          className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded text-textSecondary/40 hover:text-accent-cool hover:bg-accent-cool/10 transition-colors"
+        >
+          <Pencil size={12} />
+        </button>
+      )}
       {onDelete && (
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}

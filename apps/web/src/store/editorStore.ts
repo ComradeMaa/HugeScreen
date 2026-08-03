@@ -103,6 +103,7 @@ interface EditorState {
   // ─── 自定义组合组件（持久化定义 + 主动删除）───
   addCustomComponent: (def: CustomComponentDef) => void;
   deleteCustomComponent: (type: string) => void;
+  renameCustomComponent: (type: string, newName: string) => void;
 
   // 顶栏槽位管理
   setHeaderSlot: (slotId: string, elementType: string | null, options?: Record<string, unknown>) => void;
@@ -793,6 +794,22 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       },
       selectedWidgetId: null,
     }));
+  },
+
+  renameCustomComponent: (type, newName) => {
+    set((s) => ({
+      config: {
+        ...s.config,
+        customComponents: (s.config.customComponents ?? []).map((c) =>
+          c.type === type ? { ...c, displayName: newName } : c,
+        ),
+      },
+    }));
+    // 同步更新组件池中的显示名
+    const def = widgetRegistry.get(type);
+    if (def) {
+      widgetRegistry.register({ ...def, name: newName });
+    }
   },
 
   setCurrentTemplateId: (id) => set({ currentTemplateId: id }),
