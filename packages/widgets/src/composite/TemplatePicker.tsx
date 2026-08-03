@@ -19,6 +19,7 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
     'topNarrow':     { cols: 1, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
     'sandwich':      { cols: 1, rows: '1fr 6fr 1fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
     'top4Bottom':    { cols: 4, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }, { area: 'd', label: 'D' }, { area: 'e', label: 'E' }] },
+    'top6Bottom':    { cols: 6, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }, { area: 'd', label: 'D' }, { area: 'e', label: 'E' }, { area: 'f', label: 'F' }, { area: 'g', label: 'G' }] },
   };
 
   const { cols, cells, rows } = areas[template];
@@ -28,6 +29,7 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
   const is1l2r = template === '1left2right';
   const isTopNarrow = template === 'topNarrow';
   const isTop4Bottom = template === 'top4Bottom';
+  const isTop6Bottom = template === 'top6Bottom';
 
   return (
     <div
@@ -46,6 +48,7 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
         if (is1t2b && i === 0) colSpan = 2;
         if (is1l2r && i === 0) rowSpan = 2;
         if (isTop4Bottom && i === 4) colSpan = 4;
+        if (isTop6Bottom && i === 6) colSpan = 6;
 
         return (
           <div
@@ -73,8 +76,8 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
 export function TemplatePicker({ onSelect, onCancel }: TemplatePickerProps) {
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[rgba(44,44,52,0.92)] backdrop-blur-sm rounded-lg">
-      <h3 className="text-sm font-semibold text-[#E8E8EC] mb-4 tracking-wide">选择布局模板</h3>
-      <div className="grid grid-cols-3 gap-3 px-6 mb-5 max-w-[360px]">
+      <h3 className="text-sm font-semibold text-[#E8E8EC] mb-3 tracking-wide shrink-0">选择布局模板</h3>
+      <div className="grid grid-cols-3 gap-3 px-6 mb-3 max-w-[360px] overflow-y-auto max-h-[360px]">
         {LAYOUT_TEMPLATES.map(tpl => (
           <button
             key={tpl}
@@ -89,7 +92,7 @@ export function TemplatePicker({ onSelect, onCancel }: TemplatePickerProps) {
       </div>
       <button
         onClick={onCancel}
-        className="px-4 py-1.5 rounded text-[12px] text-[#9E9EA8] border border-[rgba(255,255,255,0.06)] hover:text-[#f87171] hover:border-[rgba(248,113,113,0.3)] transition-colors"
+        className="px-4 py-1.5 rounded text-[12px] text-[#9E9EA8] border border-[rgba(255,255,255,0.06)] hover:text-[#f87171] hover:border-[rgba(248,113,113,0.3)] transition-colors shrink-0"
       >
         取消
       </button>

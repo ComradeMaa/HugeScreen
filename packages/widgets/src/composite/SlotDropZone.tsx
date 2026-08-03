@@ -7,6 +7,7 @@ interface SlotDropZoneProps {
   slotIndex: number;
   chartType: CompositeSubChartType | null;
   chartOptions?: Record<string, unknown>;
+  dataSource?: import('@hugescreen/shared').DataSourceConfig;
   isSelected: boolean;
   onDrop: (slotIndex: number, chartType: CompositeSubChartType) => void;
   onClick: () => void;
@@ -30,6 +31,7 @@ export function SlotDropZone({
   slotIndex,
   chartType,
   chartOptions,
+  dataSource,
   isSelected,
   onDrop,
   onClick,
@@ -108,7 +110,7 @@ export function SlotDropZone({
               const def = widgetRegistry.get(chartType);
               const Comp = def?.component;
               const cfg = def?.defaultConfig ?? {};
-              const merged = { ...cfg, ...(chartOptions ?? {}) };
+              const merged = { ...cfg, ...(chartOptions ?? {}), dataSource };
               return Comp ? (
                 <Suspense fallback={null}>
                   <Comp {...merged} />

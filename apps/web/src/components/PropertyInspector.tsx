@@ -409,6 +409,168 @@ function SlotChartEditors({
           </CollapsibleFieldGroup>
         </>
       )}
+
+      {/* ═══ 视频 — 与主编辑器一致 ═══ */}
+      {chartType === 'video-widget' && (
+        <CollapsibleFieldGroup label="视频" defaultOpen={true}>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-textSecondary/70">
+              视频文件 (MP4/WebM，可多选)
+              <span className="ml-1 text-accent-cool/60">{((opts as any).videos?.length ?? 0)}/4</span>
+            </span>
+            {((opts as any).videos?.length ?? 0) >= 4 ? (
+              <p className="text-[10px] text-accent-warm/60">已达上限（4个），请先删除旧视频再添加</p>
+            ) : (
+              <input type="file" multiple accept=".mp4,.webm,video/mp4,video/webm"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length === 0) return;
+                  const existing: any[] = [...((opts as any).videos || [])];
+                  const remaining = 4 - existing.length;
+                  const toAdd = files.slice(0, remaining);
+                  toAdd.forEach((file) => {
+                    const blobUrl = stageUploadFile(file);
+                    existing.push({ url: blobUrl, pinned: true });
+                  });
+                  onUpdate({ videos: [...existing] });
+                }}
+                className="text-[11px] text-textSecondary/70 file:mr-2 file:py-1 file:px-2 file:text-[11px] file:rounded file:border file:border-[rgba(0,212,255,0.2)] file:bg-surface-hover file:text-textSecondary hover:file:text-text file:cursor-pointer" />
+            )}
+          </label>
+          {((opts as any).videos as any[])?.length > 0 && (
+            <div className="space-y-1 mt-1">
+              {((opts as any).videos as any[]).map((vid: any, i: number) => {
+                const url = typeof vid === 'string' ? vid : vid?.url || '';
+                const pinned = !!(vid && typeof vid === 'object' && vid.pinned);
+                return (
+                  <div key={i} className={`flex items-center gap-2 rounded p-1 transition-colors ${pinned ? 'bg-accent-warm/10 border border-accent-warm/25' : 'bg-surface-base/50'}`}>
+                    <span className="text-[10px] text-textSecondary/60 flex-1 min-w-0 truncate">{url.startsWith('blob:') ? '📹 待上传' : `🎬 视频 ${i + 1}`}</span>
+                    <button onClick={() => {
+                      const next = ((opts as any).videos as any[]).map((item: any, j: number) =>
+                        j === i ? { url: typeof item === 'string' ? item : item.url, pinned: !pinned } : item);
+                      onUpdate({ videos: next });
+                    }}
+                    className={`flex-shrink-0 p-1 rounded transition-all ${pinned ? 'text-accent-warm bg-accent-warm/15 hover:bg-accent-warm/25' : 'text-textSecondary/20 hover:text-textSecondary/50 hover:bg-surface-hover'}`}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={pinned ? '1' : '1.5'}>
+                        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v4h1.6v-4H18v-2l-2-2z" />
+                      </svg>
+                    </button>
+                    <button onClick={() => {
+                      const next = ((opts as any).videos as any[]).filter((_: any, j: number) => j !== i);
+                      onUpdate({ videos: next.length > 0 ? next : undefined });
+                    }} className="text-negative/40 hover:text-negative flex-shrink-0 p-1 hover:bg-negative/10 rounded transition-colors">×</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <LabelSelectRow label="填充方式" value={String((opts as any).fit ?? 'contain')}
+            options={['contain','cover','fill']} labels={['适配','裁剪','拉伸']}
+            onChange={(v) => onUpdate({ fit: v })} />
+          <div className="flex flex-wrap gap-2 mt-2">
+            {[['muted','静音'],['autoplay','自动播放'],['loop','循环'],['controls','控件']].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-1 text-[11px] text-textSecondary/70">
+                <input type="checkbox" checked={!!(opts as any)[key]}
+                  onChange={(e) => onUpdate({ [key]: e.target.checked })} className="w-3 h-3" />
+                {label}
+              </label>
+            ))}
+          </div>
+          <LabelSelectRow label="预加载" value={String((opts as any).preload ?? 'metadata')}
+            options={['metadata','auto','none']} labels={['仅元数据','自动','不预加载']}
+            onChange={(v) => onUpdate({ preload: v })} />
+        </CollapsibleFieldGroup>
+      )}
+
+      {/* ═══ 水位球 — 与主编辑器一致 ═══ */}
+      {chartType === 'water-pond' && (
+        <>
+          <CollapsibleFieldGroup label="数据" defaultOpen={true}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">百分比</span>
+              <input type="number" value={Number(opts.value ?? 60)} min={0} max={100}
+                onChange={(e) => onUpdate({ value: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">标题</span>
+              <input type="text" value={String(opts.title ?? '')}
+                onChange={(e) => onUpdate({ title: e.target.value })}
+                placeholder="(空)"
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">后缀</span>
+              <input type="text" value={String(opts.suffix ?? '%')}
+                onChange={(e) => onUpdate({ suffix: e.target.value })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-12 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <ColorSwatchRow label="标题颜色" value={(opts.titleColor as string) ?? '#E8E8EC'} colors={PRESET_VALUE_COLORS} onChange={(c) => onUpdate({ titleColor: c })} />
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">标题字号</span>
+              <input type="number" value={Number(opts.titleFontSize ?? 14)} min={8} max={48}
+                onChange={(e) => onUpdate({ titleFontSize: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+            <LabelSelectRow label="形状" value={String((opts as any).shape ?? 'round')}
+              options={['round','roundRect','rect']} labels={['圆形','圆角矩形','矩形']}
+              onChange={(v) => onUpdate({ shape: v })} />
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">波浪高度</span>
+              <input type="number" value={Number((opts as any).waveHeight ?? 30)} min={5} max={120}
+                onChange={(e) => onUpdate({ waveHeight: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">波浪层数</span>
+              <input type="number" value={Number((opts as any).waveNum ?? 3)} min={1} max={6}
+                onChange={(e) => onUpdate({ waveNum: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+          </CollapsibleFieldGroup>
+        </>
+      )}
+
+      {/* ═══ 赛博地图 — 与主编辑器一致 ═══ */}
+      {chartType === 'cyber-map' && (
+        <>
+          <CollapsibleFieldGroup label="地图" defaultOpen={true}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">厚度</span>
+              <input type="number" value={Number(opts.thickness ?? 3)} min={0} max={20} step={0.5}
+                onChange={(e) => onUpdate({ thickness: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">显示网格</span>
+              <input type="checkbox" checked={!!(opts.showGrid ?? true)}
+                onChange={(e) => onUpdate({ showGrid: e.target.checked })} className="rounded" />
+            </label>
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="地图钉" defaultOpen={false}>
+            <div className="text-[10px] text-textSecondary/40 mb-2">地图钉配置请在主编辑器中操作</div>
+          </CollapsibleFieldGroup>
+        </>
+      )}
+
+      {/* ═══ 赛博城市 — 与主编辑器一致 ═══ */}
+      {chartType === 'cyber-city' && (
+        <CollapsibleFieldGroup label="城市" defaultOpen={true}>
+          <label className="flex items-center justify-between">
+            <span className="text-[11px] text-textSecondary/70">高度倍率</span>
+            <input type="number" value={Number(opts.heightScale ?? 1)} min={0.1} max={5} step={0.1}
+              onChange={(e) => onUpdate({ heightScale: Number(e.target.value) })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+          </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">显示网格</span>
+            <input type="checkbox" checked={!!(opts.showGrid ?? true)}
+              onChange={(e) => onUpdate({ showGrid: e.target.checked })} className="rounded" />
+          </label>
+        </CollapsibleFieldGroup>
+      )}
     </>
   );
 }

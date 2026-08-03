@@ -88,6 +88,8 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
           ...defaultCfg,
           ...(slot.chartOptions as object),
           ...(slotLiveData as object ?? {}),
+          dataSource: slot.dataSource,
+          widgetId: slot.id,
         };
 
         return (

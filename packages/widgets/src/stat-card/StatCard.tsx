@@ -155,7 +155,7 @@ export function StatCard({
           {customIconImage.startsWith('supercons:') ? (
             <IconPresetRenderer name={customIconImage.slice(10)} size={48} />
           ) : (
-            <img src={customIconImage} alt="" className="w-full h-full object-contain" draggable={false} />
+            <img src={customIconImage} alt="" className="w-full h-full object-cover" draggable={false} />
           )}
         </div>
       )}

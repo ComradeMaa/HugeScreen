@@ -242,6 +242,7 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
                     slotIndex={i}
                     chartType={slot.chartType as CompositeSubChartType | null}
                     chartOptions={slot.chartOptions as Record<string, unknown>}
+                    dataSource={slot.dataSource}
                     isSelected={slot.id === selectedSlotId}
                     onDrop={handleSlotDrop}
                     onClick={() => handleSlotClick(slot.id)}
