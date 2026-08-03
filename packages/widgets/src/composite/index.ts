@@ -14,4 +14,5 @@ export {
   isTemplateViableForSize,
   templateColumns,
   templateRows,
+  deepInlineSlots,
 } from './types';

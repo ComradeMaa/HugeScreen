@@ -335,13 +335,18 @@ pm2 restart hugescreen          # 重启进程
 
 ### SSH 认证
 
-服务器 SSH 使用密码认证。本地需设置 `SSH_ASKPASS` 环境变量指向密码提供脚本：
+服务器 SSH 使用密码认证，凭据如下：
+
+- **用户**：`ubuntu`
+- **密码**：`ZJlyj*()`
+
+本地需设置 `SSH_ASKPASS` 环境变量指向密码提供脚本：
 
 ```bash
 # 创建密码脚本（一次性）
 cat > ~/.ssh/askpass.sh << 'EOF'
 #!/bin/bash
-echo 'YOUR_PASSWORD'
+echo 'ZJlyj*()'
 EOF
 chmod 700 ~/.ssh/askpass.sh
 

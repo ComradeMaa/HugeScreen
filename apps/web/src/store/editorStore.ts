@@ -12,7 +12,7 @@ import type {
 } from '@hugescreen/shared';
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
-import { registerCustomComponent, unregisterCustomComponent } from '@hugescreen/widgets/composite';
+import { registerCustomComponent, unregisterCustomComponent, deepInlineSlots, setCompositeConfig } from '@hugescreen/widgets/composite';
 import { generateId } from '../utils/id';
 import { DEFAULT_GRID as LAYOUT_GRID, findSlotAt, type ScreenSlot } from './defaultLayout';
 import defaultScreenConfig from './defaultScreenConfig.json';
@@ -373,8 +373,14 @@ function createInitialConfig(): ScreenConfig {
 /** 遍历 config.customComponents，把自定义组合组件重新注册到组件池（加载/setConfig 时调用） */
 function registerCustomComponents(config: ScreenConfig): void {
   console.log("[registerCustomComponents] customComponents count:", (config.customComponents ?? []).length, (config.customComponents ?? []).map(c => c.type));
+  // Pass 1: register all components so widgetRegistry + compositeConfigStore are populated
   for (const def of config.customComponents ?? []) {
     registerCustomComponent(def);
+  }
+  // Pass 2: inline referenced custom composites into slots (migration for old configs + newly created)
+  for (const def of config.customComponents ?? []) {
+    const inlined = deepInlineSlots(def.composite);
+    setCompositeConfig(def.type, inlined);
   }
 }
 

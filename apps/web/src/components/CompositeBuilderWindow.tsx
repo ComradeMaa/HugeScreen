@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { CompositeLayoutTemplate, CompositeSubChartType, CompositeSlotConfig, CompositeConfig } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
 import { useEditorStore } from '../store/editorStore';
-import { TEMPLATE_GRID_AREAS, TEMPLATE_SLOT_COUNTS, templateColumns, templateRows } from '@hugescreen/widgets/composite';
+import { TEMPLATE_GRID_AREAS, TEMPLATE_SLOT_COUNTS, templateColumns, templateRows, deepInlineSlots } from '@hugescreen/widgets/composite';
 import { TemplatePicker } from '@hugescreen/widgets/composite';
 import { SlotDropZone } from '@hugescreen/widgets/composite';
 import { generateId } from '../utils/id';
@@ -144,7 +144,7 @@ export function CompositeBuilderWindow({ onClose, onComplete }: CompositeBuilder
     const counter = getBuilderCounter();
     const typeName = `composite-${generateId()}`;
     const displayName = `自定义组件 ${counter}`;
-    const config: CompositeConfig = { layoutTemplate: template, slots };
+    const config: CompositeConfig = deepInlineSlots({ layoutTemplate: template, slots });
 
     setCompositeSlotEdit(null);
     onComplete(typeName, displayName, config);

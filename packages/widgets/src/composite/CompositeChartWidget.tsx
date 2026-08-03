@@ -64,6 +64,21 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
       }}
     >
       {slots.map((slot, i) => {
+        // 槽位有内联合并快照 → 直接渲染，不依赖 registry（源组件被删也不影响）
+        if (slot.inlineComposite) {
+          return (
+            <div
+              key={`${slot.id}-${buildVersion}`}
+              style={{ gridArea: String.fromCharCode(97 + i) }}
+              className="w-full h-full overflow-hidden"
+            >
+              <NestDepth.Provider value={depth + 1}>
+                <CompositeChartWidget composite={slot.inlineComposite} />
+              </NestDepth.Provider>
+            </div>
+          );
+        }
+
         const def = widgetRegistry.get(slot.chartType);
         const SubComp = def?.component;
         const defaultCfg = def?.defaultConfig ?? {};

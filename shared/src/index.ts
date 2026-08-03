@@ -101,6 +101,8 @@ export interface CompositeSlotConfig {
   chartType: CompositeSubChartType;
   chartOptions: Record<string, unknown>;
   dataSource?: DataSourceConfig;
+  /** 若 chartType 是自定义组合组件，构建时将其完整配置快照于此，此后源组件被删除也不影响本槽位渲染 */
+  inlineComposite?: CompositeConfig;
 }
 
 export interface CompositeConfig {

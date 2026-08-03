@@ -1,5 +1,6 @@
-import type { CompositeLayoutTemplate, CompositeSubChartType } from '@hugescreen/shared';
+import type { CompositeLayoutTemplate, CompositeSubChartType, CompositeConfig, CompositeSlotConfig } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
+import { getCompositeConfig } from './compositeConfigStore';
 
 /** All available layout templates */
 export const LAYOUT_TEMPLATES: CompositeLayoutTemplate[] = [
@@ -70,6 +71,29 @@ export function getSubChartLabel(type: string): string {
 /** 所有已注册的 widget 类型均可用作组合成员 */
 export function getValidSubTypes(): string[] {
   return widgetRegistry.getAll().map(d => d.type);
+}
+
+/**
+ * 递归内联：遍历 slots，对每个引用自定义组合组件的槽位，
+ * 将其 CompositeConfig 完整拷贝到 inlineComposite 字段，
+ * 使该槽位成为「快照副本」——源组件被删除后渲染不受影响。
+ */
+export function deepInlineSlots(config: CompositeConfig, maxDepth = 4): CompositeConfig {
+  if (maxDepth <= 0) return config;
+  return {
+    ...config,
+    slots: config.slots.map((slot): CompositeSlotConfig => {
+      const def = widgetRegistry.get(slot.chartType);
+      const stored = def?.category === 'custom' ? getCompositeConfig(slot.chartType) : null;
+      if (stored && slot.chartType) {
+        return {
+          ...slot,
+          inlineComposite: deepInlineSlots(stored, maxDepth - 1),
+        };
+      }
+      return slot;
+    }),
+  };
 }
 
 /** Check if a template fits within the given grid dimensions */

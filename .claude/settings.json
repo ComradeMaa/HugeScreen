@@ -49,7 +49,11 @@
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -Command \"Remove-ItemProperty -Path 'HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' -Name 'OneDrive' -Force -ErrorAction SilentlyContinue; Remove-ItemProperty -Path 'HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' -Name 'QuarkUpdaterTaskUser1.0.0.21' -Force -ErrorAction SilentlyContinue; Write-Host 'HKCU done'; Get-ItemProperty 'HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' | Select-Object -Property * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider\")",
       "Bash(powershell -NoProfile -Command \"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\admin-fix.ps1' -Wait; Write-Host 'Admin script finished'\")",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\v2.ps1\")",
-      "Bash(powershell -NoProfile -Command \"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\final-fix.ps1' -Wait\")"
+      "Bash(powershell -NoProfile -Command \"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\final-fix.ps1' -Wait\")",
+      "Bash(./node_modules/.bin/tsc --noEmit -p packages/widgets/tsconfig.json)",
+      "Bash(node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc --noEmit -p packages/widgets/tsconfig.json)",
+      "Bash(cat)",
+      "Bash(chmod 700 ~/.ssh/askpass.sh)"
     ],
     "additionalDirectories": [
       "C:\\Users\\R9000P\\AppData\\Local\\Temp"
