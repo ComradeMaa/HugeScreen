@@ -41,7 +41,18 @@
       "Bash(/d/Python/HugeScreen/node_modules/.pnpm/typescript@5.9.3/node_modules/typescript/bin/tsc --noEmit -p /d/Python/HugeScreen/packages/widgets/tsconfig.json)",
       "Bash(curl -s 'https://picsum.photos/v2/list?page=1&limit=10')",
       "Bash(python -m json.tool)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(powershell -Command \"Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location, User | Format-Table -AutoSize -Wrap\")",
+      "Bash(powershell -Command \"Get-ItemProperty HKLM:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run, HKLM:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce, HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run, HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\RunOnce -ErrorAction SilentlyContinue | Format-List\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\check-startup.ps1\")",
+      "Bash(powershell -Command \"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \\\\\"C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\verify-startup.ps1\\\\\"; Read-Host \\\\\"按 Enter 关闭\\\\\"' -Wait\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -Command \"Remove-ItemProperty -Path 'HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' -Name 'OneDrive' -Force -ErrorAction SilentlyContinue; Remove-ItemProperty -Path 'HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' -Name 'QuarkUpdaterTaskUser1.0.0.21' -Force -ErrorAction SilentlyContinue; Write-Host 'HKCU done'; Get-ItemProperty 'HKCU:\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run' | Select-Object -Property * -ExcludeProperty PSPath,PSParentPath,PSChildName,PSDrive,PSProvider\")",
+      "Bash(powershell -NoProfile -Command \"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\admin-fix.ps1' -Wait; Write-Host 'Admin script finished'\")",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\v2.ps1\")",
+      "Bash(powershell -NoProfile -Command \"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File C:\\\\Users\\\\R9000P\\\\AppData\\\\Local\\\\Temp\\\\final-fix.ps1' -Wait\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\R9000P\\AppData\\Local\\Temp"
     ]
   }
 }

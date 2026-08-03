@@ -1072,8 +1072,10 @@ export function PropertyInspector() {
           </CollapsibleFieldGroup>
         )}
 
-        {/* ═══ 水位球专属配置 ═══ */}
+        {/* ═══ 滚动表格配置 ═══ */}
+        {/* ═══ 水位球配置 ═══ */}
         {widget.type === 'water-pond' && (
+          <>
           <CollapsibleFieldGroup label="数据" defaultOpen={true}>
             <label className="flex items-center justify-between">
               <span className="text-[11px] text-textSecondary/70">百分比</span>
@@ -1111,6 +1113,8 @@ export function PropertyInspector() {
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), titleFontSize: Number(e.target.value) } })}
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
             </label>
+          </CollapsibleFieldGroup>
+          <CollapsibleFieldGroup label="样式" defaultOpen={false}>
             <LabelSelectRow label="形状" value={String((widget.options as any).shape ?? 'round')}
               options={['round','roundRect','rect']}
               labels={['圆形','圆角矩形','矩形']}
@@ -1130,6 +1134,7 @@ export function PropertyInspector() {
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
             </label>
           </CollapsibleFieldGroup>
+          </>
         )}
 
         {/* ═══ 文本专属配置 ═══ */}
