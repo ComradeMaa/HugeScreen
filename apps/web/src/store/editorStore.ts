@@ -917,6 +917,43 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       }
     }
 
+    // 上传自定义边框图片（widget.style.customBorderImage + header slot customBorderImage）
+    let borderBlobsDirty = false;
+    if (config.widgets) {
+      const borderWidgets = config.widgets.map((widget: any) => {
+        const img = widget.style?.customBorderImage;
+        if (!img || !img.startsWith('blob:')) return widget;
+        const file = pendingFiles.get(img);
+        if (!file) return widget;
+        return { widget, file, img };
+      }).filter(Boolean);
+      for (const { widget, file, img } of borderWidgets) {
+        try {
+          const url = await uploadFileToServer(file);
+          pendingFiles.delete(img);
+          widget.style.customBorderImage = url;
+          borderBlobsDirty = true;
+        } catch { /* 失败保留原值 */ }
+      }
+    }
+    if (config.header?.slots) {
+      for (const slot of config.header.slots) {
+        const img = slot.options?.customBorderImage;
+        if (!img || !img.startsWith('blob:')) continue;
+        const file = pendingFiles.get(img);
+        if (!file) continue;
+        try {
+          const url = await uploadFileToServer(file);
+          pendingFiles.delete(img);
+          slot.options.customBorderImage = url;
+          borderBlobsDirty = true;
+        } catch { /* 失败保留原值 */ }
+      }
+    }
+    if (borderBlobsDirty) {
+      dirty = true;
+    }
+
     if (dirty) {
       set({ config, backgroundImage: config.backgroundImage ?? '', backgroundVideo: config.backgroundVideo ?? '' });
     }

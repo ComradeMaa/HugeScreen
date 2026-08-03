@@ -434,6 +434,7 @@ const HEADER_BORDER_OPTIONS = [
   { value: 'none', label: '无' },
   { value: 'header-style1', label: 'HUD-1' },
   { value: 'header-style2', label: 'HUD-2' },
+  { value: 'header-custom', label: '自定义图片' },
 ];
 
 /**
@@ -561,13 +562,46 @@ export function PropertyInspector() {
                           className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
                       </span>
                     ) : isBorderStyle ? (
-                      <select value={String(currentValue ?? 'none')}
-                        onChange={(e) => update(e.target.value)}
-                        className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors text-right appearance-none cursor-pointer" >
-                        {HEADER_BORDER_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
+                      <>
+                        <select value={String(currentValue ?? 'none')}
+                          onChange={(e) => update(e.target.value)}
+                          className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors text-right appearance-none cursor-pointer" >
+                          {HEADER_BORDER_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        {currentValue === 'header-custom' && (
+                          <div className="mt-2">
+                            {(headerSlot.options as Record<string, unknown>).customBorderImage ? (
+                              <div className="flex items-center gap-2">
+                                <img src={String((headerSlot.options as Record<string, unknown>).customBorderImage)} alt="预览" className="w-14 h-8 rounded border border-[rgba(255,255,255,0.08)] object-cover" />
+                                <button
+                                  onClick={() => setHeaderSlot(headerSlot.id, headerSlot.elementType, { ...headerSlot.options, customBorderImage: undefined })}
+                                  className="text-[10px] text-textSecondary/50 hover:text-negative transition-colors"
+                                >✕ 清除</button>
+                              </div>
+                            ) : (
+                              <label className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] text-accent-cool border border-accent-cool/25 rounded hover:bg-accent-cool/10 transition-colors cursor-pointer">
+                                <span>📁 上传边框图片</span>
+                                <input
+                                  type="file"
+                                  accept=".png,.jpg,.jpeg,.svg"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const url = stageUploadFile(file);
+                                    setHeaderSlot(headerSlot.id, headerSlot.elementType, {
+                                      ...headerSlot.options,
+                                      customBorderImage: url,
+                                    });
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </>
                     ) : selectOptions ? (
                       <select value={String(currentValue ?? '')}
                         onChange={(e) => update(e.target.value)}
@@ -1318,6 +1352,39 @@ export function PropertyInspector() {
               style: { ...widget.style, borderStyle: v as WidgetStyle['borderStyle'] },
             })}
           />
+          {(widget.style.borderStyle === 'custom') && (
+            <div className="mt-2 space-y-2">
+              {widget.style.customBorderImage ? (
+                <div className="flex items-center gap-2">
+                  <img src={widget.style.customBorderImage} alt="自定义边框预览" className="w-16 h-10 rounded border border-[rgba(255,255,255,0.08)] object-cover" />
+                  <button
+                    onClick={() => updateWidget(widget.id, {
+                      style: { ...widget.style, customBorderImage: undefined },
+                    })}
+                    className="text-[10px] text-textSecondary/50 hover:text-negative transition-colors"
+                  >✕ 清除</button>
+                </div>
+              ) : (
+                <label className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] text-accent-cool border border-accent-cool/25 rounded hover:bg-accent-cool/10 transition-colors cursor-pointer">
+                  <span>📁 上传边框图片</span>
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.svg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const url = stageUploadFile(file);
+                      updateWidget(widget.id, {
+                        style: { ...widget.style, customBorderImage: url },
+                      });
+                    }}
+                  />
+                </label>
+              )}
+              <p className="text-[9px] text-textSecondary/30">支持 PNG / JPG / SVG，保存时自动上传</p>
+            </div>
+          )}
         </CollapsibleFieldGroup>
 
         <FieldGroup label="动效">
@@ -1634,6 +1701,7 @@ const BORDER_STYLES: { value: WidgetStyle['borderStyle']; label: string }[] = [
   { value: 'DataV_11', label: 'DataV_11' },
   { value: 'DataV_12', label: 'DataV_12' },
   { value: 'DataV_13', label: 'DataV_13' },
+  { value: 'custom', label: '自定义图片' },
 ];
 
 function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
@@ -1822,6 +1890,15 @@ function BorderThumbnail({ style }: { style: WidgetStyle['borderStyle'] }) {
           <rect x={PAD+2} y={PAD+2} width={SIZE-PAD*2-4} height={SIZE-PAD*2-4} rx="1" fill="none" stroke="#00D4FF" strokeWidth="2" strokeDasharray="4 2" />
           <path d={`M${PAD-1},${PAD+6} L${PAD-1},${PAD-1} L${PAD+4},${PAD-3}`} fill="none" stroke="#00D4FF" strokeWidth="0.8" opacity="0.5" />
           <path d={`M${SIZE-PAD+1},${PAD+6} L${SIZE-PAD+1},${PAD-1} L${SIZE-PAD-4},${PAD-3}`} fill="none" stroke="#00D4FF" strokeWidth="0.8" opacity="0.5" />
+        </>
+      )}
+      {style === 'custom' && (
+        <>
+          {/* 自定义图片图标 */}
+          <rect x={PAD+2} y={PAD+6} width={SIZE-PAD*2-4} height={SIZE-PAD*2-12} rx="2" fill="none" stroke="#9E9EA8" strokeWidth="1.5" strokeDasharray="3 2" />
+          <circle cx={SIZE/2-4} cy={SIZE/2-2} r="4" fill="none" stroke="#9E9EA8" strokeWidth="1.5" />
+          <path d={`M${SIZE/2-6},${SIZE/2} L${SIZE/2+6},${SIZE/2+4}`} stroke="#9E9EA8" strokeWidth="1.2" />
+          <path d={`M${SIZE/2-3},${SIZE/2} L${SIZE/2+3},${SIZE/2+4}`} stroke="#9E9EA8" strokeWidth="1.2" />
         </>
       )}
     </svg>

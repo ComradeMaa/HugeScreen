@@ -19,6 +19,8 @@ import './border.css';
 export interface BorderFrameProps {
   /** 边框风格标识 */
   borderStyle: string;
+  /** 自定义边框图片 URL（borderStyle='custom' 时有效） */
+  customBorderImage?: string;
   /** 边框容器像素坐标（已含向外延伸 6px 偏移） */
   left: number;
   top: number;
@@ -65,7 +67,7 @@ const ENTRY_DURATION_MS = 2200; // 描边(~1.3s) + 故障闪烁(~0.45s)
  * 空间策略：向内为主 (占内容区内侧)，向外为辅 (溢出 ≤6px)。
  * 外层调用者负责传入已扩展的 left/top/width/height。
  */
-export function BorderFrame({ borderStyle, left, top, width, height, isSelected }: BorderFrameProps) {
+export function BorderFrame({ borderStyle, customBorderImage, left, top, width, height, isSelected }: BorderFrameProps) {
   const [phase, setPhase] = useState<'mounting' | 'entering' | 'entered'>('mounting');
 
   useEffect(() => {
@@ -80,6 +82,24 @@ export function BorderFrame({ borderStyle, left, top, width, height, isSelected 
       clearTimeout(timer);
     };
   }, []);
+
+  // ─── 自定义图片边框 ───
+  if (borderStyle === 'custom' && customBorderImage) {
+    return (
+      <div
+        className="absolute pointer-events-none"
+        style={{ left, top, width, height, zIndex: 5 }}
+      >
+        <img
+          src={customBorderImage}
+          alt="自定义边框"
+          className="w-full h-full"
+          style={{ objectFit: 'fill', imageRendering: 'auto' }}
+          draggable={false}
+        />
+      </div>
+    );
+  }
 
   const Component = BORDER_REGISTRY[borderStyle];
   if (!Component) return null;

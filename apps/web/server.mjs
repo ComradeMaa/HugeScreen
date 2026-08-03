@@ -92,7 +92,7 @@ const UPLOADS_DIR = join(__dirname, 'uploads');
 if (!existsSync(UPLOADS_DIR)) mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // ─── 文件上传（multer + FormData multipart）───
-const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm']);
+const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.mp4', '.webm']);
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;   // 10MB
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;  // 100MB
 

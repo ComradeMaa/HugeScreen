@@ -1063,6 +1063,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
                   }} />
                 )}
                 <div className="h-full" style={{
+                  position: 'relative',
+                  zIndex: 1,
                   opacity: isHeaderSwapTarget ? 0 : 1,
                   transition: 'opacity 200ms ease-out',
                 }}>
@@ -1091,7 +1093,18 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
                 {slot.elementType && (slot.options as Record<string, unknown>)?.borderStyle
                   && (slot.options as Record<string, unknown>).borderStyle !== 'none'
                   && px && (
-                  <HeaderBorder1 width={px.width} height={px.height} />
+                  (slot.options as Record<string, unknown>).borderStyle === 'header-custom'
+                    && (slot.options as Record<string, unknown>).customBorderImage ? (
+                    <img
+                      src={String((slot.options as Record<string, unknown>).customBorderImage)}
+                      alt="自定义边框"
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                      style={{ objectFit: 'fill', zIndex: 0 }}
+                      draggable={false}
+                    />
+                  ) : (
+                    <HeaderBorder1 width={px.width} height={px.height} />
+                  )
                 )}
 
                 {isEditing && slot.elementType && !isHeaderSwapTarget && (
@@ -1298,6 +1311,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           {hasBorder && (
             <BorderFrame
               borderStyle={widget.style.borderStyle!}
+              customBorderImage={widget.style.customBorderImage}
               left={px.left - borderOutset}
               top={px.top - borderOutset}
               width={px.width + borderOutset * 2}
