@@ -889,6 +889,92 @@ function RelationDataEditor({ nodes, links, onChange }: {
   );
 }
 
+/** 桑基图数据编辑器 — 节点（名称+值）+ 连线（起点/终点下拉 + 流量值） */
+function SankeyDataEditor({ nodes, links, onChange }: {
+  nodes: { name: string; value?: number }[];
+  links: { source: string; target: string; value: number }[];
+  onChange: (ns: { name: string; value?: number }[], ls: { source: string; target: string; value: number }[]) => void;
+}) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors';
+  const ns = nodes.length ? nodes : [];
+  const ls = links.length ? links : [];
+  const selectCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text focus:outline-none focus:border-accent-cool/50 transition-colors flex-1 min-w-0';
+
+  return (
+    <div className="space-y-2">
+      {/* 节点 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">节点（名称 + 值）</span>
+          <button
+            onClick={() => onChange([...ns, { name: `节点${ns.length + 1}` }], ls)}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加节点</button>
+        </div>
+        <div className="space-y-1">
+          {ns.map((n, i) => (
+            <div key={i} className="flex items-center gap-1 p-1 rounded bg-surface-base/50">
+              <input type="text" value={n.name ?? ''}
+                onChange={(e) => {
+                  const next = [...ns]; next[i] = { ...n, name: e.target.value };
+                  onChange(next, ls);
+                }}
+                className={`${inputCls} flex-1 text-left w-auto`} />
+              <input type="number" value={n.value ?? ''} placeholder="值" step="any"
+                onChange={(e) => {
+                  if (e.target.value === '' || e.target.value === '-') return;
+                  const next = [...ns]; next[i] = { ...n, value: Number(e.target.value) }; onChange(next, ls);
+                }}
+                className={`${inputCls} w-12 text-right`} />
+              <button onClick={() => onChange(ns.filter((_, j) => j !== i), ls)}
+                className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* 连线 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">连线（流量）</span>
+          <button
+            onClick={() => onChange(ns, [...ls, { source: ns[0]?.name ?? '', target: ns[1]?.name ?? ns[0]?.name ?? '', value: 1 }])}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加连线</button>
+        </div>
+        <div className="space-y-1">
+          {ls.map((l, i) => (
+            <div key={i} className="flex items-center gap-1 p-1 rounded bg-surface-base/50">
+              <select
+                value={l.source}
+                onChange={(e) => {
+                  const next = [...ls]; next[i] = { ...l, source: e.target.value }; onChange(ns, next);
+                }}
+                className={selectCls}>
+                {ns.map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}
+              </select>
+              <span className="text-[10px] text-textSecondary/40">→</span>
+              <select
+                value={l.target}
+                onChange={(e) => {
+                  const next = [...ls]; next[i] = { ...l, target: e.target.value }; onChange(ns, next);
+                }}
+                className={selectCls}>
+                {ns.map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}
+              </select>
+              <input type="number" value={l.value ?? ''} placeholder="流量" step="any"
+                onChange={(e) => {
+                  if (e.target.value === '' || e.target.value === '-') return;
+                  const next = [...ls]; next[i] = { ...l, value: Number(e.target.value) }; onChange(ns, next);
+                }}
+                className={`${inputCls} w-12 text-right`} />
+              <button onClick={() => onChange(ns, ls.filter((_, j) => j !== i))}
+                className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 热力图数据编辑器 — 每行「x, y, value」三元组，支持生成模拟数据（2万点验证性能） */
 function HeatmapDataEditor({ points, onChange }: { points: { x: number; y: number; value: number }[]; onChange: (pts: { x: number; y: number; value: number }[]) => void }) {
   const parse = (raw: string): { x: number; y: number; value: number }[] =>
@@ -2234,6 +2320,46 @@ export function PropertyInspector() {
                 <input type="checkbox" checked={((widget.options as Record<string, unknown>).hideOverlap as boolean) ?? true}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), hideOverlap: e.target.checked } })}
                   className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 桑基图配置 ═══ */}
+        {widget.type === 'sankey-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <SankeyDataEditor
+                nodes={Array.isArray((widget.options as any).nodes) ? (widget.options as any).nodes : []}
+                links={Array.isArray((widget.options as any).links) ? (widget.options as any).links : []}
+                onChange={(ns, ls) => updateWidget(widget.id, { options: { ...(widget.options as object), nodes: ns, links: ls } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <LabelSelectRow label="布局方向" value={String((widget.options as Record<string, unknown>).orient ?? 'horizontal')}
+                options={['horizontal', 'vertical']}
+                labels={['横向', '纵向']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), orient: v } })} />
+              <LabelSelectRow label="高亮模式" value={String((widget.options as Record<string, unknown>).focusMode ?? 'adjacency')}
+                options={['adjacency', 'none']}
+                labels={['相邻链路', '无']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), focusMode: v } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">节点宽度</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).nodeWidth ?? 14)} min={4} max={60} step={1}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), nodeWidth: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">节点间距</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).nodeGap ?? 12)} min={2} max={60} step={1}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), nodeGap: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">连线透明度</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).lineOpacity ?? 0.35)} min={0.05} max={1} step={0.05}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), lineOpacity: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
               </label>
             </CollapsibleFieldGroup>
           </>

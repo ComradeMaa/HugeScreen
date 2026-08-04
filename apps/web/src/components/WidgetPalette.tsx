@@ -28,6 +28,7 @@ import {
   GitBranch,
   Orbit,
   MoveHorizontal,
+  Waypoints,
   Plus,
   Trash2,
   Pencil,
@@ -61,6 +62,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   GitBranch,
   Orbit,
   MoveHorizontal,
+  Waypoints,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -505,6 +507,39 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.lineTo(w * 0.4, h * 0.62);
     ctx.lineTo(10, h * 0.8);
     ctx.stroke();
+
+  } else if (type === 'sankey-chart') {
+    // 桑基图：左1中2右3节点 + 渐变流量连线
+    const nodeW = 8, nodeH = 20;
+    const cols = [
+      { x: 12, ys: [cy - nodeH / 2] },
+      { x: 44, ys: [cy - 16, cy + 8] },
+      { x: 88, ys: [cy - 22, cy - 2, cy + 16] },
+    ];
+    // 连线（先画，节点覆盖其端点）
+    ctx.lineWidth = 2.5;
+    const links = [
+      [0, 0, 0], [0, 0, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1],
+    ];
+    links.forEach(([c, f, t]) => {
+      const x0 = cols[c].x + nodeW, y0 = cols[c].ys[f] + nodeH / 2;
+      const x1 = cols[c + 1].x, y1 = cols[c + 1].ys[t] + nodeH / 2;
+      ctx.strokeStyle = `rgba(0,212,255,${0.22 + c * 0.1})`;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.bezierCurveTo(x0 + 18, y0, x1 - 18, y1, x1, y1);
+      ctx.stroke();
+    });
+    // 节点
+    cols.forEach((col) => {
+      col.ys.forEach((y) => {
+        ctx.fillStyle = 'rgba(0,212,255,0.85)';
+        ctx.fillRect(col.x, y, nodeW, nodeH);
+        ctx.strokeStyle = 'rgba(44,44,52,1)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(col.x, y, nodeW, nodeH);
+      });
+    });
 
   } else if (type === 'voronoi') {
     // Voronoi：区域分割线 + 散点

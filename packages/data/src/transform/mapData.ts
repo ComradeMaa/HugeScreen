@@ -58,6 +58,7 @@ export function mapData(
     case 'treemap-chart': return mapTreemap(raw, mapping);
     case 'sunburst-chart': return mapSunburst(raw, mapping);
     case 'multiple-x-axis-chart': return mapMultipleXAxis(raw, mapping);
+    case 'sankey-chart': return mapSankey(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -538,6 +539,55 @@ function mapMultipleXAxis(raw: unknown, m: FieldMapping): Record<string, unknown
   if (labels.length && asArray(first[m.data || 'data']).length) out.bottom = mk(first);
   if (labels.length && asArray(second[m.data || 'data']).length) out.top = mk(second);
   return out;
+}
+
+/**
+ * 桑基图 — 节点 + 连线多格式适配：
+ *   1. {nodes:[{name,value}], links:[{source,target,value}]}（ECharts 原生格式）
+ *   2. 包装键：nodes/data/node/items + links/edges/link/relations
+ *   3. 仅连线（无 nodes）→ 自动从 source/target 收集节点
+ * 字段别名：连线 source/target（from/to/u/v/start/end）、流量值（value/weight/flow）
+ * 输出 {nodes:[{name,value?}], links:[{source,target,value}]}
+ */
+function mapSankey(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const nameKey = m.name || 'name';
+  const valueKey = m.value || 'value';
+
+  const nodes = resolveSrc(raw, m, 'nodes', 'data', 'node', 'items').map((it) => {
+    const r = asRecord(it);
+    const out: { name: string; value?: number } = { name: String(r[nameKey] ?? r.label ?? '') };
+    const v = toNum(r[valueKey], NaN);
+    if (Number.isFinite(v)) out.value = v;
+    return out;
+  }).filter((n) => n.name);
+
+  const links = resolveSrc(raw, m, 'links', 'edges', 'link', 'relations').map((it) => {
+    const r = asRecord(it);
+    const src = r[m.source || 'source'] ?? r.from ?? r.u ?? r.start;
+    const tgt = r[m.target || 'target'] ?? r.to ?? r.v ?? r.end;
+    return {
+      source: String(src ?? ''),
+      target: String(tgt ?? ''),
+      value: toNum(r[valueKey] ?? r.weight ?? r.flow ?? r.value),
+    };
+  }).filter((l) => l.source && l.target);
+
+  // 仅连线 → 自动收集节点
+  const all = [...nodes];
+  if (!all.length && links.length) {
+    const names = new Set<string>();
+    links.forEach((l) => { names.add(l.source); names.add(l.target); });
+    names.forEach((n) => all.push({ name: n }));
+  }
+
+  if (all.length || links.length) {
+    const out: Record<string, unknown> = {};
+    if (all.length) out.nodes = all;
+    if (links.length) out.links = links;
+    return out;
+  }
+  return {};
 }
 
 /**

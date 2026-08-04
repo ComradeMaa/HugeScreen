@@ -520,6 +520,36 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'sankey-chart': {
+          // 桑基图：左1中2右3节点 + 渐变流量连线
+          const sNodeW = innerW * 0.07, sNodeH = innerH * 0.2;
+          const sCols = [
+            { x: innerX + innerW * 0.08, ys: [innerY + innerH * 0.4] },
+            { x: innerX + innerW * 0.38, ys: [innerY + innerH * 0.24, innerY + innerH * 0.56] },
+            { x: innerX + innerW * 0.72, ys: [innerY + innerH * 0.12, innerY + innerH * 0.4, innerY + innerH * 0.68] },
+          ];
+          ctx.lineWidth = 2;
+          const sLinks: Array<[number, number, number]> = [[0, 0, 0], [0, 0, 1], [1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1]];
+          sLinks.forEach(([c, f, t]) => {
+            const x0 = sCols[c].x + sNodeW, y0 = sCols[c].ys[f] + sNodeH / 2;
+            const x1 = sCols[c + 1].x, y1 = sCols[c + 1].ys[t] + sNodeH / 2;
+            ctx.strokeStyle = color; ctx.globalAlpha = 0.25 + c * 0.1;
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.bezierCurveTo(x0 + innerW * 0.14, y0, x1 - innerW * 0.14, y1, x1, y1);
+            ctx.stroke();
+          });
+          sCols.forEach((col) => {
+            col.ys.forEach((y) => {
+              ctx.fillStyle = color; ctx.globalAlpha = 0.85;
+              ctx.fillRect(col.x, y, sNodeW, sNodeH);
+              ctx.strokeStyle = 'rgba(44,44,52,1)'; ctx.globalAlpha = 1; ctx.lineWidth = 1.5;
+              ctx.strokeRect(col.x, y, sNodeW, sNodeH);
+            });
+          });
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'voronoi': {
           // Voronoi：区域分割线 + 散点
           const vCells = [

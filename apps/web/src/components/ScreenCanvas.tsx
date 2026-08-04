@@ -101,6 +101,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "radar-chart": ["indicators", "series"],
     "heatmap": ["points"],
     "relation-chart": ["nodes", "links"],
+    "sankey-chart": ["nodes", "links"],
     "tree-chart": ["trees"],
     "treemap-chart": ["treemaps"],
     "sunburst-chart": ["sunbursts"],
