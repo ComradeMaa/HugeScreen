@@ -243,6 +243,87 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'box-plot': {
+          // 箱线图：须线 + 箱体 + 白色中位数线
+          const drawBox = (bx: number, min: number, q1: number, med: number, q3: number, max: number) => {
+            const s = (v: number) => innerY + innerH * 0.85 - (v / 60) * innerH * 0.7;
+            ctx.strokeStyle = color; ctx.globalAlpha = 0.6; ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(bx, s(max)); ctx.lineTo(bx, s(min)); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(bx - 2, s(min)); ctx.lineTo(bx + 2, s(min)); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(bx - 2, s(max)); ctx.lineTo(bx + 2, s(max)); ctx.stroke();
+            ctx.fillStyle = color; ctx.globalAlpha = 0.2;
+            ctx.fillRect(bx - 3, s(q3), 6, s(q1) - s(q3));
+            ctx.strokeStyle = color; ctx.globalAlpha = 0.6; ctx.lineWidth = 0.8;
+            ctx.strokeRect(bx - 3, s(q3), 6, s(q1) - s(q3));
+            ctx.strokeStyle = '#fff'; ctx.globalAlpha = 0.8; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(bx - 3, s(med)); ctx.lineTo(bx + 3, s(med)); ctx.stroke();
+          };
+          const bw = innerW / 6;
+          drawBox(innerX + bw, 10, 20, 30, 45, 55);
+          drawBox(innerX + bw * 3, 15, 25, 35, 48, 60);
+          drawBox(innerX + bw * 5, 5, 18, 28, 40, 50);
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'group-chart': {
+          // 分组柱状图：主色 + 白色两组并列柱
+          const barCount = 4, groupW = innerW / barCount, gap = 2;
+          const barW = Math.max(2, groupW * 0.3);
+          const baseY = innerY + innerH * 0.85;
+          const maxH = innerH * 0.6;
+          const v1 = [0.7, 0.45, 0.9, 0.55];
+          const v2 = [0.5, 0.8, 0.6, 0.75];
+          for (let i = 0; i < barCount; i++) {
+            const gx = innerX + i * groupW + groupW * 0.15;
+            ctx.fillStyle = color; ctx.globalAlpha = 0.55;
+            ctx.fillRect(gx, baseY - v1[i] * maxH, barW, v1[i] * maxH);
+            ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.35;
+            ctx.fillRect(gx + barW + gap, baseY - v2[i] * maxH, barW, v2[i] * maxH);
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'water-pond': {
+          // 水位球：圆形 + 波浪 + 百分比
+          const r = Math.min(innerW, innerH) * 0.35;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.6; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+          ctx.fillStyle = color; ctx.globalAlpha = 0.2;
+          ctx.beginPath();
+          ctx.moveTo(cx - r, cy + r * 0.3);
+          for (let x = -r; x <= r; x += 2) {
+            ctx.lineTo(cx + x, cy + r * 0.2 + Math.sin((x / r) * Math.PI * 2) * r * 0.12);
+          }
+          ctx.lineTo(cx + r, cy + r); ctx.lineTo(cx - r, cy + r);
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.9;
+          ctx.font = `bold ${Math.round(Math.min(innerW, innerH) * 0.18)}px JetBrains Mono,monospace`;
+          ctx.textAlign = 'center';
+          ctx.fillText('60%', cx, cy + r * 0.35);
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'candlestick': {
+          // 蜡烛图：阳线绿实心、阴线红空心
+          const drawCandle = (bx: number, open: number, close: number, high: number, low: number) => {
+            const s = (v: number) => innerY + innerH * 0.85 - (v / 60) * innerH * 0.7;
+            const up = close >= open;
+            ctx.strokeStyle = up ? 'rgba(52,211,153,0.8)' : 'rgba(248,113,113,0.8)';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(bx, s(high)); ctx.lineTo(bx, s(low)); ctx.stroke();
+            ctx.fillStyle = up ? 'rgba(52,211,153,0.8)' : 'rgba(248,113,113,0.15)';
+            ctx.strokeStyle = up ? 'rgba(52,211,153,0.8)' : 'rgba(248,113,113,0.8)';
+            ctx.lineWidth = 1;
+            ctx.fillRect(bx - 1.5, s(Math.max(open, close)), 3, Math.max(1, s(Math.min(open, close)) - s(Math.max(open, close))));
+            ctx.strokeRect(bx - 1.5, s(Math.max(open, close)), 3, Math.max(1, s(Math.min(open, close)) - s(Math.max(open, close))));
+          };
+          const bw = innerW / 6;
+          drawCandle(innerX + bw, 30, 38, 42, 26);
+          drawCandle(innerX + bw * 3, 38, 34, 40, 30);
+          drawCandle(innerX + bw * 5, 34, 46, 48, 32);
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'data-table': {
           const cellRows = 3, cellCols = 3;
           const cw = innerW / cellCols, ch2 = innerH / cellRows;

@@ -349,6 +349,67 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'group-chart',
+      name: '分组柱状图',
+      description: '多系列并列柱状图对比',
+      icon: 'BarChart3',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/GroupBarChartWidget').then(m => ({ default: m.GroupBarChartWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          showLabel: { type: 'boolean', title: '显示数值' },
+          barWidth: { type: 'string', title: '柱宽' },
+          xLabels: { type: 'array', title: 'X轴标签' },
+          barSeries: { type: 'array', title: '数据系列' },
+        },
+      },
+      defaultConfig: {
+        showLabel: false,
+        barWidth: '40%',
+        xLabels: ['周一', '周二', '周三', '周四', '周五'],
+        barSeries: [
+          { name: '系列1', data: [120, 200, 150, 80, 70] },
+          { name: '系列2', data: [90, 150, 210, 130, 180] },
+        ],
+      },
+    },
+
+    {
+      type: 'candlestick',
+      name: '蜡烛图',
+      description: 'K线图，展示开盘/收盘/最高/最低',
+      icon: 'CandlestickChart',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 3, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/CandlestickWidget').then(m => ({ default: m.CandlestickWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          upColor: { type: 'string', title: '阳线颜色' },
+          downColor: { type: 'string', title: '阴线颜色' },
+          candles: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        upColor: '#34d399',
+        downColor: '#f87171',
+        candles: [
+          { name: '周一', open: 100, close: 105, high: 110, low: 98 },
+          { name: '周二', open: 105, close: 102, high: 108, low: 100 },
+          { name: '周三', open: 102, close: 115, high: 118, low: 101 },
+          { name: '周四', open: 115, close: 112, high: 120, low: 110 },
+          { name: '周五', open: 112, close: 118, high: 122, low: 108 },
+        ],
+      },
+    },
+
+    {
       type: 'water-pond',
       name: '水位球',
       description: '波浪水位动画',

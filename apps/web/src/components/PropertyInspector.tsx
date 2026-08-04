@@ -626,6 +626,36 @@ function BoxPlotDataEditor({ categories, onChange }: { categories: any[]; onChan
   );
 }
 
+/** 蜡烛图数据编辑器 — 每根 K 线: 名称 + 开盘/收盘/最高/最低 */
+function CandlestickDataEditor({ candles, onChange }: { candles: any[]; onChange: (cs: any[]) => void }) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right w-12';
+  const cs = candles.length ? candles : [{ name: '周一', open: 100, close: 105, high: 110, low: 98 }];
+  return (
+    <div className="space-y-1.5">
+      <button onClick={() => onChange([...cs, { name: `K${cs.length + 1}`, open: 100, close: 105, high: 110, low: 98 }])}
+        className="w-full text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加K线</button>
+      {cs.map((c: any, i: number) => (
+        <div key={i} className="flex items-center gap-1 flex-wrap p-1 rounded bg-surface-base/50">
+          <input type="text" value={c.name ?? ''} placeholder="名称"
+            onChange={(e) => { const n = [...cs]; n[i] = { ...c, name: e.target.value }; onChange(n); }}
+            className={`${inputCls} w-10 text-left`} />
+          {(['open','close','high','low'] as const).map((f) => (
+            <input key={f} type="number" value={c[f] ?? ''} title={f} placeholder="0" step="any"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '' || raw === '-') return;
+                const n = [...cs]; n[i] = { ...c, [f]: Number(raw) }; onChange(n);
+              }}
+              className={inputCls} />
+          ))}
+          <button onClick={() => onChange(cs.filter((_: any, j: number) => j !== i))}
+            className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** 地图钉类型编辑器 */
 function PinTypeEditor({ pinTypes, onChange }: { pinTypes: any[]; onChange: (pts: any[]) => void }) {
   const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors';
@@ -1220,6 +1250,29 @@ export function PropertyInspector() {
           </CollapsibleFieldGroup>
         )}
 
+        {/* ═══ 分组柱状图配置 ═══ */}
+        {widget.type === 'group-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <LineChartDataEditor
+                xLabels={Array.isArray((widget.options as any).xLabels) ? (widget.options as any).xLabels : ['周一','周二','周三','周四','周五']}
+                lineSeries={Array.isArray((widget.options as any).barSeries) ? (widget.options as any).barSeries : [{ name: '系列1', data: [120,200,150,80,70] }]}
+                onChange={(xLabels, series) => updateWidget(widget.id, { options: { ...(widget.options as object), xLabels, barSeries: series } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">显示数值</span>
+                <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showLabel}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLabel: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <LabelSelectRow label="柱宽" value={String((widget.options as Record<string, unknown>).barWidth ?? '40%')}
+                options={['30%','40%','50%','70%']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), barWidth: v } })} />
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
         {/* ═══ 图片专属配置 ═══ */}
         {widget.type === 'image-widget' && (
           <CollapsibleFieldGroup label="图片" defaultOpen={true}>
@@ -1444,6 +1497,21 @@ export function PropertyInspector() {
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), boxWidth: Number(e.target.value) } })}
                   className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
               </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 蜡烛图配置 ═══ */}
+        {widget.type === 'candlestick' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <CandlestickDataEditor
+                candles={Array.isArray((widget.options as Record<string, unknown>).candles) ? (widget.options as Record<string, unknown>).candles as any[] : []}
+                onChange={(cs) => updateWidget(widget.id, { options: { ...(widget.options as object), candles: cs } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="阳线颜色" value={((widget.options as Record<string, unknown>).upColor as string) ?? '#34d399'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), upColor: c } })} />
+              <ColorSwatchRow label="阴线颜色" value={((widget.options as Record<string, unknown>).downColor as string) ?? '#f87171'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), downColor: c } })} />
             </CollapsibleFieldGroup>
           </>
         )}
@@ -1842,7 +1910,7 @@ export function PropertyInspector() {
 }
 
 /** 预设颜色色块选择器 */
-const PRESET_VALUE_COLORS = ["#FFFFFF", "#00D4FF", "#FF8C42", "#34d399"];
+const PRESET_VALUE_COLORS = ["#FFFFFF", "#00D4FF", "#FF8C42", "#34d399", "#f87171"];
 const PRESET_SUFFIX_COLORS = ["#9E9EA8", "#00D4FF", "#FF8C42", "#34d399"];
 
 function ColorSwatchRow({ label, value, colors, onChange }: { label: string; value: string; colors: string[]; onChange: (c: string) => void }) {

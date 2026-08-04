@@ -41,6 +41,8 @@ export function mapData(
     case 'video-widget': return mapVideo(raw, mapping);
     case 'water-pond': return mapWaterPond(raw, mapping);
     case 'box-plot': return mapBoxPlot(raw, mapping);
+    case 'candlestick': return mapCandlestick(raw, mapping);
+    case 'group-chart': return mapGroupBar(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -322,6 +324,81 @@ function mapBoxPlot(raw: unknown, m: FieldMapping): Record<string, unknown> {
   }
 
   return {};
+}
+
+/**
+ * 蜡烛图 — 参照 mapBoxPlot 模式：
+ *   1. resolveSrc 提取数组（支持 mapping 自定义路径 + 常见键名 fallback）
+ *   2. 支持 mapping 自定义字段名（open/close/high/low/name）
+ *   3. 若对象数组未命中 → 尝试列式格式 {names/dates:[], open:[], close:[],…}
+ */
+function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+
+  // ── 标准格式：对象数组 [{name, open, close, high, low}, …] ──
+  const src = resolveSrc(raw, m, 'candles', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const nameKey = m.name || 'name';
+    const openKey = m.open || 'open';
+    const closeKey = m.close || 'close';
+    const highKey = m.high || 'high';
+    const lowKey = m.low || 'low';
+    const candles = src.map((it) => {
+      const r = asRecord(it);
+      return {
+        name: String(r[nameKey] ?? r.date ?? r.time ?? ''),
+        open: toNum(r[openKey] ?? r.o),
+        close: toNum(r[closeKey] ?? r.c),
+        high: toNum(r[highKey] ?? r.h ?? r.max),
+        low: toNum(r[lowKey] ?? r.l ?? r.min),
+      };
+    });
+    return candles.length > 0 ? { candles } : {};
+  }
+
+  // ── 列式格式：{dates/names:[], open:[], close:[], high:[], low:[]}（金融 API 常见）──
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const datesKey = m.name || 'dates';
+    const dates = asArray(rec[datesKey] || rec['names'] || rec['labels'] || rec['times'] || rec['x']);
+    const openArr = asArray(rec[m.open || 'open']);
+    const closeArr = asArray(rec[m.close || 'close']);
+    const highArr = asArray(rec[m.high || 'high']);
+    const lowArr = asArray(rec[m.low || 'low']);
+
+    if (openArr.length > 0 || closeArr.length > 0) {
+      const len = Math.max(dates.length, openArr.length, closeArr.length, highArr.length, lowArr.length);
+      const candles: Record<string, unknown>[] = [];
+      for (let i = 0; i < len; i++) {
+        candles.push({
+          name: String(dates[i] ?? `K${i + 1}`),
+          open: toNum(openArr[i]),
+          close: toNum(closeArr[i]),
+          high: toNum(highArr[i]),
+          low: toNum(lowArr[i]),
+        });
+      }
+      return { candles };
+    }
+  }
+
+  return {};
+}
+
+/** 分组柱状图 — 参照 mapLine：xLabels + 多系列 → {xLabels, barSeries} */
+function mapGroupBar(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const labels = resolveSrc(raw, m, 'xLabels', 'categories').map(String);
+  if (labels.length) out.xLabels = labels;
+  const series = resolveSrc(raw, m, 'series', 'series', 'barSeries', 'data', 'items').map((s) => {
+    const r = asRecord(s);
+    return {
+      name: String(r[m.name || 'name'] ?? ''),
+      data: asArray(r[m.data || 'data']).map((v) => toNum(v)),
+    };
+  });
+  if (series.length) out.barSeries = series;
+  return out;
 }
 
 /** 水位球 — 自动提取数值 */

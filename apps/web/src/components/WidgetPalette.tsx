@@ -18,6 +18,7 @@ import {
   Building2,
   Video,
   Droplets,
+  CandlestickChart,
   Plus,
   Trash2,
   Pencil,
@@ -29,6 +30,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   TrendingUp,
   LineChart,
   BarChart3,
+  BarChart4,
   BarChartHorizontal: BarChart4,
   PieChart,
   Type,
@@ -40,6 +42,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Building2,
   Video,
   Droplets,
+  CandlestickChart,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -222,6 +225,40 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     drawBox(20, 10, 20, 30, 45, 55);
     drawBox(60, 15, 25, 35, 48, 60);
     drawBox(100, 5, 18, 28, 40, 50);
+
+  } else if (type === 'candlestick') {
+    // K线：阳线绿实心、阴线红空心
+    const drawCandle = (bx, open, close, high, low) => {
+      const s = (v) => cy + 24 - v * 0.55;
+      const up = close >= open;
+      ctx.strokeStyle = up ? "rgba(52,211,153,0.8)" : "rgba(248,113,113,0.8)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(bx, s(high)); ctx.lineTo(bx, s(low)); ctx.stroke();  // 影线
+      ctx.fillStyle = up ? "rgba(52,211,153,0.8)" : "rgba(248,113,113,0.15)";
+      ctx.strokeStyle = up ? "rgba(52,211,153,0.8)" : "rgba(248,113,113,0.8)";
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(bx - 3, s(Math.max(open, close)), 6, Math.max(2, s(Math.min(open, close)) - s(Math.max(open, close))));
+      ctx.strokeRect(bx - 3, s(Math.max(open, close)), 6, Math.max(2, s(Math.min(open, close)) - s(Math.max(open, close))));
+    };
+    drawCandle(25, 30, 38, 42, 26);
+    drawCandle(60, 38, 34, 40, 30);
+    drawCandle(95, 34, 46, 48, 32);
+
+  } else if (type === 'group-chart') {
+    // 分组柱状图：电光蓝 + 琥珀橙两组并列柱
+    const barCount = 4, gap = 4, totalW = w - 24;
+    const groupW = (totalW - gap * (barCount - 1)) / barCount;
+    const barW = groupW * 0.3;
+    const baseY = h - 12, maxH = h * 0.55;
+    const v1 = [0.7, 0.45, 0.9, 0.55];
+    const v2 = [0.5, 0.8, 0.6, 0.75];
+    for (let i = 0; i < barCount; i++) {
+      const gx = 12 + i * (groupW + gap);
+      ctx.fillStyle = 'rgba(0,212,255,0.6)';
+      ctx.fillRect(gx, baseY - v1[i] * maxH, barW, v1[i] * maxH);
+      ctx.fillStyle = 'rgba(255,140,66,0.6)';
+      ctx.fillRect(gx + barW + 1, baseY - v2[i] * maxH, barW, v2[i] * maxH);
+    }
 
   } else if (type === 'video-widget') {
     // 2x2 grid with play icons
