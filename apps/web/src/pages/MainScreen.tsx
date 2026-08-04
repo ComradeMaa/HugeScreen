@@ -346,6 +346,78 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'scatter-plot': {
+          // 散点图：分布散点
+          const scPts = [[0.1, 0.3], [0.25, 0.55], [0.4, 0.2], [0.55, 0.7], [0.7, 0.35], [0.85, 0.6], [0.35, 0.75], [0.65, 0.8]];
+          ctx.fillStyle = color; ctx.globalAlpha = 0.85;
+          scPts.forEach(([fx, fy]) => {
+            ctx.beginPath(); ctx.arc(innerX + fx * innerW, innerY + fy * innerH, 2.5, 0, Math.PI * 2); ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'intraday-chart': {
+          // 盘中走势图：两段走势线，中部断开（午休间隔）
+          const idSeg = (pts: number[][]) => {
+            ctx.beginPath();
+            pts.forEach(([fx, fy], i) => {
+              const x = innerX + fx * innerW, y = innerY + fy * innerH;
+              if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+          };
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.5;
+          idSeg([[0.05, 0.55], [0.3, 0.4], [0.45, 0.5], [0.55, 0.3]]);
+          idSeg([[0.68, 0.45], [0.85, 0.35], [0.95, 0.55]]);
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'radar-chart': {
+          // 雷达图：五边形网格 + 数据多边形
+          const rdN = 5;
+          const rdPt = (i: number, r: number) => [
+            cx + r * Math.cos(-Math.PI / 2 + (i * 2 * Math.PI) / rdN),
+            cy + r * Math.sin(-Math.PI / 2 + (i * 2 * Math.PI) / rdN),
+          ];
+          const rdR = Math.min(innerW, innerH) * 0.32;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.25; ctx.lineWidth = 0.7;
+          for (let ring = 1; ring <= 3; ring++) {
+            ctx.beginPath();
+            for (let i = 0; i <= rdN; i++) {
+              const [x, y] = rdPt(i % rdN, (rdR * ring) / 3);
+              if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+          for (let i = 0; i < rdN; i++) {
+            const [x, y] = rdPt(i, rdR);
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
+          }
+          const rdVals = [0.9, 0.65, 0.8, 0.5, 0.7];
+          ctx.fillStyle = color; ctx.globalAlpha = 0.2;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          rdVals.forEach((v, i) => {
+            const [x, y] = rdPt(i, rdR * v);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          });
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'heatmap': {
+          // 热力图：渐变色格子矩阵
+          const hmCols = ['rgba(26,26,36,1)', 'rgba(10,61,92,0.9)', 'rgba(0,168,204,0.8)', 'rgba(0,212,255,0.9)', 'rgba(255,140,66,0.95)'];
+          const hmRows = 5, hmColCount = 9;
+          for (let r = 0; r < hmRows; r++) {
+            for (let c = 0; c < hmColCount; c++) {
+              const heat = Math.exp(-((r - 2) ** 2 + (c - 4) ** 2) / 6);
+              ctx.fillStyle = hmCols[Math.min(hmCols.length - 1, Math.floor(heat * hmCols.length))];
+              ctx.fillRect(innerX + c * (innerW / hmColCount), innerY + r * (innerH / hmRows), innerW / hmColCount + 0.5, innerH / hmRows + 0.5);
+            }
+          }
+          break;
+        }
         case 'voronoi': {
           // Voronoi：区域分割线 + 散点
           const vCells = [

@@ -22,6 +22,8 @@ import {
   ChartScatter,
   ChartArea,
   ChartLine,
+  Radar,
+  Grid3x3,
   Plus,
   Trash2,
   Pencil,
@@ -49,6 +51,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ChartScatter,
   ChartArea,
   ChartLine,
+  Radar,
+  Grid3x3,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -332,6 +336,68 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.strokeStyle = 'rgba(0,212,255,0.8)';
     ctx.lineWidth = 1.5;
     ctx.beginPath(); wave.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+
+  } else if (type === 'scatter-plot') {
+    // 散点图：分布散点（无区域线）
+    const spts = [[15, 22], [32, 40], [48, 18], [60, 52], [78, 30], [95, 44], [70, 58], [40, 56], [55, 36], [25, 50]];
+    ctx.fillStyle = 'rgba(0,212,255,0.8)';
+    spts.forEach(([px, py]) => { ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill(); });
+
+  } else if (type === 'intraday-chart') {
+    // 盘中走势图：两段走势线，中部断开（午休间隔）
+    const seg = (pts: number[][]) => {
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+      ctx.stroke();
+    };
+    ctx.strokeStyle = 'rgba(0,212,255,0.8)';
+    ctx.lineWidth = 1.5;
+    seg([[10, 40], [40, 34], [55, 38], [68, 30]]);
+    seg([[80, 40], [95, 36], [110, 44]]);
+
+  } else if (type === 'radar-chart') {
+    // 雷达图：五边形 + 网格线
+    const rn = 5, rc = 24;
+    const rpt = (i: number, r: number) => [cx + r * Math.cos(-Math.PI / 2 + (i * 2 * Math.PI) / rn), cy + r * Math.sin(-Math.PI / 2 + (i * 2 * Math.PI) / rn)];
+    // 网格
+    ctx.strokeStyle = 'rgba(0,212,255,0.25)';
+    ctx.lineWidth = 0.8;
+    for (let ring = 1; ring <= 3; ring++) {
+      ctx.beginPath();
+      for (let i = 0; i <= rn; i++) {
+        const [x, y] = rpt(i % rn, (rc * ring) / 3);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    for (let i = 0; i < rn; i++) {
+      const [x, y] = rpt(i, rc);
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y); ctx.stroke();
+    }
+    // 数据多边形
+    const vals = [0.9, 0.65, 0.8, 0.5, 0.7];
+    ctx.fillStyle = 'rgba(0,212,255,0.25)';
+    ctx.strokeStyle = 'rgba(0,212,255,0.85)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    vals.forEach((v, i) => {
+      const [x, y] = rpt(i, rc * v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  } else if (type === 'heatmap') {
+    // 热力图：渐变色格子矩阵
+    const hc = ['rgba(26,26,36,1)', 'rgba(10,61,92,0.9)', 'rgba(0,168,204,0.8)', 'rgba(0,212,255,0.9)', 'rgba(255,140,66,0.95)'];
+    const hrows = 5, hcols = 9;
+    for (let r = 0; r < hrows; r++) {
+      for (let c = 0; c < hcols; c++) {
+        const heat = Math.exp(-((r - 2) ** 2 + (c - 4) ** 2) / 6);
+        const idx = Math.min(hc.length - 1, Math.floor(heat * hc.length));
+        ctx.fillStyle = hc[idx];
+        ctx.fillRect(12 + c * (w - 24) / hcols, 8 + r * (h - 16) / hrows, (w - 24) / hcols + 0.5, (h - 16) / hrows + 0.5);
+      }
+    }
 
   } else if (type === 'voronoi') {
     // Voronoi：区域分割线 + 散点

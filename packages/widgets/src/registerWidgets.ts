@@ -161,6 +161,7 @@ export function registerBuiltinWidgets(): void {
           showColorLegend: { type: 'boolean', title: '颜色图例' },
           titleText: { type: 'string', title: '图名' },
           titlePosition: { type: 'string', title: '图名位置', enum: ['none', 'topLeft', 'bottom'] },
+          roseType: { type: 'string', title: '玫瑰图', enum: ['none', 'radius', 'area'] },
           categories: { type: 'array', title: '数据类别' },
         },
       },
@@ -170,6 +171,7 @@ export function registerBuiltinWidgets(): void {
         showColorLegend: true,
         titleText: '',
         titlePosition: 'none',
+        roseType: 'none',
         categories: [
           { name: '类别A', value: 335 },
           { name: '类别B', value: 310 },
@@ -350,6 +352,100 @@ export function registerBuiltinWidgets(): void {
           { name: 'D组', min: 12, q1: 32, median: 48, q3: 62, max: 88 },
           { name: 'E组', min: 8,  q1: 28, median: 42, q3: 58, max: 80 },
         ],
+      },
+    },
+
+    {
+      type: 'heatmap',
+      name: '热力图',
+      description: '二维密度分布，支持大数据量',
+      icon: 'Grid3x3',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/HeatmapWidget').then(m => ({ default: m.HeatmapWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          points: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        showTick: true,
+      },
+    },
+
+    {
+      type: 'radar-chart',
+      name: '雷达图',
+      description: '多维指标对比',
+      icon: 'Radar',
+      category: 'chart',
+      defaultSize: { colSpan: 3, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 6, rowSpan: 6 },
+      component: lazy(() => import('./charts/RadarChartWidget').then(m => ({ default: m.RadarChartWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          lineColor: { type: 'string', title: '线颜色' },
+          areaColor: { type: 'string', title: '面积颜色' },
+          indicators: { type: 'array', title: '指标' },
+          series: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        lineColor: '#00D4FF',
+        areaColor: '#00D4FF',
+      },
+    },
+
+    {
+      type: 'intraday-chart',
+      name: '断轴走势图',
+      description: '时间序列走势，自动跳过休市间隔',
+      icon: 'ChartLine',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/IntradayChartWidget').then(m => ({ default: m.IntradayChartWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          lineColor: { type: 'string', title: '线颜色' },
+          points: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        lineColor: '#00D4FF',
+        showTick: true,
+      },
+    },
+
+    {
+      type: 'scatter-plot',
+      name: '散点图',
+      description: 'X/Y 双值轴数据分布',
+      icon: 'ChartScatter',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/ScatterPlotWidget').then(m => ({ default: m.ScatterPlotWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          pointColor: { type: 'string', title: '点颜色' },
+          symbolSize: { type: 'number', title: '点大小' },
+          points: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        pointColor: '#00D4FF',
+        symbolSize: 8,
+        showTick: true,
       },
     },
 

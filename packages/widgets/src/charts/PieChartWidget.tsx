@@ -19,6 +19,8 @@ interface PieChartWidgetProps {
   titleText?: string;
   /** 图名位置 — 左上角或图表下方 */
   titlePosition?: 'topLeft' | 'bottom' | 'none';
+  /** 南丁格尔玫瑰图：扇区半径按数值比例（'radius' 按数值、'area' 按面积） */
+  roseType?: 'none' | 'radius' | 'area';
 }
 
 const DEFAULT_DATA: PieCategory[] = [
@@ -27,7 +29,7 @@ const DEFAULT_DATA: PieCategory[] = [
 ];
 const COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#f87171', '#a78bfa', '#60a5fa'];
 
-export function PieChartWidget({ data, categories, donut = true, showLegend = false, showColorLegend = true, titleText, titlePosition = 'none' }: PieChartWidgetProps) {
+export function PieChartWidget({ data, categories, donut = true, showLegend = false, showColorLegend = true, titleText, titlePosition = 'none', roseType = 'none' }: PieChartWidgetProps) {
   const pd = (categories?.length ? categories : data) ?? DEFAULT_DATA;
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
@@ -67,6 +69,13 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
           ? (donut ? ['38%', '62%'] : ['0%', '58%'])
           : (donut ? ['45%', '72%'] : ['0%', '70%']),
         center: showLegend ? ['40%', '50%'] : ['50%', '50%'],
+        // 南丁格尔玫瑰图：扇区半径按数值比例（需外半径按数据变化）
+        roseType: roseType === 'none' ? undefined : (roseType as 'radius'),
+        radius: roseType !== 'none'
+          ? (donut ? ['15%', '75%'] : ['0%', '75%'])
+          : (hasAnyLabelLine
+            ? (donut ? ['38%', '62%'] : ['0%', '58%'])
+            : (donut ? ['45%', '72%'] : ['0%', '70%'])),
         avoidLabelOverlap: true,
         startAngle: 90,
         clockwise: false,
@@ -111,7 +120,7 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(pd), donut, showLegend, titleText, titlePosition, showColorLegend, hasAnyLabelLine]);
+  }, [JSON.stringify(pd), donut, showLegend, titleText, titlePosition, showColorLegend, hasAnyLabelLine, roseType]);
 
   const showTitle = !!(titleText && titlePosition !== 'none');
   const isTopLeftTitle = titlePosition === 'topLeft';

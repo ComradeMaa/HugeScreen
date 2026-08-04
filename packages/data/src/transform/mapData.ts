@@ -49,6 +49,10 @@ export function mapData(
     case 'large-area-chart': return mapLargeArea(raw, mapping);
     case 'dynamic-time': return mapLargeArea(raw, mapping);  // 动态时间轴与大规模面积图同格式
     case 'step-line': return mapStepLine(raw, mapping);
+    case 'scatter-plot': return mapScatter(raw, mapping);
+    case 'intraday-chart': return mapIntraday(raw, mapping);
+    case 'radar-chart': return mapRadar(raw, mapping);
+    case 'heatmap': return mapHeatmap(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -385,6 +389,229 @@ function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> 
         });
       }
       return { candles };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * 热力图 — [x, y, value] 三元组多格式适配：
+ *   1. [[x, y, v], …] 官方格式
+ *   2. 对象数组：[{x, y, value}] / [{x, y, v}]
+ *   3. 列式：{x:[], y:[], value:[]}
+ * 输出 {points:[{x, y, value}]}
+ */
+function mapHeatmap(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const xKey = m.x || 'x';
+  const yKey = m.y || 'y';
+  const valueKey = m.value || 'value';
+
+  const src = resolveSrc(raw, m, 'points', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const points = src
+      .map((it) => {
+        if (Array.isArray(it)) {
+          return { x: toNum(it[0]), y: toNum(it[1]), value: toNum(it[2]) };
+        }
+        const r = asRecord(it);
+        return {
+          x: toNum(r[xKey] ?? r[0]),
+          y: toNum(r[yKey] ?? r[1]),
+          value: toNum(r[valueKey] ?? r.v ?? r[2]),
+        };
+      })
+      .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.value));
+    if (points.length > 0) return { points };
+  }
+
+  // 列式：{x:[], y:[], value:[]}
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const xArr = asArray(rec[xKey] ?? rec['x']);
+    const yArr = asArray(rec[yKey] ?? rec['y']);
+    const vArr = asArray(rec[valueKey] ?? rec['value'] ?? rec['v']);
+    if (vArr.length > 0) {
+      const len = Math.max(xArr.length, yArr.length, vArr.length);
+      const points: { x: number; y: number; value: number }[] = [];
+      for (let i = 0; i < len; i++) {
+        const x = toNum(xArr[i]);
+        const y = toNum(yArr[i]);
+        const value = toNum(vArr[i]);
+        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(value)) points.push({ x, y, value });
+      }
+      if (points.length > 0) return { points };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * 雷达图 — indicator + value 多格式适配：
+ *   1. 标准：{indicators:[{name,max}], data:[{name, value:[…]}]} 或 {indicators, values:[…]}
+ *   2. 对象数组：[{name, value: number}] → 每项是一个维度（indicator name + value）
+ *   3. 纯数组：[80, 90, 70] → 维度名自动「维度N」，max 100
+ * 输出 {indicators:[{name,max}], series:[{name, value:[…]}]}
+ */
+function mapRadar(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+
+  // ── 标准/列式：{indicators, data/values} ──
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const indArr = asArray(rec[m.indicators || 'indicators'] ?? rec['indicator']);
+    const indicators: { name: string; max: number }[] = indArr.map((it) => {
+      const r = asRecord(it);
+      return { name: String(r.name ?? r.label ?? r[0] ?? ''), max: toNum(r.max ?? r.maximum, 100) };
+    });
+    if (indicators.length > 0) {
+      // data: [{name, value}] 或 {values: [...]}
+      const dataArr = asArray(rec['data'] ?? rec['series']);
+      if (dataArr.length > 0) {
+        const series = dataArr.map((it) => {
+          const r = asRecord(it);
+          return {
+            name: String(r.name ?? r.label ?? '系列'),
+            value: asArray(r.value ?? r.values ?? r.data).map((v) => toNum(v)),
+          };
+        }).filter((s) => s.value.length > 0);
+        if (series.length > 0) return { indicators, series };
+      }
+      const valuesArr = asArray(rec[m.values || 'values']);
+      if (valuesArr.length > 0) {
+        return {
+          indicators,
+          series: [{ name: '数据', value: valuesArr.map((v) => toNum(v)) }],
+        };
+      }
+    }
+  }
+
+  // ── 对象数组：每项 {name, value} 是一个维度 ──
+  const src = resolveSrc(raw, m, 'data', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const nameKey = m.name || 'name';
+    const valueKey = m.value || 'value';
+    const allNamed = src.every((it) => !Array.isArray(it));
+    if (allNamed) {
+      const indicators = src.map((it, i) => {
+        const r = asRecord(it);
+        return { name: String(r[nameKey] ?? r.label ?? `维度${i + 1}`), max: toNum(r.max ?? r.maximum, 100) };
+      });
+      const values = src.map((it) => toNum(asRecord(it)[valueKey] ?? asRecord(it).value));
+      if (values.some((v) => Number.isFinite(v)) && indicators.length > 0) {
+        return { indicators, series: [{ name: '数据', value: values }] };
+      }
+    }
+    // 纯数组 [80, 90, 70] → 维度自动命名
+    if (src.every((it) => typeof it === 'number' || typeof it === 'string')) {
+      const values = src.map((v) => toNum(v));
+      return {
+        indicators: values.map((_, i) => ({ name: `维度${i + 1}`, max: 100 })),
+        series: [{ name: '数据', value: values }],
+      };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * 盘中走势图（带休市间隔）— 时间字符串 + 数值适配：
+ *   1. 列式：{times:[], values:[]}（官方格式）
+ *   2. 对象数组：[{time, value}] / [{date, y}]
+ *   3. [time, value] 对
+ * 时间保留字符串（category 轴标签），输出 {points:[{time, value}]}
+ */
+function mapIntraday(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const timeKey = m.time || 'time';
+  const valueKey = m.value || 'value';
+
+  // 列式（官方格式优先）
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const timesArr = asArray(rec[timeKey] ?? rec['times'] ?? rec['dates']);
+    const valuesArr = asArray(rec[valueKey] ?? rec['values'] ?? rec['y']);
+    if (valuesArr.length > 0) {
+      const len = Math.max(timesArr.length, valuesArr.length);
+      const points: { time: string; value: number }[] = [];
+      for (let i = 0; i < len; i++) {
+        const t = timesArr[i];
+        const value = toNum(valuesArr[i]);
+        if (t != null && Number.isFinite(value)) points.push({ time: String(t), value });
+      }
+      if (points.length > 0) return { points };
+    }
+  }
+
+  // 对象数组 / 对
+  const src = resolveSrc(raw, m, 'points', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const points = src
+      .map((it) => {
+        if (Array.isArray(it)) {
+          return { time: String(it[0] ?? ''), value: toNum(it[1]) };
+        }
+        const r = asRecord(it);
+        return {
+          time: String(r[timeKey] ?? r.date ?? r.x ?? ''),
+          value: toNum(r[valueKey] ?? r.y ?? r.v ?? r[1]),
+        };
+      })
+      .filter((p) => p.time !== '' && Number.isFinite(p.value));
+    if (points.length > 0) return { points };
+  }
+
+  return {};
+}
+
+/**
+ * 散点图 — [x, y] 对多格式适配（参照 mapVoronoi）：
+ *   1. [[x, y], …] 对（ECharts 官方格式）
+ *   2. 对象数组：[{name, x, y}] / [{x, y}] / [{name, value}]
+ *   3. 列式：{x:[], y:[]}
+ */
+function mapScatter(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const xKey = m.x || 'x';
+  const yKey = m.y || 'y';
+  const nameKey = m.name || 'name';
+
+  const src = resolveSrc(raw, m, 'points', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const points = src
+      .map((it) => {
+        if (Array.isArray(it)) {
+          return { name: '', x: toNum(it[0]), y: toNum(it[1]) };
+        }
+        const r = asRecord(it);
+        return {
+          name: String(r[nameKey] ?? r.label ?? r.id ?? ''),
+          x: toNum(r[xKey] ?? r[0]),
+          y: toNum(r[yKey] ?? r.value ?? r[1]),
+        };
+      })
+      .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (points.length > 0) return { points };
+  }
+
+  // 列式：{x:[], y:[]}（或 values）
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const xArr = asArray(rec[xKey] ?? rec['x']);
+    const yArr = asArray(rec[yKey] ?? rec['y'] ?? rec['values']);
+    if (xArr.length > 0 || yArr.length > 0) {
+      const len = Math.max(xArr.length, yArr.length);
+      const points: { name: string; x: number; y: number }[] = [];
+      for (let i = 0; i < len; i++) {
+        const x = toNum(xArr[i]);
+        const y = toNum(yArr[i]);
+        if (Number.isFinite(x) && Number.isFinite(y)) points.push({ name: '', x, y });
+      }
+      if (points.length > 0) return { points };
     }
   }
 

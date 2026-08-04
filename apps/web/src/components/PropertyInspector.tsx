@@ -409,6 +409,10 @@ function SlotChartEditors({
               <input type="checkbox" checked={opts.showColorLegend !== false}
                 onChange={(e) => onUpdate({ showColorLegend: e.target.checked })} className="rounded" />
             </label>
+            <LabelSelectRow label="玫瑰图" value={String(opts.roseType ?? 'none')}
+              options={['none', 'radius', 'area']}
+              labels={['关闭', '按半径', '按面积']}
+              onChange={(v) => onUpdate({ roseType: v })} />
           </CollapsibleFieldGroup>
           <CollapsibleFieldGroup label="数据" defaultOpen={false}>
             <BarCategoriesEditor
@@ -668,6 +672,195 @@ function VoronoiDataEditor({ points, onChange }: { points: any[]; onChange: (pts
             className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** 热力图数据编辑器 — 每行「x, y, value」三元组，支持生成模拟数据（2万点验证性能） */
+function HeatmapDataEditor({ points, onChange }: { points: { x: number; y: number; value: number }[]; onChange: (pts: { x: number; y: number; value: number }[]) => void }) {
+  const parse = (raw: string): { x: number; y: number; value: number }[] =>
+    raw.split('\n').map((l) => l.trim()).filter(Boolean).map((line) => {
+      const [x, y, v] = line.split(/[,，\s]+/);
+      return { x: Number(x), y: Number(y), value: Number(v) };
+    }).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.value));
+
+  const [text, setText] = useState(points.map((p) => `${p.x}, ${p.y}, ${p.value}`).join('\n'));
+  useEffect(() => {
+    const fromText = parse(text);
+    if (JSON.stringify(fromText) !== JSON.stringify(points)) {
+      setText(points.map((p) => `${p.x}, ${p.y}, ${p.value}`).join('\n'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(points)]);
+
+  // 生成模拟热力数据（平滑螺旋云状分布，对应官方示例 sin/cos + 噪声）
+  const genMock = (count: number) => {
+    const pts: { x: number; y: number; value: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      const x = 50 + Math.sin(i / 120) * 30 + (Math.random() - 0.5) * 14;
+      const y = 50 + Math.cos(i / 90) * 30 + (Math.random() - 0.5) * 14;
+      const value = 50 + Math.sin(i / 40) * 30 + Math.random() * 15;
+      pts.push({ x: Math.round(x), y: Math.round(y), value: Math.max(0, Math.min(100, Math.round(value))) });
+    }
+    onChange(pts);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <button onClick={() => genMock(2000)}
+          className="flex-1 text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">生成模拟数据 (2千点)</button>
+        <button onClick={() => genMock(20000)}
+          className="flex-1 text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">生成模拟数据 (2万点)</button>
+      </div>
+      <textarea
+        value={text}
+        rows={6}
+        placeholder={'x, y, value（每行一组）\n如: 25, 30, 85'}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          onChange(parse(raw));
+        }}
+        className="w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors resize-y" />
+    </div>
+  );
+}
+
+/** 雷达图数据编辑器 — 指标列表（名称+最大值）+ 多系列数值（每系列一个卡片） */
+function RadarDataEditor({ indicators, series, onChange }: {
+  indicators: { name: string; max: number }[];
+  series: { name: string; value: number[] }[];
+  onChange: (inds: { name: string; max: number }[], sers: { name: string; value: number[] }[]) => void;
+}) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right w-12';
+  const inds = indicators.length ? indicators : [{ name: '指标1', max: 100 }];
+  const sers = series.length ? series : [{ name: '数据', value: inds.map(() => 0) }];
+
+  return (
+    <div className="space-y-1.5">
+      <button onClick={() => {
+        const nextInds = [...inds, { name: `指标${inds.length + 1}`, max: 100 }];
+        onChange(nextInds, sers.map((s) => ({ ...s, value: [...s.value, 0] })));
+      }}
+        className="w-full text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加指标</button>
+      <div className="flex items-center gap-1 px-1 text-[9px] text-textSecondary/40">
+        <span className="flex-1">指标名称</span>
+        <span className="w-12 text-right">最大值</span>
+        <span className="w-4" />
+      </div>
+      {inds.map((ind, i) => (
+        <div key={i} className="flex items-center gap-1 p-1 rounded bg-surface-base/50">
+          <input type="text" value={ind.name ?? ''}
+            onChange={(e) => {
+              const n = [...inds]; n[i] = { ...ind, name: e.target.value }; onChange(n, sers);
+            }}
+            className={`${inputCls} flex-1 text-left w-auto`} />
+          <input type="number" value={ind.max ?? 100} min={1} step="any"
+            onChange={(e) => {
+              if (e.target.value === '' || e.target.value === '-') return;
+              const n = [...inds]; n[i] = { ...ind, max: Number(e.target.value) }; onChange(n, sers);
+            }}
+            className={inputCls} />
+          <button onClick={() => {
+            onChange(
+              inds.filter((_, j) => j !== i),
+              sers.map((s) => ({ ...s, value: s.value.filter((_, j) => j !== i) })),
+            );
+          }}
+            className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+        </div>
+      ))}
+
+      {/* 多系列：每系列一个卡片（名称 + 每指标值） */}
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-[10px] text-textSecondary/40">数据系列</span>
+        <button
+          onClick={() => onChange(inds, [...sers, { name: `系列${sers.length + 1}`, value: inds.map(() => 0) }])}
+          className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加系列</button>
+      </div>
+      {sers.map((s, si) => (
+        <div key={si} className="mb-2 bg-surface-base/30 rounded p-1.5">
+          <div className="flex items-center gap-1 mb-1">
+            <input type="text" value={s.name ?? ''}
+              onChange={(e) => onChange(inds, sers.map((x, xi) => (xi === si ? { ...x, name: e.target.value } : x)))}
+              className="flex-1 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-0.5 text-[10px] text-accent-cool font-medium focus:outline-none focus:border-accent-cool/50 transition-colors" />
+            <button
+              onClick={() => onChange(inds, sers.filter((_, xi) => xi !== si))}
+              disabled={sers.length <= 1}
+              className="text-textSecondary/30 hover:text-negative text-xs disabled:opacity-20">×</button>
+          </div>
+          <div className="space-y-0.5">
+            {inds.map((ind, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <span className="text-[9px] text-textSecondary/25 flex-1 truncate text-right" title={ind.name}>{ind.name}</span>
+                <input type="number" value={s.value?.[i] ?? 0} step="any"
+                  onChange={(e) => {
+                    if (e.target.value === '' || e.target.value === '-') return;
+                    onChange(inds, sers.map((x, xi) => {
+                      if (xi !== si) return x;
+                      const v = [...(x.value ?? [])]; v[i] = Number(e.target.value); return { ...x, value: v };
+                    }));
+                  }}
+                  className="w-16 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 断轴走势图数据编辑器 — 每行「时间, 数值」，支持生成模拟盘中数据（午休断开） */
+function IntradayDataEditor({ points, onChange }: { points: { time: string; value: number }[]; onChange: (pts: { time: string; value: number }[]) => void }) {
+  const parse = (raw: string): { time: string; value: number }[] =>
+    raw.split('\n').map((l) => l.trim()).filter(Boolean).map((line) => {
+      const [t, v] = line.split(/[,，\s]+/);
+      return { time: t ?? '', value: Number(v) };
+    }).filter((p) => p.time !== '' && Number.isFinite(p.value));
+
+  const [text, setText] = useState(points.map((p) => `${p.time}, ${p.value}`).join('\n'));
+  useEffect(() => {
+    const fromText = parse(text);
+    if (JSON.stringify(fromText) !== JSON.stringify(points)) {
+      setText(points.map((p) => `${p.time}, ${p.value}`).join('\n'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(points)]);
+
+  // 生成模拟盘中数据：9:30-11:30 + 13:00-15:00（5 分钟间隔）
+  const genMock = () => {
+    const pts: { time: string; value: number }[] = [];
+    const mk = (h: number, m: number) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    let v = 100;
+    let i = 0;
+    const push = (h: number, m: number) => {
+      v += Math.sin(i / 6) * 0.8 + (Math.random() - 0.5) * 0.6;
+      pts.push({ time: mk(h, m), value: Math.round(v * 100) / 100 });
+      i++;
+    };
+    for (let m = 30; m <= 90; m += 5) push(9, m % 60);
+    for (let m = 0; m <= 90; m += 5) push(10, m % 60);
+    for (let m = 0; m <= 120; m += 5) push(13, m % 60);
+    onChange(pts);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <button
+        onClick={genMock}
+        className="w-full text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">生成模拟盘中数据（含午休间隔）</button>
+      <textarea
+        value={text}
+        rows={6}
+        placeholder={'时间, 数值（每行一组）\n如: 09:30, 100.5\n或: 10:05, 101.2'}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          onChange(parse(raw));
+        }}
+        className="w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors resize-y" />
     </div>
   );
 }
@@ -1391,6 +1584,12 @@ export function PropertyInspector() {
                     options: { ...(widget.options as object), showColorLegend: e.target.checked },
                   })} className="rounded" />
               </label>
+              <LabelSelectRow label="玫瑰图" value={String((widget.options as any).roseType ?? 'none')}
+                options={['none', 'radius', 'area']}
+                labels={['关闭', '按半径', '按面积']}
+                onChange={(v) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), roseType: v },
+                })} />
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="数据" defaultOpen={false}>
               <BarCategoriesEditor
@@ -1633,6 +1832,91 @@ export function PropertyInspector() {
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="样式" defaultOpen={false}>
               <ColorSwatchRow label="线颜色" value={((widget.options as Record<string, unknown>).lineColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), lineColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 散点图配置 ═══ */}
+        {widget.type === 'scatter-plot' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <VoronoiDataEditor
+                points={Array.isArray((widget.options as any).points) ? (widget.options as any).points : []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), points: pts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="点颜色" value={((widget.options as Record<string, unknown>).pointColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), pointColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">点大小</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).symbolSize ?? 8)} min={3} max={30}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), symbolSize: Math.max(3, Math.min(30, Number(e.target.value) || 8)) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 断轴走势图配置 ═══ */}
+        {widget.type === 'intraday-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <IntradayDataEditor
+                points={Array.isArray((widget.options as any).points) ? (widget.options as any).points as { time: string; value: number }[] : []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), points: pts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="线颜色" value={((widget.options as Record<string, unknown>).lineColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), lineColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 雷达图配置 ═══ */}
+        {widget.type === 'radar-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <RadarDataEditor
+                indicators={Array.isArray((widget.options as any).indicators) ? (widget.options as any).indicators : []}
+                series={Array.isArray((widget.options as any).series) ? (widget.options as any).series : []}
+                onChange={(inds, sers) => updateWidget(widget.id, { options: { ...(widget.options as object), indicators: inds, series: sers } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="线颜色" value={((widget.options as Record<string, unknown>).lineColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), lineColor: c } })} />
+              <ColorSwatchRow label="面积颜色" value={((widget.options as Record<string, unknown>).areaColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), areaColor: c } })} />
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 热力图配置 ═══ */}
+        {widget.type === 'heatmap' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <HeatmapDataEditor
+                points={Array.isArray((widget.options as any).points) ? (widget.options as any).points as { x: number; y: number; value: number }[] : []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), points: pts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <LabelSelectRow label="色板" value={String((widget.options as any).paletteKey ?? 'electric')}
+                options={['electric','ocean','fire','forest','purple']}
+                labels={['电光蓝','海洋','火焰','森林','紫罗兰']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), paletteKey: v } })} />
               <label className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-textSecondary/70">刻度线</span>
                 <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}

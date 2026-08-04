@@ -96,6 +96,10 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "large-area-chart": ["points"],
     "dynamic-time": ["points"],
     "step-line": ["points"],
+    "scatter-plot": ["points"],
+    "intraday-chart": ["points"],
+    "radar-chart": ["indicators", "series"],
+    "heatmap": ["points"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};
