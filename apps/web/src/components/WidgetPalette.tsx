@@ -31,6 +31,7 @@ import {
   Waypoints,
   Filter,
   Gauge,
+  Table2,
   Search,
   Plus,
   Trash2,
@@ -67,6 +68,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Waypoints,
   Filter,
   Gauge,
+  Table2,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -230,6 +232,28 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.stroke();
     ctx.fillStyle = '#00D4FF';
     ctx.beginPath(); ctx.arc(cx, cy + 6, 3, 0, Math.PI * 2); ctx.fill();
+
+  } else if (type === 'marquee-table') {
+    // 环形滚动表格：表头行 + 交替数据行 + 向上滚动指示
+    const rowH = (h - 24) / 4;
+    // 表头
+    ctx.fillStyle = 'rgba(0,212,255,0.2)';
+    ctx.fillRect(8, 8, w - 16, rowH);
+    ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(8, 8, w - 16, rowH);
+    // 数据行（交替色）
+    for (let i = 0; i < 3; i++) {
+      const y = 8 + rowH * (i + 1);
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)';
+      ctx.fillRect(8, y, w - 16, rowH);
+    }
+    // 向上滚动指示（右侧箭头）
+    ctx.strokeStyle = 'rgba(0,212,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(w - 16, h - 12); ctx.lineTo(w - 12, h - 18); ctx.lineTo(w - 8, h - 12);
+    ctx.stroke();
 
   } else if (type === 'bar-line-chart') {
     const bars = [[20, 52], [38, 44], [56, 38], [74, 30]];

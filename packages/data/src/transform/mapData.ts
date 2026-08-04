@@ -61,6 +61,7 @@ export function mapData(
     case 'sunburst-chart': return mapSunburst(raw, mapping);
     case 'multiple-x-axis-chart': return mapMultipleXAxis(raw, mapping);
     case 'sankey-chart': return mapSankey(raw, mapping);
+    case 'marquee-table': return mapMarqueeTable(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -1160,6 +1161,45 @@ function mapWaterPond(raw: unknown, _m: FieldMapping): Record<string, unknown> {
     return vals.length > 0 ? { value: Math.round(Math.max(...vals)) } : {};
   }
   return {};
+}
+
+/**
+ * 环形滚动表格 — 表格数据多格式适配：
+ *   1. {headers:[...], rows:[[...], ...]}
+ *   2. {columns:[...], data:[[...], ...]}
+ *   3. 对象数组 [{k1:v1, k2:v2}, ...] → 表头取首个对象键，行为值数组
+ * 输出 {headers:[string], rows:[[string|number], ...]}
+ */
+function mapMarqueeTable(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const out: Record<string, unknown> = {};
+  const headers = resolveSrc(raw, m, 'headers', 'columns', 'header', 'cols').map(String);
+  const rowsSrc = resolveSrc(raw, m, 'rows', 'data', 'items', 'list');
+
+  // 对象数组：无显式 headers → 从首个对象键推断
+  if (rowsSrc.length > 0 && rowsSrc.every((it) => !Array.isArray(it))) {
+    const first = asRecord(rowsSrc[0]);
+    const keys = Object.keys(first);
+    if (keys.length) out.headers = keys;
+    out.rows = rowsSrc.map((it) => {
+      const r = asRecord(it);
+      return keys.map((k) => {
+        const v = r[k];
+        return typeof v === 'number' ? v : String(v ?? '');
+      });
+    });
+    return out;
+  }
+
+  const rows = rowsSrc.map((it) => {
+    if (Array.isArray(it)) {
+      return it.map((v) => (typeof v === 'number' ? v : String(v ?? '')));
+    }
+    return Object.values(asRecord(it)).map((v) => (typeof v === 'number' ? v : String(v ?? '')));
+  });
+  if (headers.length) out.headers = headers;
+  if (rows.length) out.rows = rows;
+  return out.headers || out.rows ? out : {};
 }
 
 /**

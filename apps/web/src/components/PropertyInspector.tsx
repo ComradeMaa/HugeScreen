@@ -987,6 +987,67 @@ function SankeyDataEditor({ nodes, links, onChange }: {
   );
 }
 
+/** 环形滚动表格数据编辑器 — 表头（逗号分隔）+ 行数据（每行一条，逗号分隔），本地缓冲 */
+function MarqueeTableDataEditor({ headers, rows, onChange }: {
+  headers: string[];
+  rows: (string | number)[][];
+  onChange: (h: string[], r: (string | number)[][]) => void;
+}) {
+  const parseHeaders = (raw: string): string[] =>
+    raw.split(/[,，\s]+/).map((s) => s.trim()).filter((s) => s !== '');
+  const parseCells = (line: string): (string | number)[] =>
+    line.split(/[,，\t]+/).map((s) => s.trim()).filter((s) => s !== '')
+      .map((s) => (Number.isFinite(Number(s)) && s.trim() !== '' && !/[a-zA-Z+\-]/.test(s) ? Number(s) : s));
+  const parseRows = (raw: string): (string | number)[][] =>
+    raw.split('\n').map((l) => l.trim()).filter(Boolean).map(parseCells);
+
+  const [headerText, setHeaderText] = useState(headers.join(', '));
+  const [rowsText, setRowsText] = useState(rows.map((r) => r.join(', ')).join('\n'));
+
+  // 外部数据变化（REST 推送）时回写显示，仅当解析结果不一致才覆盖本地输入
+  useEffect(() => {
+    const curH = parseHeaders(headerText);
+    if (JSON.stringify(curH) !== JSON.stringify(headers)) setHeaderText(headers.join(', '));
+    const curR = parseRows(rowsText);
+    if (JSON.stringify(curR) !== JSON.stringify(rows)) {
+      setRowsText(rows.map((r) => r.join(', ')).join('\n'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(headers), JSON.stringify(rows)]);
+
+  const inputCls = 'w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors resize-y';
+
+  return (
+    <div className="space-y-2">
+      <label className="flex flex-col gap-1">
+        <span className="text-[10px] text-textSecondary/40">表头（逗号分隔）</span>
+        <input
+          value={headerText}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setHeaderText(raw);
+            onChange(parseHeaders(raw), rows);
+          }}
+          placeholder="排名, 地区, 销售额, 同比"
+          className={inputCls.replace('resize-y', '')} />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="text-[10px] text-textSecondary/40">行数据（每行一条，逗号分隔）</span>
+        <textarea
+          rows={6}
+          value={rowsText}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setRowsText(raw);
+            onChange(headers, parseRows(raw));
+          }}
+          placeholder={'1, 华东, 320, +12.4%\n2, 华南, 260, +8.2%\n3, 华北, 240, +15.7%'}
+          className={inputCls} />
+      </label>
+    </div>
+  );
+}
+
 /** 热力图数据编辑器 — 每行「x, y, value」三元组，支持生成模拟数据（2万点验证性能） */
 function HeatmapDataEditor({ points, onChange }: { points: { x: number; y: number; value: number }[]; onChange: (pts: { x: number; y: number; value: number }[]) => void }) {
   const parse = (raw: string): { x: number; y: number; value: number }[] =>
@@ -2422,6 +2483,37 @@ export function PropertyInspector() {
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), lineOpacity: Number(e.target.value) } })}
                   className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
               </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 环形滚动表格配置 ═══ */}
+        {widget.type === 'marquee-table' && (
+          <>
+            <CollapsibleFieldGroup label="数据" defaultOpen={true}>
+              <MarqueeTableDataEditor
+                headers={Array.isArray((widget.options as any).headers) ? (widget.options as any).headers : []}
+                rows={Array.isArray((widget.options as any).rows) ? (widget.options as any).rows : []}
+                onChange={(h, r) => updateWidget(widget.id, { options: { ...(widget.options as object), headers: h, rows: r } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">滚动速度 (px/s)</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).speed ?? 28)} min={5} max={200} step={1}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), speed: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <LabelSelectRow label="滚动方向" value={String((widget.options as Record<string, unknown>).direction ?? 'up')}
+                options={['up', 'down']}
+                labels={['向上', '向下']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), direction: v } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">悬停暂停</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).pauseOnHover as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), pauseOnHover: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <ColorSwatchRow label="表头颜色" value={((widget.options as Record<string, unknown>).headerColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), headerColor: c } })} />
             </CollapsibleFieldGroup>
           </>
         )}

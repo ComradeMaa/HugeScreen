@@ -106,6 +106,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "heatmap": ["points"],
     "relation-chart": ["nodes", "links"],
     "sankey-chart": ["nodes", "links"],
+    "marquee-table": ["headers", "rows"],
     "tree-chart": ["trees"],
     "treemap-chart": ["treemaps"],
     "sunburst-chart": ["sunbursts"],

@@ -196,6 +196,27 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'marquee-table': {
+          // 环形滚动表格：表头行 + 交替数据行 + 向上滚动指示
+          const mtRowH = innerH / 4;
+          ctx.fillStyle = color; ctx.globalAlpha = 0.2;
+          ctx.fillRect(innerX + innerW * 0.06, innerY, innerW * 0.88, mtRowH);
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.5; ctx.lineWidth = 0.8;
+          ctx.strokeRect(innerX + innerW * 0.06, innerY, innerW * 0.88, mtRowH);
+          for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.12)';
+            ctx.globalAlpha = 1;
+            ctx.fillRect(innerX + innerW * 0.06, innerY + mtRowH * (i + 1), innerW * 0.88, mtRowH);
+          }
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.8; ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(innerX + innerW * 0.88, innerY + innerH - innerH * 0.1);
+          ctx.lineTo(innerX + innerW * 0.92, innerY + innerH - innerH * 0.16);
+          ctx.lineTo(innerX + innerW * 0.96, innerY + innerH - innerH * 0.1);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'line-chart':
         case 'bar-line-chart': {
           const pts = [{x: 0.1, y: 0.6}, {x: 0.3, y: 0.3}, {x: 0.5, y: 0.7}, {x: 0.7, y: 0.2}, {x: 0.9, y: 0.5}];

@@ -488,6 +488,44 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    // ─── 表格类 ───
+    {
+      type: 'marquee-table',
+      name: '环形滚动表格',
+      description: '表头固定，行数据无缝循环滚动',
+      icon: 'Table2',
+      category: 'table',
+      defaultSize: { colSpan: 3, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 8 },
+      component: lazy(() => import('./table/MarqueeTableWidget').then(m => ({ default: m.MarqueeTableWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          speed: { type: 'number', title: '滚动速度' },
+          direction: { type: 'string', title: '方向', enum: ['up', 'down'] },
+          pauseOnHover: { type: 'boolean', title: '悬停暂停' },
+          headerColor: { type: 'string', title: '表头颜色' },
+          headers: { type: 'array', title: '表头' },
+          rows: { type: 'array', title: '行数据' },
+        },
+      },
+      defaultConfig: {
+        speed: 28,
+        direction: 'up',
+        pauseOnHover: true,
+        headerColor: '#00D4FF',
+        headers: ['排名', '地区', '销售额', '同比'],
+        rows: [
+          ['1', '华东', 320, '+12.4%'],
+          ['2', '华南', 260, '+8.2%'],
+          ['3', '华北', 240, '+15.7%'],
+          ['4', '西南', 190, '-3.5%'],
+          ['5', '华中', 170, '+5.1%'],
+        ],
+      },
+    },
+
     {
       type: 'tree-chart',
       name: '树形图',
