@@ -676,13 +676,14 @@ function VoronoiDataEditor({ points, onChange }: { points: any[]; onChange: (pts
   );
 }
 
-/** 矩形树图数据编辑器 — 递归嵌套：节点带名称+值，每个节点可继续添加子节点 */
-function TreemapDataEditor({ treemaps, onChange }: {
-  treemaps: { name: string; value?: number; children?: unknown[] }[];
+/** 层级数据编辑器（矩形树图/旭日图共用）— 递归嵌套：节点带名称+值，每个节点可继续添加子节点 */
+function HierarchyDataEditor({ label, data, onChange }: {
+  label: string;
+  data: { name: string; value?: number; children?: unknown[] }[];
   onChange: (ts: { name: string; value?: number; children?: unknown[] }[]) => void;
 }) {
   const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors';
-  const ts = treemaps.length ? treemaps : [];
+  const ts = data.length ? data : [];
   const depthCls = (depth: number) => `flex items-center gap-1 p-1 rounded bg-surface-base/50 ${depth > 0 ? 'mt-0.5' : ''}`;
 
   const renderNode = (
@@ -727,7 +728,7 @@ function TreemapDataEditor({ treemaps, onChange }: {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-textSecondary/40">树（节点：名称 + 值）</span>
+        <span className="text-[10px] text-textSecondary/40">{label}</span>
         <button
           onClick={() => onChange([...ts, { name: `根节点${ts.length + 1}` }])}
           className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加根节点</button>
@@ -736,7 +737,7 @@ function TreemapDataEditor({ treemaps, onChange }: {
         const next = [...ts]; next[i] = n; onChange(next);
       }, () => onChange(ts.filter((_, j) => j !== i)), i))}
       {ts.length === 0 && (
-        <div className="text-[10px] text-textSecondary/30 text-center py-2">暂无树，点击「+ 添加根节点」创建</div>
+        <div className="text-[10px] text-textSecondary/30 text-center py-2">暂无数据，点击「+ 添加根节点」创建</div>
       )}
     </div>
   );
@@ -2191,8 +2192,9 @@ export function PropertyInspector() {
         {widget.type === 'treemap-chart' && (
           <>
             <CollapsibleFieldGroup label="数值" defaultOpen={true}>
-              <TreemapDataEditor
-                treemaps={Array.isArray((widget.options as any).treemaps) ? (widget.options as any).treemaps : []}
+              <HierarchyDataEditor
+                label="树（节点：名称 + 值）"
+                data={Array.isArray((widget.options as any).treemaps) ? (widget.options as any).treemaps : []}
                 onChange={(ts) => updateWidget(widget.id, { options: { ...(widget.options as object), treemaps: ts } })} />
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="样式" defaultOpen={false}>
@@ -2212,6 +2214,46 @@ export function PropertyInspector() {
                 <span className="text-[11px] text-textSecondary/70">点击下钻</span>
                 <input type="checkbox" checked={((widget.options as Record<string, unknown>).drillDown as boolean) ?? true}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), drillDown: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 旭日图配置 ═══ */}
+        {widget.type === 'sunburst-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <HierarchyDataEditor
+                label="环（节点：名称 + 值）"
+                data={Array.isArray((widget.options as any).sunbursts) ? (widget.options as any).sunbursts : []}
+                onChange={(ts) => updateWidget(widget.id, { options: { ...(widget.options as object), sunbursts: ts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">点击下钻</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).drillDown as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), drillDown: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">顺时针</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).clockwise as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), clockwise: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <LabelSelectRow label="排序" value={String((widget.options as Record<string, unknown>).sortMode ?? 'none')}
+                options={['none', 'desc', 'asc']}
+                labels={['数据顺序', '从大到小', '从小到大']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), sortMode: v } })} />
+              <LabelSelectRow label="高亮模式" value={String((widget.options as Record<string, unknown>).focusMode ?? 'ancestor')}
+                options={['ancestor', 'descendant', 'self', 'none']}
+                labels={['祖先', '后代', '自身', '无']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), focusMode: v } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">显示标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showLabel as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLabel: e.target.checked } })}
                   className="rounded" />
               </label>
             </CollapsibleFieldGroup>

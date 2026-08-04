@@ -103,6 +103,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "relation-chart": ["nodes", "links"],
     "tree-chart": ["trees"],
     "treemap-chart": ["treemaps"],
+    "sunburst-chart": ["sunbursts"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};

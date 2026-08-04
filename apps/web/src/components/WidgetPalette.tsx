@@ -26,6 +26,7 @@ import {
   Grid3x3,
   Network,
   GitBranch,
+  Orbit,
   Plus,
   Trash2,
   Pencil,
@@ -57,6 +58,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Grid3x3,
   Network,
   GitBranch,
+  Orbit,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -452,6 +454,28 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.strokeRect(44, 10, 56, 24);
     ctx.strokeRect(44, 36, 24, 26);
     ctx.strokeRect(70, 36, 30, 26);
+
+  } else if (type === 'sunburst-chart') {
+    // 旭日图：同心环扇区（中心盘 + 三环，逐层变浅）
+    const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 8;
+    const rings = [
+      { r0: 0, r1: 0.3, alpha: 0.9, sectors: [[0, 1.8], [1.8, 3.6], [3.6, 5.2], [5.2, 6.28]] },
+      { r0: 0.3, r1: 0.62, alpha: 0.6, sectors: [[0, 2.1], [2.1, 4.3], [4.3, 6.28]] },
+      { r0: 0.62, r1: 1, alpha: 0.35, sectors: [[0, 1.4], [1.4, 3.0], [3.0, 4.6], [4.6, 6.28]] },
+    ];
+    rings.forEach((ring) => {
+      ring.sectors.forEach(([a0, a1]) => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, ring.r1 * R, a0, a1);
+        ctx.arc(cx, cy, ring.r0 * R, a1, a0, true);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(0,212,255,${ring.alpha})`;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(44,44,52,1)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+    });
 
   } else if (type === 'voronoi') {
     // Voronoi：区域分割线 + 散点

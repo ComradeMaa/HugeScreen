@@ -472,6 +472,30 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'sunburst-chart': {
+          // 旭日图：同心环扇区（中心盘 + 三环，逐层变浅）
+          const sCx = innerX + innerW / 2, sCy = innerY + innerH / 2;
+          const sR = Math.min(innerW, innerH) * 0.42;
+          const sRings = [
+            { r0: 0, r1: 0.3, alpha: 0.9, sectors: [[0, 1.8], [1.8, 3.6], [3.6, 5.2], [5.2, 6.28]] },
+            { r0: 0.3, r1: 0.62, alpha: 0.55, sectors: [[0, 2.1], [2.1, 4.3], [4.3, 6.28]] },
+            { r0: 0.62, r1: 1, alpha: 0.3, sectors: [[0, 1.4], [1.4, 3.0], [3.0, 4.6], [4.6, 6.28]] },
+          ];
+          sRings.forEach((ring) => {
+            ring.sectors.forEach(([a0, a1]) => {
+              ctx.beginPath();
+              ctx.arc(sCx, sCy, ring.r1 * sR, a0, a1);
+              ctx.arc(sCx, sCy, ring.r0 * sR, a1, a0, true);
+              ctx.closePath();
+              ctx.fillStyle = color; ctx.globalAlpha = ring.alpha;
+              ctx.fill();
+              ctx.strokeStyle = 'rgba(44,44,52,1)'; ctx.globalAlpha = 1; ctx.lineWidth = 1.5;
+              ctx.stroke();
+            });
+          });
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'voronoi': {
           // Voronoi：区域分割线 + 散点
           const vCells = [

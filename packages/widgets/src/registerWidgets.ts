@@ -393,6 +393,47 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'sunburst-chart',
+      name: '旭日图',
+      description: '层级环形占比分布',
+      icon: 'Orbit',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 4 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 8 },
+      component: lazy(() => import('./charts/SunburstWidget').then(m => ({ default: m.SunburstWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          drillDown: { type: 'boolean', title: '点击下钻' },
+          clockwise: { type: 'boolean', title: '顺时针' },
+          sortMode: { type: 'string', title: '排序', enum: ['none', 'desc', 'asc'] },
+          focusMode: { type: 'string', title: '高亮模式', enum: ['ancestor', 'descendant', 'self', 'none'] },
+          showLabel: { type: 'boolean', title: '显示标签' },
+          sunbursts: { type: 'array', title: '环形数据' },
+        },
+      },
+      defaultConfig: {
+        drillDown: true,
+        clockwise: true,
+        sortMode: 'none',
+        focusMode: 'ancestor',
+        showLabel: true,
+        sunbursts: [
+          {
+            name: '总销售额',
+            children: [
+              { name: '华东', children: [{ name: '上海', value: 320 }, { name: '杭州', value: 180 }, { name: '南京', value: 150 }] },
+              { name: '华南', children: [{ name: '广州', value: 260 }, { name: '深圳', value: 240 }] },
+              { name: '华北', children: [{ name: '北京', value: 280 }, { name: '天津', value: 120 }] },
+              { name: '西南', children: [{ name: '成都', value: 190 }, { name: '重庆', value: 170 }] },
+            ],
+          },
+        ],
+      },
+    },
+
+    {
       type: 'tree-chart',
       name: '树形图',
       description: '层级关系树，四向可切换',
