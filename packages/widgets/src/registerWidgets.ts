@@ -973,6 +973,45 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    {
+      type: 'gauge-chart',
+      name: '仪表盘',
+      description: '单值半圆进度表',
+      icon: 'Gauge',
+      category: 'chart',
+      defaultSize: { colSpan: 2, rowSpan: 2 },
+      minSize: { colSpan: 1, rowSpan: 1 },
+      maxSize: { colSpan: 4, rowSpan: 4 },
+      component: lazy(() => import('./charts/GaugeWidget').then(m => ({ default: m.GaugeWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          value: { type: 'number', title: '当前值' },
+          min: { type: 'number', title: '量程下限' },
+          max: { type: 'number', title: '量程上限' },
+          name: { type: 'string', title: '名称' },
+          unit: { type: 'string', title: '单位' },
+          progressColor: { type: 'string', title: '进度颜色' },
+          trackColor: { type: 'string', title: '轨道颜色' },
+          showProgress: { type: 'boolean', title: '进度弧' },
+          valueAnimation: { type: 'boolean', title: '数值动画' },
+          showTick: { type: 'boolean', title: '刻度指针' },
+        },
+      },
+      defaultConfig: {
+        value: 65,
+        min: 0,
+        max: 100,
+        name: '负载率',
+        unit: '%',
+        progressColor: '#00D4FF',
+        trackColor: 'rgba(255,255,255,0.08)',
+        showProgress: true,
+        valueAnimation: true,
+        showTick: true,
+      },
+    },
+
   ]);
 
   console.log(

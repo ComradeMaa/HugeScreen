@@ -522,6 +522,34 @@ function SlotChartEditors({
         </>
       )}
 
+      {/* ═══ 仪表盘 — 与主编辑器一致 ═══ */}
+      {chartType === 'gauge-chart' && (
+        <>
+          <CollapsibleFieldGroup label="数据" defaultOpen={true}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">当前值</span>
+              <input type="number" step={1}
+                value={Number(opts.value ?? 65)}
+                onChange={(e) => onUpdate({ value: Number(e.target.value) })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">名称</span>
+              <input type="text" value={String(opts.name ?? '')}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                placeholder="(空)"
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">单位</span>
+              <input type="text" value={String(opts.unit ?? '%')}
+                onChange={(e) => onUpdate({ unit: e.target.value })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors" />
+            </label>
+          </CollapsibleFieldGroup>
+        </>
+      )}
+
       {/* ═══ 水位球 — 与主编辑器一致 ═══ */}
       {chartType === 'water-pond' && (
         <>
@@ -2878,6 +2906,69 @@ export function PropertyInspector() {
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
             </label>
           </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 仪表盘配置 ═══ */}
+        {widget.type === 'gauge-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数据" defaultOpen={true}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">当前值</span>
+                <input type="number" step={1}
+                  value={Number((widget.options as any).value ?? 65)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), value: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">量程下限</span>
+                <input type="number" step={1}
+                  value={Number((widget.options as any).min ?? 0)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), min: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">量程上限</span>
+                <input type="number" step={1}
+                  value={Number((widget.options as any).max ?? 100)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), max: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">名称</span>
+                <input type="text" value={(widget.options as any).name ?? ''}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), name: e.target.value } })}
+                  placeholder="(空)"
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">单位</span>
+                <input type="text" value={(widget.options as any).unit ?? '%'}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), unit: e.target.value } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors" />
+              </label>
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="进度颜色" value={((widget.options as Record<string, unknown>).progressColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), progressColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">进度弧</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showProgress as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showProgress: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">数值滚动动画</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).valueAnimation as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), valueAnimation: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度/指针</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
           </>
         )}
 

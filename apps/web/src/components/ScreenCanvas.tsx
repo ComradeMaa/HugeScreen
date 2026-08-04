@@ -88,6 +88,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "image-widget": ["images"],
     "video-widget": ["videos"],
     "water-pond": ["value"],
+    "gauge-chart": ["value", "name", "unit"],
     "box-plot": ["categories"],
     "candlestick": ["candles"],
     "group-chart": ["xLabels", "barSeries"],

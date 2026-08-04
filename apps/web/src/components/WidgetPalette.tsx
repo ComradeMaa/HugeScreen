@@ -30,6 +30,7 @@ import {
   MoveHorizontal,
   Waypoints,
   Filter,
+  Gauge,
   Plus,
   Trash2,
   Pencil,
@@ -65,6 +66,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   MoveHorizontal,
   Waypoints,
   Filter,
+  Gauge,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -204,6 +206,30 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
+
+  } else if (type === 'gauge-chart') {
+    // 仪表盘：半圆弧轨道 + 进度弧 + 指针
+    const gR = Math.min(w, h) / 2 - 10;
+    const gStart = Math.PI * 0.75, gEnd = Math.PI * 2.25;
+    // 轨道弧
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.arc(cx, cy + 6, gR, gStart, gEnd); ctx.stroke();
+    // 进度弧（约 65%）
+    const gProg = gStart + (gEnd - gStart) * 0.65;
+    ctx.strokeStyle = '#00D4FF';
+    ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.arc(cx, cy + 6, gR, gStart, gProg); ctx.stroke();
+    // 指针
+    const ang = gStart + (gEnd - gStart) * 0.65;
+    ctx.strokeStyle = '#00D4FF';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + 6);
+    ctx.lineTo(cx + Math.cos(ang) * (gR - 8), cy + 6 + Math.sin(ang) * (gR - 8));
+    ctx.stroke();
+    ctx.fillStyle = '#00D4FF';
+    ctx.beginPath(); ctx.arc(cx, cy + 6, 3, 0, Math.PI * 2); ctx.fill();
 
   } else if (type === 'bar-line-chart') {
     const bars = [[20, 52], [38, 44], [56, 38], [74, 30]];

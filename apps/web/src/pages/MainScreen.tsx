@@ -634,6 +634,26 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'gauge-chart': {
+          // 仪表盘：半圆弧轨道 + 进度弧 + 指针
+          const gR = Math.min(innerW, innerH) * 0.35;
+          const gStart = Math.PI * 0.75, gEnd = Math.PI * 2.25;
+          ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+          ctx.lineWidth = Math.max(3, Math.min(innerW, innerH) * 0.07);
+          ctx.beginPath(); ctx.arc(cx, cy + innerH * 0.05, gR, gStart, gEnd); ctx.stroke();
+          const gProg = gStart + (gEnd - gStart) * 0.65;
+          ctx.strokeStyle = color;
+          ctx.beginPath(); ctx.arc(cx, cy + innerH * 0.05, gR, gStart, gProg); ctx.stroke();
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy + innerH * 0.05);
+          ctx.lineTo(cx + Math.cos(gProg) * (gR - 4), cy + innerH * 0.05 + Math.sin(gProg) * (gR - 4));
+          ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(cx, cy + innerH * 0.05, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'candlestick': {
           // 蜡烛图：阳线绿实心、阴线红空心
           const drawCandle = (bx: number, open: number, close: number, high: number, low: number) => {

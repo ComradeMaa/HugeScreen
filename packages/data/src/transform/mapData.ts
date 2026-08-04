@@ -41,6 +41,7 @@ export function mapData(
     case 'image-widget': return mapImage(raw, mapping);
     case 'video-widget': return mapVideo(raw, mapping);
     case 'water-pond': return mapWaterPond(raw, mapping);
+    case 'gauge-chart': return mapGauge(raw, mapping);
     case 'box-plot': return mapBoxPlot(raw, mapping);
     case 'candlestick': return mapCandlestick(raw, mapping);
     case 'group-chart': return mapGroupBar(raw, mapping);
@@ -1159,6 +1160,41 @@ function mapWaterPond(raw: unknown, _m: FieldMapping): Record<string, unknown> {
     return vals.length > 0 ? { value: Math.round(Math.max(...vals)) } : {};
   }
   return {};
+}
+
+/**
+ * 仪表盘 — 单值多格式适配：
+ *   1. 数字：{value}
+ *   2. 数组：[数字] 或 [{value, name, unit}]
+ *   3. 对象：{value/name/unit}（data 数组单元素兜底）
+ * 输出 {value, name?, unit?}
+ */
+function mapGauge(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const out: Record<string, unknown> = {};
+  const fromObj = (r: Record<string, unknown>) => {
+    const v = toNum(r[m.value || 'value'], NaN);
+    if (Number.isFinite(v)) out.value = Math.round(v);
+    const nm = r[m.name || 'name'] ?? r.title;
+    if (nm != null) out.name = String(nm);
+    const u = r[m.unit || 'unit'] ?? r.suffix;
+    if (u != null) out.unit = String(u);
+  };
+  if (typeof raw === 'number') { out.value = Math.round(raw); }
+  else if (Array.isArray(raw)) {
+    const first = raw[0];
+    if (typeof first === 'number') { out.value = Math.round(first); }
+    else if (first && typeof first === 'object') { fromObj(asRecord(first)); }
+  } else if (typeof raw === 'object') {
+    const r = asRecord(raw);
+    fromObj(r);
+    // 包装 data 数组（单元素）兜底
+    if (out.value === undefined) {
+      const data = asArray(r['data']);
+      if (data.length) fromObj(asRecord(data[0]));
+    }
+  }
+  return out;
 }
 
 function applyTitle(raw: unknown, m: FieldMapping, out: Record<string, unknown>): void {
