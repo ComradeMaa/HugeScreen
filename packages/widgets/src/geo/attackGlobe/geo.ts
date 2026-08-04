@@ -132,12 +132,13 @@ export function buildCountryMeshes(features: CountryFeature[], radius: number): 
 
       if (all2D.length < 3) continue;
 
-      // 三角剖分（外环 + 孔）— ShapeUtils.triangulateShape 需要 {x,y} 结构
+      // 三角剖分（外环 + 孔）— ShapeUtils.triangulateShape 内部调用 points[i].equals()，
+      // 必须传 THREE.Vector2（{x,y} 字面量没有 equals 方法会抛异常）
       let tris: number[][] = [];
       try {
         tris = THREE.ShapeUtils.triangulateShape(
-          all2D.slice(0, outer3D.length).map((p) => ({ x: p[0], y: p[1] })),
-          holes,
+          all2D.slice(0, outer3D.length).map((p) => new THREE.Vector2(p[0], p[1])),
+          holes.map((h) => h.map((p) => new THREE.Vector2(p.x, p.y))),
         );
       } catch {
         continue;

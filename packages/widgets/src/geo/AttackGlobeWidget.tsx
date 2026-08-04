@@ -39,7 +39,7 @@ interface SceneRef {
 }
 
 const OCEAN_COLOR = 0x141c26;      // 海洋底色（暗蓝灰）
-const LAND_COLOR = 0x2c2c34;       // 大陆填充（机甲灰半透明）
+const LAND_COLOR = 0x3a3a48;       // 大陆填充（比海洋亮一档的机甲灰，保证对比）
 const CYAN = 0x00d4ff;
 
 /**
@@ -128,12 +128,12 @@ export function AttackGlobeWidget({
         const meshes = buildCountryMeshes(countries, GLOBE_R);
         const fill = new THREE.Mesh(
           meshes.fill,
-          new THREE.MeshBasicMaterial({ color: LAND_COLOR, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
+          new THREE.MeshBasicMaterial({ color: LAND_COLOR, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
         );
         globeGroup.add(fill);
         globeGroup.add(new THREE.LineSegments(
           meshes.borders,
-          new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.4 }),
+          new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.55 }),
         ));
         if (sceneRef.current) sceneRef.current.countries = countries;
         setLoadState('ready');
