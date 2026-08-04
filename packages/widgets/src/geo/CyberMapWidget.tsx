@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { MapPinType, MapPinInstance, DataSourceConfig } from '@hugescreen/shared';
 import { computeRegionBounds, lngLatToWorld, worldToScreen, screenToWorld, xzToLngLat } from './projection';
 import { PIN_ICON_PATHS, getPinCustomIcon } from './types';
@@ -27,6 +28,8 @@ interface CyberMapWidgetProps {
   pinInstances?: MapPinInstance[];
   pinEditMode?: boolean;
   onUpdate?: (patch: Record<string, unknown>) => void;
+  /** 浏览模式交互：拖拽旋转/缩放 + 悬停区域高亮（编辑模式必须 false，避免与 dnd-kit 拖拽冲突） */
+  interactive?: boolean;
 }
 
 type LoadState = 'empty' | 'loading' | 'ready' | 'error';
@@ -45,6 +48,7 @@ export function CyberMapWidget({
   pinInstances = [],
   pinEditMode = false,
   onUpdate,
+  interactive = false,
 }: CyberMapWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const threeRef = useRef<HTMLDivElement>(null);
@@ -53,6 +57,7 @@ export function CyberMapWidget({
   const [errorMsg, setErrorMsg] = useState('');
   const [geoFeatures, setGeoFeatures] = useState<any[]>([]);
   const [sceneVersion, setSceneVersion] = useState(0);
+  const [cameraVersion, setCameraVersion] = useState(0);
   const [bounds, setBounds] = useState<ReturnType<typeof computeRegionBounds> | null>(null);
 
   const sceneRef = useRef<{
@@ -61,6 +66,10 @@ export function CyberMapWidget({
     camera: THREE.Camera;
     mapGroup: THREE.Group;
     running: boolean;
+    regionMeshes: THREE.Mesh[];
+    glowLines: THREE.LineSegments[];
+    highlightRegion: (m: THREE.Mesh) => void;
+    restoreRegion: (m: THREE.Mesh) => void;
   } | null>(null);
   const resizeObsRef = useRef<ResizeObserver | null>(null);
   const boundsRef = useRef(bounds);
@@ -164,6 +173,42 @@ export function CyberMapWidget({
     // 用 applyMatrix4 而非 rotateX：后者会居中再旋转，导致几何体偏移
     const rotM4 = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
 
+    // 悬停高亮用：底体 mesh（raycast 目标）+ 顶面辉光线框（与 mesh 同序配对）
+    const regionMeshes: THREE.Mesh[] = [];
+    const glowLines: THREE.LineSegments[] = [];
+    // 记录每个区域的原始样式，恢复时还原
+    const regionStyles = new Map<THREE.Mesh, { bodyColor: number; bodyOpacity: number; lineOpacity: number; glowOpacity: number }>();
+    const highlightRegion = (mesh: THREE.Mesh) => {
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      if (!regionStyles.has(mesh)) {
+        regionStyles.set(mesh, {
+          bodyColor: mat.color.getHex(), bodyOpacity: mat.opacity,
+          lineOpacity: 0.7, glowOpacity: 0.15,
+        });
+      }
+      mat.color.setHex(CYAN);
+      mat.opacity = 0.45;
+      mesh.parent?.children.forEach((c) => {
+        if (c instanceof THREE.LineSegments) (c.material as THREE.LineBasicMaterial).opacity = 1;
+      });
+      const idx = regionMeshes.indexOf(mesh);
+      const glow = glowLines[idx];
+      if (glow) (glow.material as THREE.LineBasicMaterial).opacity = 0.5;
+    };
+    const restoreRegion = (mesh: THREE.Mesh) => {
+      const st = regionStyles.get(mesh);
+      if (!st) return;
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      mat.color.setHex(st.bodyColor);
+      mat.opacity = st.bodyOpacity;
+      mesh.parent?.children.forEach((c) => {
+        if (c instanceof THREE.LineSegments) (c.material as THREE.LineBasicMaterial).opacity = st.lineOpacity;
+      });
+      const idx = regionMeshes.indexOf(mesh);
+      const glow = glowLines[idx];
+      if (glow) (glow.material as THREE.LineBasicMaterial).opacity = st.glowOpacity;
+    };
+
     geoFeatures.forEach((feature) => {
       const geom = feature.geometry;
       if (!geom || geom.type !== 'MultiPolygon') return;
@@ -200,10 +245,13 @@ export function CyberMapWidget({
         // ★ applyMatrix4: 直接对每个顶点乘旋转矩阵，不居中，不偏移
         geo.applyMatrix4(rotM4);
 
-        regionGroup.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        const regionMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
           color: 0x2c2c34, transparent: true, opacity: 0.25,
           side: THREE.DoubleSide, depthWrite: true,
-        })));
+        }));
+        regionMesh.userData.name = feature.properties?.name ?? '';
+        regionGroup.add(regionMesh);
+        regionMeshes.push(regionMesh);
 
         regionGroup.add(new THREE.LineSegments(
           new THREE.EdgesGeometry(geo, 15),
@@ -241,10 +289,12 @@ export function CyberMapWidget({
 
         const ggeo = new THREE.ExtrudeGeometry(shape, { steps: 1, depth: 0.3, bevelEnabled: false });
         ggeo.applyMatrix4(rotM4);
-        glowGroup.add(new THREE.LineSegments(
+        const glowLine = new THREE.LineSegments(
           new THREE.EdgesGeometry(ggeo, 15),
           new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.15 }),
-        ));
+        );
+        glowGroup.add(glowLine);
+        glowLines.push(glowLine);
       }
     });
     mapGroup.add(glowGroup);
@@ -261,7 +311,7 @@ export function CyberMapWidget({
     };
     renderOnce();
 
-    sceneRef.current = { renderer, scene, camera, mapGroup, running: false };
+    sceneRef.current = { renderer, scene, camera, mapGroup, running: false, regionMeshes, glowLines, highlightRegion, restoreRegion };
     setSceneVersion(v => v + 1);
 
     // ── ResizeObserver ──
@@ -299,6 +349,66 @@ export function CyberMapWidget({
     };
   }, [loadState, bounds, geoFeatures, thickness, showGrid]);
 
+  // ═══ 交互模式（浏览态）：OrbitControls 拖拽旋转/缩放 + Raycaster 悬停区域高亮 ═══
+  // 编辑模式 interactive=false 不启用——避免与编辑器 dnd-kit 组件拖拽抢事件（矩形树图 roam 教训）
+  useEffect(() => {
+    const sceneInfo = sceneRef.current;
+    const container = threeRef.current;
+    if (!interactive || !sceneInfo || !container) return;
+
+    const { camera, renderer, scene } = sceneInfo;
+    const controls = new OrbitControls(camera as THREE.PerspectiveCamera, renderer.domElement);
+    controls.target.set(0, -15, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 30;
+    controls.maxDistance = 500;
+    controls.maxPolarAngle = Math.PI * 0.9;   // 限制俯仰，避免钻到地图下方
+    controls.minPolarAngle = 0.05;
+    controls.update();
+    // 相机每次变化 → 版本号自增 → 地图钉/区域标签 DOM overlay 重新投影（吸附 3D 位置）
+    controls.addEventListener('change', () => setCameraVersion(v => v + 1));
+
+    // 持续渲染循环（controls.update 驱动阻尼动画）
+    let disposed = false;
+    let raf = 0;
+    const loop = () => {
+      if (disposed) return;
+      raf = requestAnimationFrame(loop);
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    loop();
+
+    // ── Raycaster 悬停高亮 ──
+    const pointer = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster();
+    let hovered: THREE.Mesh | null = null;
+    const onPointerMove = (e: PointerEvent) => {
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(sceneInfo.regionMeshes, false);
+      const hit = (hits[0]?.object as THREE.Mesh | undefined) ?? null;
+      if (hit === hovered) return;
+      if (hovered) sceneInfo.restoreRegion(hovered);
+      if (hit) sceneInfo.highlightRegion(hit);
+      hovered = hit;
+      renderer.render(scene, camera);
+    };
+    container.addEventListener('pointermove', onPointerMove);
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
+      container.removeEventListener('pointermove', onPointerMove);
+      if (hovered) sceneInfo.restoreRegion(hovered);
+      controls.dispose();
+    };
+  }, [interactive, sceneVersion]);
+
   // ═══ 钉屏幕坐标 ═══
   const pinScreenPositions = useMemo(() => {
     if (!bounds || !sceneRef.current) return [];
@@ -313,7 +423,7 @@ export function CyberMapWidget({
       const s = worldToScreen(pos, camera, cw, ch);
       return { ...pi, screenX: s.x, screenY: s.y };
     });
-  }, [pinInstances, bounds, thickness, sceneVersion]);
+  }, [pinInstances, bounds, thickness, sceneVersion, cameraVersion]);
 
   // ═══ 区域地名标签 ═══
   const regionLabels = useMemo(() => {
@@ -333,7 +443,7 @@ export function CyberMapWidget({
         const s = worldToScreen(pos, camera, cw, ch);
         return { name: f.properties.name as string, screenX: s.x, screenY: s.y };
       });
-  }, [geoFeatures, bounds, thickness, sceneVersion]);
+  }, [geoFeatures, bounds, thickness, sceneVersion, cameraVersion]);
 
   const pinTypeMap = useMemo(() => {
     const m: Record<string, MapPinType> = {};

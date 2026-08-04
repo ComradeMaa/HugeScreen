@@ -14,12 +14,13 @@ const CyberGlobe = lazy(() => import('./CyberGlobe').then(m => ({ default: m.Cyb
 
 /** 组件主体：注入实时数据（liveProps 以最高优先级覆盖静态默认值与用户配置）。
  *  当 liveProps 有内容时，自动把数据字段同步回 widget.options，保证属性面板显示最新数据。 */
-function WidgetBody({ widget, Comp, defaultConfig, compact }: {
+function WidgetBody({ widget, Comp, defaultConfig, compact, isEditing = false }: {
   widget: WidgetConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Comp: any;
   defaultConfig: Record<string, unknown>;
   compact?: boolean;
+  isEditing?: boolean;
 }) {
   const updateWidget = useEditorStore((s) => s.updateWidget);
   const isDraggingWidget = useEditorStore((s) => s.isDraggingWidget);
@@ -72,7 +73,8 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
 
   // widget.options 为最终真源 — 数据编辑器、引出线标签等 UI 元数据均在此
   // REST 数据通过 sync effect 异步写回 options，合并时自动保留 per-item 元数据
-  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={stableOnUpdate} />;
+  // ★ interactive：浏览模式（非编辑）下 3D 组件启用拖拽旋转/悬停高亮（编辑模式禁用，避免与 dnd-kit 冲突）
+  return <Comp {...defaultConfig} {...liveProps} {...(widget.options as object)} compact={compact} widgetId={widget.id} dataSource={widget.dataSource} pinEditMode={pinEditWidgetId === widget.id} onUpdate={stableOnUpdate} interactive={!isEditing} />;
 }
 
 /** 只保留数据字段，排除外观/开关字段 */
@@ -1330,7 +1332,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
             <div className="flex-1 min-h-0 w-full">
               {Comp ? (
                 <Suspense fallback={<div className="flex items-center justify-center h-full text-textSecondary/20 text-xs">...</div>}>
-                  <WidgetBody widget={widget} Comp={Comp} defaultConfig={def?.defaultConfig ?? {}} compact={isNarrowHeader} />
+                  <WidgetBody widget={widget} Comp={Comp} defaultConfig={def?.defaultConfig ?? {}} compact={isNarrowHeader} isEditing={isEditing} />
                 </Suspense>
               ) : (
                 <div className="flex items-center justify-center h-full text-textSecondary/20 text-xs">{widget.displayName}</div>
