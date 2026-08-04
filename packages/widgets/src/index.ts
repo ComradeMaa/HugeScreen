@@ -7,5 +7,4 @@ export { registerHeaderElements } from './registerHeaderElements';
 export { headerElementRegistry } from './header-elements';
 export { CompositeChartWidget } from './composite';
 export { CyberMapWidget } from './geo';
-export { CyberCityWidget } from './three-d/CyberCityWidget';
 export type { HeaderElementDefinition } from './header-elements';

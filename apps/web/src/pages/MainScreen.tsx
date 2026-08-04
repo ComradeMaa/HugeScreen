@@ -694,7 +694,6 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
-        case 'cyber-city':
         case 'cyber-globe':
         case 'cyber-sphere':
         case 'cyber-map':

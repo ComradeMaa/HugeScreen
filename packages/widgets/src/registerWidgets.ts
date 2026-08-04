@@ -306,30 +306,6 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
-    // ─── 赛博数据城市 ───
-    {
-      type: 'cyber-city',
-      name: '赛博城市',
-      description: '3D 赛博风格建筑群，基于 OSM 数据渲染线框城市',
-      icon: 'Building2',
-      category: '3d',
-      defaultSize: { colSpan: 6, rowSpan: 6 },
-      minSize: { colSpan: 3, rowSpan: 3 },
-      maxSize: { colSpan: 12, rowSpan: 12 },
-      component: lazy(() => import('./three-d/CyberCityWidget').then(m => ({ default: m.CyberCityWidget }))),
-      configSchema: {
-        type: 'object',
-        properties: {
-          heightScale: { type: 'number', title: '高度倍率' },
-          showGrid: { type: 'boolean', title: '显示网格' },
-        },
-      },
-      defaultConfig: {
-        heightScale: 1,
-        showGrid: true,
-      },
-    },
-
     {
       type: 'video-widget',
       name: '视频',
