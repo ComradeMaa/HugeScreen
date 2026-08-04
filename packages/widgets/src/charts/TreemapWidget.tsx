@@ -185,7 +185,9 @@ export function TreemapWidget({
         type: 'treemap' as const,
         data: renderData,
         nodeClick: false as const,
-        // roam 关闭：禁止拖拽平移/滚轮缩放（点按不再粘连鼠标），仅保留点击下钻 + 面包屑
+        // ★ roam 必须显式 false：treemap 默认值为 true（源码 TreemapSeries.js: roam:true），
+        // 不传该字段会启用拖拽平移/滚轮缩放，点按粘连鼠标。仅保留点击下钻 + 面包屑。
+        roam: false,
         top: breadcrumb ? 26 : 8,
         left: 8, right: 8, bottom: 8,
         label: {
