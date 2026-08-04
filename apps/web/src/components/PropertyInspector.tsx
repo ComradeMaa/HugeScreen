@@ -1203,6 +1203,84 @@ function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d:
   return <NumberArrayTextEditor data={data} onChange={onChange} placeholder="35, 42, 38, 51, 47, 55, 60 ..." />;
 }
 
+/** 多 X 轴走势图 — 单条线的数据编辑（标签 + 数值两个逗号分隔输入） */
+function AxisLineFieldsEditor({ name, color, data, onChange }: {
+  name: string;
+  color: string;
+  data: { labels?: string[]; values?: number[] } | undefined;
+  onChange: (d: { labels?: string[]; values?: number[] } | undefined) => void;
+}) {
+  const parseList = (raw: string): string[] =>
+    raw.split(/[,，\s]+/).map((s) => s.trim()).filter((s) => s !== '');
+  const parseValues = (raw: string): number[] =>
+    parseList(raw).map(Number).filter((n) => Number.isFinite(n));
+
+  const [labelText, setLabelText] = useState(data?.labels?.join(', ') ?? '');
+  const [valueText, setValueText] = useState(data?.values?.join(', ') ?? '');
+
+  // 外部数据变化（REST 推送）时回写显示，仅当解析结果不一致才覆盖本地输入
+  useEffect(() => {
+    const cur = { labels: parseList(labelText), values: parseValues(valueText) };
+    const ext = { labels: data?.labels ?? [], values: data?.values ?? [] };
+    if (JSON.stringify(cur) !== JSON.stringify(ext)) {
+      setLabelText(ext.labels.join(', '));
+      setValueText(ext.values.join(', '));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(data)]);
+
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors flex-1 min-w-0';
+
+  return (
+    <div className="p-1.5 rounded bg-surface-base/50">
+      <div className="flex items-center gap-1 mb-1">
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+        <span className="text-[10px] text-textSecondary/60">{name}</span>
+      </div>
+      <div className="flex items-center gap-1 mb-1">
+        <span className="text-[10px] text-textSecondary/40 w-8 shrink-0">标签</span>
+        <input
+          value={labelText}
+          placeholder="周一, 周二, 周三 ..."
+          onChange={(e) => {
+            const raw = e.target.value;
+            setLabelText(raw);
+            onChange({ labels: parseList(raw), values: parseValues(valueText) });
+          }}
+          className={inputCls} />
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] text-textSecondary/40 w-8 shrink-0">数值</span>
+        <input
+          value={valueText}
+          placeholder="12, 23, 34, 45 ..."
+          onChange={(e) => {
+            const raw = e.target.value;
+            setValueText(raw);
+            onChange({ labels: parseList(labelText), values: parseValues(raw) });
+          }}
+          className={inputCls} />
+      </div>
+    </div>
+  );
+}
+
+/** 多 X 轴走势图数据编辑器 — 底部/顶部两条线 */
+function MultiXAxisDataEditor({ bottom, top, onChange }: {
+  bottom: { labels?: string[]; values?: number[] } | undefined;
+  top: { labels?: string[]; values?: number[] } | undefined;
+  onChange: (b: { labels?: string[]; values?: number[] } | undefined, t: { labels?: string[]; values?: number[] } | undefined) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <AxisLineFieldsEditor name="底部线（下轴）" color="#00D4FF" data={bottom}
+        onChange={(b) => onChange(b, top)} />
+      <AxisLineFieldsEditor name="顶部线（上轴）" color="#FF8C42" data={top}
+        onChange={(t) => onChange(bottom, t)} />
+    </div>
+  );
+}
+
 /** 蜡烛图数据编辑器 — 每根 K 线: 名称 + 开盘/收盘/最高/最低 */
 function CandlestickDataEditor({ candles, onChange }: { candles: any[]; onChange: (cs: any[]) => void }) {
   const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right w-12';
@@ -2255,6 +2333,46 @@ export function PropertyInspector() {
                 <input type="checkbox" checked={((widget.options as Record<string, unknown>).showLabel as boolean) ?? true}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLabel: e.target.checked } })}
                   className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 多 X 轴走势图配置 ═══ */}
+        {widget.type === 'multiple-x-axis-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <MultiXAxisDataEditor
+                bottom={(widget.options as any).bottom}
+                top={(widget.options as any).top}
+                onChange={(b, t) => updateWidget(widget.id, { options: { ...(widget.options as object), bottom: b, top: t } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="底部线颜色" value={((widget.options as Record<string, unknown>).bottomColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), bottomColor: c } })} />
+              <ColorSwatchRow label="顶部线颜色" value={((widget.options as Record<string, unknown>).topColor as string) ?? '#FF8C42'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), topColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">平滑曲线</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).smooth as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), smooth: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">显示图例</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showLegend as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLegend: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">显示轴标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showAxisLabel as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showAxisLabel: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">轴标签旋转</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).labelRotate ?? 20)} min={0} max={90} step={1}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), labelRotate: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
               </label>
             </CollapsibleFieldGroup>
           </>

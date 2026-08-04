@@ -27,6 +27,7 @@ import {
   Network,
   GitBranch,
   Orbit,
+  MoveHorizontal,
   Plus,
   Trash2,
   Pencil,
@@ -59,6 +60,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Network,
   GitBranch,
   Orbit,
+  MoveHorizontal,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -476,6 +478,33 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
         ctx.stroke();
       });
     });
+
+  } else if (type === 'multiple-x-axis-chart') {
+    // 多 X 轴：上下双轴 + 两条折线十字交叉
+    // 顶部轴
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(10, 10); ctx.lineTo(w - 10, 10); ctx.stroke();
+    // 底部轴
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.moveTo(10, h - 10); ctx.lineTo(w - 10, h - 10); ctx.stroke();
+    // 底部折线（电光蓝，从左下向上）
+    ctx.strokeStyle = '#00D4FF';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(10, h - 16);
+    ctx.lineTo(w * 0.35, h * 0.62);
+    ctx.lineTo(w * 0.6, h * 0.4);
+    ctx.lineTo(w - 10, h * 0.2);
+    ctx.stroke();
+    // 顶部折线（琥珀橙，从右上向下）
+    ctx.strokeStyle = '#FF8C42';
+    ctx.beginPath();
+    ctx.moveTo(w - 10, 16);
+    ctx.lineTo(w * 0.65, h * 0.42);
+    ctx.lineTo(w * 0.4, h * 0.62);
+    ctx.lineTo(10, h * 0.8);
+    ctx.stroke();
 
   } else if (type === 'voronoi') {
     // Voronoi：区域分割线 + 散点

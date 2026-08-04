@@ -434,6 +434,47 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'multiple-x-axis-chart',
+      name: '多 X 轴走势图',
+      description: '上下双轴十字交叉走势',
+      icon: 'MoveHorizontal',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 4 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 8 },
+      component: lazy(() => import('./charts/MultipleXAxisWidget').then(m => ({ default: m.MultipleXAxisWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          bottomColor: { type: 'string', title: '底部线颜色' },
+          topColor: { type: 'string', title: '顶部线颜色' },
+          smooth: { type: 'boolean', title: '平滑曲线' },
+          showLegend: { type: 'boolean', title: '显示图例' },
+          labelRotate: { type: 'number', title: '轴标签旋转' },
+          showAxisLabel: { type: 'boolean', title: '显示轴标签' },
+          bottom: { type: 'object', title: '底部数据' },
+          top: { type: 'object', title: '顶部数据' },
+        },
+      },
+      defaultConfig: {
+        bottomColor: '#00D4FF',
+        topColor: '#FF8C42',
+        smooth: true,
+        showLegend: true,
+        labelRotate: 20,
+        showAxisLabel: true,
+        bottom: {
+          labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+          values: [12, 23, 34, 45, 56, 67, 78],
+        },
+        top: {
+          labels: ['甲', '乙', '丙', '丁', '戊', '己', '庚'],
+          values: [11.2, 6.3, 4.5, 5.7, 12.4, 15.7, 3.5],
+        },
+      },
+    },
+
+    {
       type: 'tree-chart',
       name: '树形图',
       description: '层级关系树，四向可切换',

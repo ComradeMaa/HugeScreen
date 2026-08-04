@@ -496,6 +496,30 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'multiple-x-axis-chart': {
+          // 多 X 轴：上下双轴 + 两条折线十字交叉
+          const mTop = innerY + innerH * 0.08, mBottom = innerY + innerH * 0.92;
+          const mLeft = innerX + innerW * 0.06, mRight = innerX + innerW * 0.94;
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.globalAlpha = 1; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(mLeft, mTop); ctx.lineTo(mRight, mTop); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(mLeft, mBottom); ctx.lineTo(mRight, mBottom); ctx.stroke();
+          ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.globalAlpha = 0.95;
+          ctx.beginPath();
+          ctx.moveTo(mLeft, mBottom - innerH * 0.08);
+          ctx.lineTo(innerX + innerW * 0.35, innerY + innerH * 0.6);
+          ctx.lineTo(innerX + innerW * 0.6, innerY + innerH * 0.38);
+          ctx.lineTo(mRight, innerY + innerH * 0.16);
+          ctx.stroke();
+          ctx.strokeStyle = '#FF8C42'; ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.moveTo(mRight, mTop + innerH * 0.08);
+          ctx.lineTo(innerX + innerW * 0.65, innerY + innerH * 0.42);
+          ctx.lineTo(innerX + innerW * 0.4, innerY + innerH * 0.62);
+          ctx.lineTo(mLeft, innerY + innerH * 0.82);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'voronoi': {
           // Voronoi：区域分割线 + 散点
           const vCells = [

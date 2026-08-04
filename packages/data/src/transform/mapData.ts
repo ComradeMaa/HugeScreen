@@ -57,6 +57,7 @@ export function mapData(
     case 'tree-chart': return mapTree(raw, mapping);
     case 'treemap-chart': return mapTreemap(raw, mapping);
     case 'sunburst-chart': return mapSunburst(raw, mapping);
+    case 'multiple-x-axis-chart': return mapMultipleXAxis(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -488,6 +489,55 @@ function mapTreemap(raw: unknown, m: FieldMapping): Record<string, unknown> {
 function mapSunburst(raw: unknown, m: FieldMapping): Record<string, unknown> {
   const trees = mapHierarchy(raw, m);
   return trees.length ? { sunbursts: trees } : {};
+}
+
+/**
+ * 多 X 轴走势图 — 两条折线分别绑定底部/顶部 category 轴：
+ *   1. {bottom:{labels,values}, top:{labels,values}}（项内兼容 labels/xLabels/categories、values/data/y）
+ *   2. [{name, labels, values}, …]（取前两项）
+ *   3. {xLabels, series:[{name, data}, …]}（共用 xLabels，取前两项）
+ * 输出 {bottom:{labels,values}, top:{labels,values}}
+ */
+function mapMultipleXAxis(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const out: Record<string, unknown> = {};
+  const line = (r: Record<string, unknown>): { labels: string[]; values: number[] } => ({
+    labels: resolveSrc(r, m, 'labels', 'xLabels', 'categories', 'x').map(String),
+    values: resolveSrc(r, m, 'values', 'data', 'y', 'seriesData').map((v) => toNum(v)),
+  });
+
+  // 数组：[{labels,values}, {labels,values}, …] → 取前两项
+  if (Array.isArray(raw)) {
+    const items = raw.map((r) => line(asRecord(r))).filter((l) => l.labels.length || l.values.length);
+    if (items.length >= 1) out.bottom = items[0];
+    if (items.length >= 2) out.top = items[1];
+    return out;
+  }
+
+  // 对象：{bottom:…, top:…}
+  const candidate = raw as Record<string, unknown>;
+  const bottomRaw = candidate['bottom'] ?? candidate['bottomSeries'] ?? candidate['s1'];
+  const topRaw = candidate['top'] ?? candidate['topSeries'] ?? candidate['s2'];
+  if (asRecord(bottomRaw) || asRecord(topRaw)) {
+    const b = line(asRecord(bottomRaw));
+    const t = line(asRecord(topRaw));
+    if (b.labels.length || b.values.length) out.bottom = b;
+    if (t.labels.length || t.values.length) out.top = t;
+    return out;
+  }
+
+  // 兜底：共用 xLabels + series 前两项
+  const labels = resolveSrc(raw, m, 'xLabels', 'categories', 'xLabels').map(String);
+  const series = resolveSrc(raw, m, 'series', 'series', 'data', 'items');
+  const first = asRecord(series[0]);
+  const second = asRecord(series[1]);
+  const mk = (r: Record<string, unknown>): { labels: string[]; values: number[] } => ({
+    labels,
+    values: asArray(r[m.data || 'data']).map((v) => toNum(v)),
+  });
+  if (labels.length && asArray(first[m.data || 'data']).length) out.bottom = mk(first);
+  if (labels.length && asArray(second[m.data || 'data']).length) out.top = mk(second);
+  return out;
 }
 
 /**
