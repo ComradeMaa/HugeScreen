@@ -182,6 +182,46 @@ export function registerBuiltinWidgets(): void {
       },
     },
 
+    // ─── 漏斗图 ───
+    {
+      type: 'funnel-chart',
+      name: '漏斗图',
+      description: '梯形转化占比分布',
+      icon: 'Filter',
+      category: 'chart',
+      defaultSize: { colSpan: 3, rowSpan: 4 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 6, rowSpan: 8 },
+      component: lazy(() => import('./charts/FunnelWidget').then(m => ({ default: m.FunnelWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          sortMode: { type: 'string', title: '排序', enum: ['desc', 'asc', 'none'] },
+          gap: { type: 'number', title: '层间距' },
+          funnelAlign: { type: 'string', title: '对齐', enum: ['left', 'center', 'right'] },
+          labelPosition: { type: 'string', title: '标签位置', enum: ['inside', 'outer'] },
+          showPercent: { type: 'boolean', title: '标签百分比' },
+          showLegend: { type: 'boolean', title: '图例' },
+          categories: { type: 'array', title: '数据类别' },
+        },
+      },
+      defaultConfig: {
+        sortMode: 'desc',
+        gap: 2,
+        funnelAlign: 'center',
+        labelPosition: 'inside',
+        showPercent: false,
+        showLegend: true,
+        categories: [
+          { name: '展现', value: 100 },
+          { name: '点击', value: 80 },
+          { name: '访问', value: 60 },
+          { name: '咨询', value: 40 },
+          { name: '订单', value: 20 },
+        ],
+      },
+    },
+
     // ─── 图片 ───
     {
       type: 'image-widget',

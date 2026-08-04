@@ -32,6 +32,7 @@ export function mapData(
   if (raw == null) return {};
   switch (chartType) {
     case 'pie-chart': return mapPie(raw, mapping);
+    case 'funnel-chart': return mapPie(raw, mapping);  // 漏斗图与饼图同数据形状 [{name,value}]
     case 'line-chart': return mapLine(raw, mapping);
     case 'bar-chart': return mapBar(raw, mapping);
     case 'bar-line-chart': return mapBarLine(raw, mapping);

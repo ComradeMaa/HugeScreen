@@ -174,6 +174,28 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'funnel-chart': {
+          // 漏斗图：梯形层叠（上宽下窄），逐层变浅
+          const fLayers = 5;
+          const fLayerH = innerH / fLayers;
+          for (let i = 0; i < fLayers; i++) {
+            const fY = innerY + i * fLayerH;
+            const halfW = (innerW / 2) * (1 - i / fLayers) * 0.9 + innerW * 0.02;
+            const halfWNext = (innerW / 2) * (1 - (i + 1) / fLayers) * 0.9 + innerW * 0.02;
+            ctx.fillStyle = color; ctx.globalAlpha = 0.85 - i * 0.15;
+            ctx.beginPath();
+            ctx.moveTo(innerX + innerW / 2 - halfW, fY);
+            ctx.lineTo(innerX + innerW / 2 + halfW, fY);
+            ctx.lineTo(innerX + innerW / 2 + halfWNext, fY + fLayerH);
+            ctx.lineTo(innerX + innerW / 2 - halfWNext, fY + fLayerH);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(44,44,52,1)'; ctx.globalAlpha = 1; ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'line-chart':
         case 'bar-line-chart': {
           const pts = [{x: 0.1, y: 0.6}, {x: 0.3, y: 0.3}, {x: 0.5, y: 0.7}, {x: 0.7, y: 0.2}, {x: 0.9, y: 0.5}];

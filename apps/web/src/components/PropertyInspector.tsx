@@ -1983,6 +1983,56 @@ export function PropertyInspector() {
           </>
         )}
 
+        {/* ═══ 漏斗图配置 ═══ */}
+        {widget.type === 'funnel-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数据" defaultOpen={true}>
+              <BarCategoriesEditor
+                categories={
+                  Array.isArray((widget.options as any).categories) && (widget.options as any).categories.length > 0
+                    ? (widget.options as any).categories
+                    : [{ name: '展现', value: 100 }, { name: '点击', value: 80 }, { name: '访问', value: 60 }, { name: '咨询', value: 40 }, { name: '订单', value: 20 }]
+                }
+                onChange={(cats) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), categories: cats },
+                })}
+              />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <LabelSelectRow label="排序" value={String((widget.options as Record<string, unknown>).sortMode ?? 'desc')}
+                options={['desc', 'asc', 'none']}
+                labels={['从大到小', '从小到大', '数据顺序']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), sortMode: v } })} />
+              <LabelSelectRow label="对齐" value={String((widget.options as Record<string, unknown>).funnelAlign ?? 'center')}
+                options={['center', 'left', 'right']}
+                labels={['居中', '居左', '居右']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), funnelAlign: v } })} />
+              <LabelSelectRow label="标签位置" value={String((widget.options as Record<string, unknown>).labelPosition ?? 'inside')}
+                options={['inside', 'outer']}
+                labels={['层内', '层外']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), labelPosition: v } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">层间距</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).gap ?? 2)} min={0} max={20} step={1}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), gap: Number(e.target.value) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">标签显示百分比</span>
+                <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showPercent}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showPercent: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">显示图例</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showLegend as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLegend: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
         {/* ═══ 柱线组合图专属配置 ═══ */}
         {widget.type === 'bar-line-chart' && (
           <CollapsibleFieldGroup label="柱线" defaultOpen={false}>

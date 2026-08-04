@@ -29,6 +29,7 @@ import {
   Orbit,
   MoveHorizontal,
   Waypoints,
+  Filter,
   Plus,
   Trash2,
   Pencil,
@@ -63,6 +64,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Orbit,
   MoveHorizontal,
   Waypoints,
+  Filter,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -181,6 +183,27 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     // Donut hole
     ctx.fillStyle = 'rgba(44,44,52,0.92)';
     ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+
+  } else if (type === 'funnel-chart') {
+    // 漏斗图：梯形层叠（上宽下窄），逐层变浅
+    const layers = 5;
+    const layerH = (h - 24) / layers;
+    for (let i = 0; i < layers; i++) {
+      const y = 12 + i * layerH;
+      const halfW = (w / 2 - 8) * (1 - i / layers) * 0.92 + 4;
+      const halfWNext = (w / 2 - 8) * (1 - (i + 1) / layers) * 0.92 + 4;
+      ctx.fillStyle = `rgba(0,212,255,${0.85 - i * 0.15})`;
+      ctx.beginPath();
+      ctx.moveTo(cx - halfW, y);
+      ctx.lineTo(cx + halfW, y);
+      ctx.lineTo(cx + halfWNext, y + layerH);
+      ctx.lineTo(cx - halfWNext, y + layerH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(44,44,52,1)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
 
   } else if (type === 'bar-line-chart') {
     const bars = [[20, 52], [38, 44], [56, 38], [74, 30]];

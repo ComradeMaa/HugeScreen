@@ -79,6 +79,7 @@ function WidgetBody({ widget, Comp, defaultConfig, compact }: {
 function pickDataFields(props: Record<string, unknown>, chartType: string): Record<string, unknown> {
   const dataKeys: Record<string, string[]> = {
     "pie-chart": ["categories"],
+    "funnel-chart": ["categories"],
     "line-chart": ["xLabels", "lineSeries"],
     "bar-chart": ["categories"],
     "bar-line-chart": ["xLabels", "mixedSeries"],
