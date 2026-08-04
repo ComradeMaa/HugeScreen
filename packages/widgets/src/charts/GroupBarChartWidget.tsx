@@ -9,10 +9,14 @@ export interface GroupBarSeries {
 interface GroupBarChartWidgetProps {
   xLabels?: string[];
   barSeries?: GroupBarSeries[];
+  /** 呈现方式（同柱状图）：vertical 竖向柱状 / horizontal 横向条形 */
+  direction?: 'vertical' | 'horizontal';
   showLabel?: boolean;
   barWidth?: string;
   /** 刻度线对齐标签（category 轴） */
   showTick?: boolean;
+  /** 按正负值着色（正绿负红）+ 显示 0 线 */
+  colorBySign?: boolean;
 }
 
 const DEFAULT_LABELS = ['周一', '周二', '周三', '周四', '周五'];
@@ -30,15 +34,18 @@ const SERIES_COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#a78bfa', '#60a5fa', '#
 export function GroupBarChartWidget({
   xLabels,
   barSeries,
+  direction = 'vertical',
   showLabel = false,
   barWidth = '40%',
   showTick = true,
+  colorBySign = false,
 }: GroupBarChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
 
   const labels = xLabels?.length ? xLabels : DEFAULT_LABELS;
   const series = barSeries?.length ? barSeries : DEFAULT_SERIES;
+  const isHorizontal = direction === 'horizontal';
 
   useEffect(() => {
     const mkSeries = (animated: boolean, zero: boolean) =>
@@ -48,18 +55,46 @@ export function GroupBarChartWidget({
         return {
           name: s.name, type: 'bar' as const, data, barWidth,
           itemStyle: {
-            borderRadius: [2, 2, 0, 0] as [number, number, number, number],
-            color: {
-              type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
-              colorStops: [{ offset: 0, color: c }, { offset: 1, color: `${c}33` }],
-            },
+            borderRadius: (isHorizontal ? [0, 2, 2, 0] : [2, 2, 0, 0]) as [number, number, number, number],
+            // 正负着色：正值绿、负值红（对应 Negative Value 样式）
+            color: colorBySign
+              ? (params: { value: number }) => (params.value >= 0 ? '#34d399' : '#f87171')
+              : {
+                  type: 'linear' as const,
+                  x: isHorizontal ? 1 : 0, y: isHorizontal ? 0 : 0,
+                  x2: isHorizontal ? 0 : 0, y2: isHorizontal ? 0 : 1,
+                  colorStops: [{ offset: 0, color: c }, { offset: 1, color: `${c}33` }],
+                },
           },
+          markLine: colorBySign ? {
+            silent: true, symbol: 'none' as const,
+            lineStyle: { color: 'rgba(255,255,255,0.25)' },
+            label: { show: false },
+            data: [{ yAxis: 0 }],
+          } : undefined,
           animation: animated, animationDuration: animated ? 800 : 0,
           animationDelay: animated ? (idx: number) => idx * 50 : undefined,
-          label: { show: showLabel, position: 'top' as const, color: c, fontSize: 9 },
+          label: { show: showLabel, position: (isHorizontal ? 'right' : 'top') as 'right' | 'top', color: c, fontSize: 9 },
           emphasis: { itemStyle: { color: '#FF8C42' } },
         };
       });
+
+    // 正负着色：值轴对称范围（0 线居中）
+    const allVals = series.flatMap((s) => s.data);
+    const signAbsMax = colorBySign && allVals.length ? Math.ceil(Math.max(...allVals.map((v) => Math.abs(v))) * 1.1) : undefined;
+    // 横向条形模式：x 轴 value、y 轴 category（同柱状图）
+    const xa = isHorizontal
+      ? { type: 'value' as const, min: colorBySign ? -signAbsMax! : undefined, max: colorBySign ? signAbsMax : undefined, axisTick: { show: showTick }, axisLabel: { color: '#9E9EA8', fontSize: 10, formatter: (v: number) => String(Math.round(v * 100) / 100) } }
+      : { type: 'category' as const, data: labels };
+    const ya = isHorizontal
+      ? { type: 'category' as const, data: labels }
+      : { type: 'value' as const, min: colorBySign ? -signAbsMax! : undefined, max: colorBySign ? signAbsMax : undefined, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } }, axisLabel: { color: '#9E9EA8', fontSize: 10, formatter: (v: number) => String(Math.round(v * 100) / 100) } };
+    const xAf = isHorizontal
+      ? { ...xa, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } }, axisLabel: { color: '#9E9EA8', fontSize: 10, formatter: (v: number) => String(Math.round(v * 100) / 100) } }
+      : { ...xa, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }, axisTick: { show: showTick, alignWithLabel: showTick }, axisLabel: { color: '#9E9EA8', fontSize: 10 } };
+    const yAf = isHorizontal
+      ? { ...ya, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }, axisTick: { show: showTick, alignWithLabel: showTick }, axisLabel: { color: '#9E9EA8', fontSize: 10 } }
+      : { ...ya, axisLabel: { color: '#9E9EA8', fontSize: 10 }, axisTick: { show: showTick } };
 
     const opt = (animated: boolean, zero = false) => ({
       animation: animated,
@@ -70,17 +105,8 @@ export function GroupBarChartWidget({
       legend: { show: false },
       color: SERIES_COLORS,
       grid: { left: 8, right: 16, top: 8, bottom: 24, containLabel: true },
-      xAxis: {
-        type: 'category' as const, data: labels,
-        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
-        axisTick: { show: showTick, alignWithLabel: showTick }, axisLabel: { color: '#9E9EA8', fontSize: 10 },
-      },
-      yAxis: {
-        type: 'value' as const,
-        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
-        axisLabel: { color: '#9E9EA8', fontSize: 10 },
-        axisTick: { show: showTick },
-      },
+      xAxis: xAf,
+      yAxis: yAf,
       series: mkSeries(animated, zero),
     });
 
@@ -95,7 +121,7 @@ export function GroupBarChartWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(series), JSON.stringify(labels), showLabel, barWidth, showTick]);
+  }, [JSON.stringify(series), JSON.stringify(labels), isHorizontal, showLabel, barWidth, showTick, colorBySign]);
 
   return (
     <div className="relative w-full h-full">

@@ -48,6 +48,7 @@ export function mapData(
     case 'confidence-band': return mapConfidenceBand(raw, mapping);
     case 'large-area-chart': return mapLargeArea(raw, mapping);
     case 'dynamic-time': return mapLargeArea(raw, mapping);  // 动态时间轴与大规模面积图同格式
+    case 'step-line': return mapStepLine(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -384,6 +385,57 @@ function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> 
         });
       }
       return { candles };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * 阶梯线图 — [x, value] 对多格式适配（x 保留原始类型，组件自动判断 time/category 轴）：
+ *   1. [[x, value], …] 对（x 可为时间戳或字符串）
+ *   2. 对象数组：[{x/name/time, value}]
+ *   3. 列式：{x/names/times:[], values:[]}
+ */
+function mapStepLine(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const xKey = m.x || 'x';
+  const valueKey = m.value || 'value';
+
+  const src = resolveSrc(raw, m, 'points', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const points = src
+      .map((it) => {
+        if (Array.isArray(it)) {
+          const x = typeof it[0] === 'string' && !Number.isNaN(parseFloat(it[0])) && /^[-.\d]+$/.test(String(it[0]))
+            ? parseFloat(String(it[0]))  // 纯数字字符串 → 数字（时间戳）
+            : it[0];
+          return { x, value: toNum(it[1]) };
+        }
+        const r = asRecord(it);
+        const xv = r[xKey] ?? r.name ?? r.time ?? r.date ?? r[0];
+        const x = typeof xv === 'string' && /^[-.\d]+$/.test(xv) ? parseFloat(xv) : xv;
+        return { x, value: toNum(r[valueKey] ?? r.y ?? r.v ?? r[1]) };
+      })
+      .filter((p) => p.x != null && Number.isFinite(p.value));
+    if (points.length > 0) return { points };
+  }
+
+  // 列式：{x/names/times:[], values:[]}
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const xArr = asArray(rec[xKey] ?? rec['names'] ?? rec['times'] ?? rec['labels']);
+    const valuesArr = asArray(rec[valueKey] ?? rec['values'] ?? rec['y']);
+    if (valuesArr.length > 0) {
+      const len = Math.max(xArr.length, valuesArr.length);
+      const points: { x: number | string; value: number }[] = [];
+      for (let i = 0; i < len; i++) {
+        const xv = xArr[i];
+        const x = typeof xv === 'string' && /^[-.\d]+$/.test(xv) ? parseFloat(xv) : xv;
+        const value = toNum(valuesArr[i]);
+        if (x != null && Number.isFinite(value)) points.push({ x, value });
+      }
+      if (points.length > 0) return { points };
     }
   }
 

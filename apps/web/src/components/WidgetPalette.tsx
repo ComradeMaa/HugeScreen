@@ -21,6 +21,7 @@ import {
   CandlestickChart,
   ChartScatter,
   ChartArea,
+  ChartLine,
   Plus,
   Trash2,
   Pencil,
@@ -47,6 +48,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   CandlestickChart,
   ChartScatter,
   ChartArea,
+  ChartLine,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -286,6 +288,19 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.lineWidth = 1.8;
     ctx.beginPath(); main.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
     main.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fillStyle = '#00D4FF'; ctx.fill(); });
+
+  } else if (type === 'step-line') {
+    // 阶梯线图：水平 + 垂直交替的阶梯折线
+    const sp = [
+      [10, h - 30], [40, h - 30], [40, h - 18], [70, h - 18], [70, h - 38],
+      [100, h - 38], [100, h - 24], [110, h - 24],
+    ];
+    ctx.strokeStyle = 'rgba(0,212,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    sp.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+    ctx.stroke();
+    sp.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fillStyle = '#00D4FF'; ctx.fill(); });
 
   } else if (type === 'dynamic-time') {
     // 动态时间轴：波形 + 滚动方向箭头

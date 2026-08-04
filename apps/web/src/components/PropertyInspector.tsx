@@ -672,6 +672,38 @@ function VoronoiDataEditor({ points, onChange }: { points: any[]; onChange: (pts
   );
 }
 
+/** 阶梯线图数据编辑器 — 每行「x, 数值」（x 纯数字自动转时间戳，否则保留字符串标签） */
+function StepLineDataEditor({ points, onChange }: { points: { x: number | string; value: number }[]; onChange: (pts: { x: number | string; value: number }[]) => void }) {
+  const parse = (raw: string): { x: number | string; value: number }[] =>
+    raw.split('\n').map((l) => l.trim()).filter(Boolean).map((line) => {
+      const [xv, v] = line.split(/[,，\s]+/);
+      const x = /^[-.\d]+$/.test(xv) ? parseFloat(xv) : xv;
+      return { x, value: Number(v) };
+    }).filter((p) => p.x != null && p.x !== '' && Number.isFinite(p.value));
+
+  const [text, setText] = useState(points.map((p) => `${p.x}, ${p.value}`).join('\n'));
+  useEffect(() => {
+    const fromText = parse(text);
+    if (JSON.stringify(fromText) !== JSON.stringify(points)) {
+      setText(points.map((p) => `${p.x}, ${p.value}`).join('\n'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(points)]);
+
+  return (
+    <textarea
+      value={text}
+      rows={6}
+      placeholder={'x, 数值（每行一组）\n如: 2026-08-04, 82\n或: 1710000000000, 95'}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        onChange(parse(raw));
+      }}
+      className="w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors resize-y" />
+  );
+}
+
 /** 大规模面积图数据编辑器 — 每行「时间戳, 数值」，支持批量粘贴与生成模拟数据 */
 function LargeAreaDataEditor({ points, onChange }: { points: { time: number; value: number }[]; onChange: (pts: { time: number; value: number }[]) => void }) {
   const parse = (raw: string): { time: number; value: number }[] =>
@@ -1244,6 +1276,13 @@ export function PropertyInspector() {
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
                   className="rounded" />
               </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">正负着色</span>
+                <input type="checkbox"
+                  checked={!!(widget.options as Record<string, unknown>).colorBySign}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), colorBySign: e.target.checked } })}
+                  className="rounded" />
+              </label>
             </CollapsibleFieldGroup>
 
             <CollapsibleFieldGroup label="数值" defaultOpen={false}>
@@ -1396,6 +1435,12 @@ export function PropertyInspector() {
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
                 className="rounded" />
             </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">正负着色</span>
+              <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).colorBySign}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), colorBySign: e.target.checked } })}
+                className="rounded" />
+            </label>
             <LabelSelectRow label="柱宽" value={String((widget.options as Record<string, unknown>).barWidth ?? '50%')}
               options={['30%','50%','70%','90%']}
               onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), barWidth: v } })} />
@@ -1413,6 +1458,15 @@ export function PropertyInspector() {
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="样式" defaultOpen={false}>
               <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">条形图</span>
+                <input type="checkbox"
+                  checked={(widget.options as Record<string, unknown>).direction === 'horizontal'}
+                  onChange={(e) => updateWidget(widget.id, {
+                    options: { ...(widget.options as object), direction: e.target.checked ? 'horizontal' : 'vertical' },
+                  })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-textSecondary/70">显示数值</span>
                 <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showLabel}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLabel: e.target.checked } })}
@@ -1422,6 +1476,12 @@ export function PropertyInspector() {
                 <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
                 <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">正负着色</span>
+                <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).colorBySign}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), colorBySign: e.target.checked } })}
                   className="rounded" />
               </label>
               <LabelSelectRow label="柱宽" value={String((widget.options as Record<string, unknown>).barWidth ?? '40%')}
@@ -1515,6 +1575,30 @@ export function PropertyInspector() {
                 onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), sampling: v } })} />
               <label className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-textSecondary/70">刻度线</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 阶梯线图配置 ═══ */}
+        {widget.type === 'step-line' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <StepLineDataEditor
+                points={Array.isArray((widget.options as any).points) ? (widget.options as any).points as { x: number | string; value: number }[] : []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), points: pts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <LabelSelectRow label="阶梯拐点" value={String((widget.options as Record<string, unknown>).step ?? 'middle')}
+                options={['start','middle','end']}
+                labels={['起点拐','中点拐','终点拐']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), step: v } })} />
+              <ColorSwatchRow label="线颜色" value={((widget.options as Record<string, unknown>).lineColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), lineColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
                 <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
                   className="rounded" />

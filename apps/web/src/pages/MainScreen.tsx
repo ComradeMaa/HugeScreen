@@ -301,6 +301,19 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'step-line': {
+          // 阶梯线图：水平 + 垂直交替的阶梯折线
+          const stPts = [
+            [0.06, 0.75], [0.28, 0.75], [0.28, 0.42], [0.5, 0.42], [0.5, 0.85],
+            [0.72, 0.85], [0.72, 0.55], [0.94, 0.55],
+          ].map(([fx, fy]) => [innerX + fx * innerW, innerY + fy * innerH]);
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.5;
+          ctx.beginPath(); stPts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+          ctx.fillStyle = color; ctx.globalAlpha = 0.9;
+          stPts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); });
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'dynamic-time': {
           // 动态时间轴：波形 + 滚动方向箭头
           const dtVals = [0.45, 0.65, 0.5, 0.75, 0.55, 0.85, 0.6, 0.7, 0.5, 0.65, 0.45];

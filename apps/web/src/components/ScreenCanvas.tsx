@@ -95,6 +95,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "confidence-band": ["xLabels", "mainSeries", "upper", "lower"],
     "large-area-chart": ["points"],
     "dynamic-time": ["points"],
+    "step-line": ["points"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};

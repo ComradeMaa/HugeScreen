@@ -93,6 +93,7 @@ export function registerBuiltinWidgets(): void {
         direction: 'vertical',
         showLabel: false,
         showTick: true,
+        colorBySign: false,
         labelFontSize: '10px', labelFontWeight: '600', labelColor: '#FF8C42', barWidth: '50%',
         categories: [
           { name: '类别A', value: 182 },
@@ -132,6 +133,7 @@ export function registerBuiltinWidgets(): void {
         barWidth: '50%',
         showLabel: false,
         showTick: true,
+        colorBySign: false,
         xLabels: ['2020', '2021', '2022', '2023', '2024', '2025'],
         mixedSeries: [
           { name: '带宽', unit: 'T', type: 'bar', data: [0.6, 1.1, 1.8, 2.4, 3.2, 3.9] },
@@ -352,6 +354,31 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'step-line',
+      name: '阶梯线图',
+      description: '阶梯状态变化折线',
+      icon: 'ChartLine',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/StepLineWidget').then(m => ({ default: m.StepLineWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          step: { type: 'string', title: '阶梯拐点', enum: ['start','middle','end'] },
+          lineColor: { type: 'string', title: '线颜色' },
+          points: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        step: 'middle',
+        lineColor: '#00D4FF',
+        showTick: true,
+      },
+    },
+
+    {
       type: 'dynamic-time',
       name: '动态时间轴',
       description: '实时滚动曲线，定时追加数据',
@@ -504,8 +531,10 @@ export function registerBuiltinWidgets(): void {
         },
       },
       defaultConfig: {
+        direction: 'vertical',
         showLabel: false,
         showTick: true,
+        colorBySign: false,
         barWidth: '40%',
         xLabels: ['周一', '周二', '周三', '周四', '周五'],
         barSeries: [

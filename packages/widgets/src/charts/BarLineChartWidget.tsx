@@ -17,6 +17,8 @@ interface BarLineChartWidgetProps {
   showLabel?: boolean;
   /** 刻度线对齐标签（category 轴） */
   showTick?: boolean;
+  /** 按正负值着色（正绿负红）+ 显示 0 线 */
+  colorBySign?: boolean;
 }
 
 const DEFAULT_LABELS = ['2020', '2021', '2022', '2023', '2024', '2025'];
@@ -34,7 +36,7 @@ const SERIES_COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#a78bfa', '#60a5fa', '#
 export function BarLineChartWidget({
   xLabels, mixedSeries,
   smooth = true, showArea = false, barWidth = '50%', showLabel = false,
-  showTick = true,
+  showTick = true, colorBySign = false,
 }: BarLineChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
@@ -70,17 +72,30 @@ export function BarLineChartWidget({
           name: s.name, type: 'bar' as const, yAxisIndex: 0, data, barWidth,
           itemStyle: {
             borderRadius: [3, 3, 0, 0] as [number, number, number, number],
-            color: {
-              type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
-              colorStops: [{ offset: 0, color: c }, { offset: 1, color: `${c}33` }],
-            },
+            // 正负着色：正值绿、负值红（对应 Negative Value 样式）
+            color: colorBySign
+              ? (params: { value: number }) => (params.value >= 0 ? '#34d399' : '#f87171')
+              : {
+                  type: 'linear' as const, x: 0, y: 0, x2: 0, y2: 1,
+                  colorStops: [{ offset: 0, color: c }, { offset: 1, color: `${c}33` }],
+                },
           },
+          markLine: colorBySign ? {
+            silent: true, symbol: 'none' as const,
+            lineStyle: { color: 'rgba(255,255,255,0.25)' },
+            label: { show: false },
+            data: [{ yAxis: 0 }],
+          } : undefined,
           animation: animated, animationDuration: animated ? 800 : 0,
           animationDelay: animated ? (idx: number) => idx * 50 : undefined,
           label: { show: showLabel, position: 'top' as const, color: c, fontSize: 10 },
           emphasis: { itemStyle: { color: '#FF8C42' } },
         };
       });
+
+    // 正负着色：bar 系列（左轴）值轴对称范围（0 线居中）
+    const barVals = series.filter((s) => s.type === 'bar').flatMap((s) => s.data);
+    const signAbsMax = colorBySign && barVals.length ? Math.ceil(Math.max(...barVals.map((v) => Math.abs(v))) * 1.1) : undefined;
 
     const opt = (animated: boolean, zero = false) => ({
       animation: animated,
@@ -101,8 +116,10 @@ export function BarLineChartWidget({
           type: 'value' as const, position: 'left' as const,
           name: hasBar ? barUnit : '',
           nameTextStyle: { color: '#9E9EA8', fontSize: 9 },
+          min: colorBySign ? -signAbsMax! : undefined,
+          max: colorBySign ? signAbsMax : undefined,
           splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
-          axisLabel: { color: '#9E9EA8', fontSize: 10 },
+          axisLabel: { color: '#9E9EA8', fontSize: 10, formatter: (v: number) => String(Math.round(v * 100) / 100) },
           axisTick: { show: showTick },
         },
         {
@@ -128,7 +145,7 @@ export function BarLineChartWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(series), JSON.stringify(labels), smooth, showArea, barWidth, showLabel, showTick]);
+  }, [JSON.stringify(series), JSON.stringify(labels), smooth, showArea, barWidth, showLabel, showTick, colorBySign]);
 
   return (
     <div className="relative w-full h-full">
