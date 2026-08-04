@@ -15,6 +15,8 @@ interface BoxPlotWidgetProps {
   categories?: BoxPlotCategory[];
   boxColor?: string;
   boxWidth?: number;
+  /** 刻度线对齐标签（category 轴） */
+  showTick?: boolean;
 }
 
 const DEFAULT_CATEGORIES: BoxPlotCategory[] = [
@@ -33,6 +35,7 @@ export function BoxPlotWidget({
   categories,
   boxColor = '#00D4FF',
   boxWidth = 20,
+  showTick = true,
 }: BoxPlotWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
@@ -79,7 +82,7 @@ export function BoxPlotWidget({
         type: 'category' as const,
         data: catLabels,
         axisLabel: { color: '#9E9EA8', fontSize: 10 },
-        axisTick: { show: false },
+        axisTick: { show: showTick, alignWithLabel: showTick },
         axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
       },
       yAxis: {
@@ -87,6 +90,7 @@ export function BoxPlotWidget({
         max: yMax,
         splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
         axisLabel: { color: '#9E9EA8', fontSize: 10 },
+        axisTick: { show: showTick },
       },
       series: [{
         type: 'boxplot' as const,
@@ -139,7 +143,7 @@ export function BoxPlotWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(catLabels), JSON.stringify(boxData), boxColor, boxWidth, cats.length]);
+  }, [JSON.stringify(catLabels), JSON.stringify(boxData), boxColor, boxWidth, cats.length, showTick]);
 
   return <div ref={chartRef} className="w-full h-full" />;
 }

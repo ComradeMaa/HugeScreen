@@ -92,6 +92,7 @@ export function registerBuiltinWidgets(): void {
       defaultConfig: {
         direction: 'vertical',
         showLabel: false,
+        showTick: true,
         labelFontSize: '10px', labelFontWeight: '600', labelColor: '#FF8C42', barWidth: '50%',
         categories: [
           { name: '类别A', value: 182 },
@@ -130,6 +131,7 @@ export function registerBuiltinWidgets(): void {
         showArea: false,
         barWidth: '50%',
         showLabel: false,
+        showTick: true,
         xLabels: ['2020', '2021', '2022', '2023', '2024', '2025'],
         mixedSeries: [
           { name: '带宽', unit: 'T', type: 'bar', data: [0.6, 1.1, 1.8, 2.4, 3.2, 3.9] },
@@ -338,6 +340,7 @@ export function registerBuiltinWidgets(): void {
       defaultConfig: {
         boxColor: '#00D4FF',
         boxWidth: 20,
+        showTick: true,
         categories: [
           { name: 'A组', min: 10, q1: 30, median: 45, q3: 60, max: 85 },
           { name: 'B组', min: 15, q1: 35, median: 50, q3: 65, max: 90 },
@@ -345,6 +348,90 @@ export function registerBuiltinWidgets(): void {
           { name: 'D组', min: 12, q1: 32, median: 48, q3: 62, max: 88 },
           { name: 'E组', min: 8,  q1: 28, median: 42, q3: 58, max: 80 },
         ],
+      },
+    },
+
+    {
+      type: 'dynamic-time',
+      name: '动态时间轴',
+      description: '实时滚动曲线，定时追加数据',
+      icon: 'ChartArea',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/DynamicTimeWidget').then(m => ({ default: m.DynamicTimeWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          dynamic: { type: 'boolean', title: '动态追加' },
+          interval: { type: 'number', title: '更新间隔(ms)' },
+          windowSize: { type: 'number', title: '滑窗大小' },
+          lineColor: { type: 'string', title: '线颜色' },
+          points: { type: 'array', title: '初始数据' },
+        },
+      },
+      defaultConfig: {
+        dynamic: true,
+        interval: 1000,
+        windowSize: 60,
+        lineColor: '#00D4FF',
+        showTick: true,
+      },
+    },
+
+    {
+      type: 'large-area-chart',
+      name: '大规模面积图',
+      description: '时间序列面积图，支持大数据量',
+      icon: 'ChartArea',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/LargeAreaChartWidget').then(m => ({ default: m.LargeAreaChartWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          lineColor: { type: 'string', title: '线颜色' },
+          areaColor: { type: 'string', title: '面积颜色' },
+          sampling: { type: 'string', title: '降采样', enum: ['lttb','average','max','min','sum','none'] },
+          points: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        lineColor: '#00D4FF',
+        areaColor: '#00D4FF',
+        sampling: 'lttb',
+        showTick: true,
+      },
+    },
+
+    {
+      type: 'confidence-band',
+      name: '置信区间图',
+      description: '主线 + 上下界区间填充',
+      icon: 'LineChart',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/ConfidenceBandWidget').then(m => ({ default: m.ConfidenceBandWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          bandColor: { type: 'string', title: '区间颜色' },
+          lineColor: { type: 'string', title: '主线颜色' },
+          xLabels: { type: 'array', title: 'X轴标签' },
+          mainSeries: { type: 'object', title: '主线' },
+          upper: { type: 'array', title: '上界' },
+          lower: { type: 'array', title: '下界' },
+        },
+      },
+      defaultConfig: {
+        bandColor: '#00D4FF',
+        lineColor: '#00D4FF',
+        showTick: true,
       },
     },
 
@@ -393,6 +480,7 @@ export function registerBuiltinWidgets(): void {
       defaultConfig: {
         binCount: 10,
         barColor: '#00D4FF',
+        showTick: true,
       },
     },
 
@@ -417,6 +505,7 @@ export function registerBuiltinWidgets(): void {
       },
       defaultConfig: {
         showLabel: false,
+        showTick: true,
         barWidth: '40%',
         xLabels: ['周一', '周二', '周三', '周四', '周五'],
         barSeries: [

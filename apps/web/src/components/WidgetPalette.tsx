@@ -20,6 +20,7 @@ import {
   Droplets,
   CandlestickChart,
   ChartScatter,
+  ChartArea,
   Plus,
   Trash2,
   Pencil,
@@ -45,6 +46,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Droplets,
   CandlestickChart,
   ChartScatter,
+  ChartArea,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -257,6 +259,64 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
       const bh = maxH * heights[i];
       ctx.fillRect(10 + i * barW + 1, baseY - bh, barW - 2, bh);
     }
+
+  } else if (type === 'confidence-band') {
+    // 置信区间带：主线 + 上下界淡色带
+    const pts = (vals: number[]) => vals.map((v, i) => [10 + i * ((w - 20) / 4), h - 14 - v * 0.5]);
+    const upper = pts([0.7, 0.55, 0.75, 0.6, 0.8]);
+    const lower = pts([0.3, 0.2, 0.35, 0.25, 0.4]);
+    const main = pts([0.5, 0.4, 0.55, 0.45, 0.6]);
+    // 带填充
+    ctx.fillStyle = 'rgba(0,212,255,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(upper[0][0], upper[0][1]);
+    upper.forEach(([x, y]) => ctx.lineTo(x, y));
+    lower.slice().reverse().forEach(([x, y]) => ctx.lineTo(x, y));
+    ctx.closePath(); ctx.fill();
+    // 上下界虚线
+    ctx.strokeStyle = 'rgba(0,212,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    for (const pts2 of [upper, lower]) {
+      ctx.beginPath(); pts2.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // 主线
+    ctx.strokeStyle = '#00D4FF';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath(); main.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+    main.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fillStyle = '#00D4FF'; ctx.fill(); });
+
+  } else if (type === 'dynamic-time') {
+    // 动态时间轴：波形 + 滚动方向箭头
+    const dv = [0.45, 0.65, 0.5, 0.75, 0.55, 0.85, 0.6, 0.7, 0.5, 0.65, 0.45];
+    const dp = dv.map((v, i) => [10 + i * ((w - 20) / (dv.length - 1)), h - 14 - v * 0.45]);
+    ctx.strokeStyle = 'rgba(0,212,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); dp.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+    // 尾部箭头（向右滚动）
+    const tail = dp[dp.length - 1];
+    ctx.fillStyle = '#00D4FF';
+    ctx.beginPath();
+    ctx.moveTo(tail[0] + 4, tail[1]);
+    ctx.lineTo(tail[0] - 2, tail[1] - 3.5);
+    ctx.lineTo(tail[0] - 2, tail[1] + 3.5);
+    ctx.closePath(); ctx.fill();
+
+  } else if (type === 'large-area-chart') {
+    // 大规模面积图：密集波形 + 渐变面积
+    const wv = (pts: number[]) => pts.map((v, i) => [10 + i * ((w - 20) / (pts.length - 1)), h - 14 - v * 0.45]);
+    const wave = wv([0.5, 0.7, 0.45, 0.8, 0.55, 0.9, 0.6, 0.75, 0.4, 0.65, 0.5]);
+    ctx.fillStyle = 'rgba(0,212,255,0.2)';
+    ctx.beginPath();
+    ctx.moveTo(wave[0][0], wave[0][1]);
+    wave.forEach(([x, y]) => ctx.lineTo(x, y));
+    ctx.lineTo(wave[wave.length - 1][0], h - 12);
+    ctx.lineTo(wave[0][0], h - 12);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,212,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); wave.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
 
   } else if (type === 'voronoi') {
     // Voronoi：区域分割线 + 散点

@@ -279,6 +279,60 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'confidence-band': {
+          // 置信区间带：主线 + 上下界淡色带
+          const mkPts = (vals: number[]) => vals.map((v, i) => [innerX + i * (innerW / 4), innerY + innerH * 0.85 - v * innerH * 0.6]);
+          const cbUp = mkPts([0.7, 0.55, 0.75, 0.6, 0.8]);
+          const cbLow = mkPts([0.3, 0.2, 0.35, 0.25, 0.4]);
+          const cbMain = mkPts([0.5, 0.4, 0.55, 0.45, 0.6]);
+          ctx.fillStyle = color; ctx.globalAlpha = 0.15;
+          ctx.beginPath();
+          ctx.moveTo(cbUp[0][0], cbUp[0][1]);
+          cbUp.forEach(([x, y]) => ctx.lineTo(x, y));
+          cbLow.slice().reverse().forEach(([x, y]) => ctx.lineTo(x, y));
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.8; ctx.setLineDash([2, 2]);
+          for (const pts2 of [cbUp, cbLow]) {
+            ctx.beginPath(); pts2.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+          }
+          ctx.setLineDash([]);
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.5;
+          ctx.beginPath(); cbMain.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'dynamic-time': {
+          // 动态时间轴：波形 + 滚动方向箭头
+          const dtVals = [0.45, 0.65, 0.5, 0.75, 0.55, 0.85, 0.6, 0.7, 0.5, 0.65, 0.45];
+          const dtPts = dtVals.map((v, i) => [innerX + i * (innerW / (dtVals.length - 1)), innerY + innerH * 0.85 - v * innerH * 0.6]);
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.5;
+          ctx.beginPath(); dtPts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+          const dtTail = dtPts[dtPts.length - 1];
+          ctx.fillStyle = color; ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.moveTo(dtTail[0] + 4, dtTail[1]);
+          ctx.lineTo(dtTail[0] - 2, dtTail[1] - 3.5);
+          ctx.lineTo(dtTail[0] - 2, dtTail[1] + 3.5);
+          ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'large-area-chart': {
+          // 大规模面积图：密集波形 + 渐变面积
+          const laVals = [0.5, 0.7, 0.45, 0.8, 0.55, 0.9, 0.6, 0.75, 0.4, 0.65, 0.5];
+          const laPts = laVals.map((v, i) => [innerX + i * (innerW / (laVals.length - 1)), innerY + innerH * 0.85 - v * innerH * 0.6]);
+          ctx.fillStyle = color; ctx.globalAlpha = 0.15;
+          ctx.beginPath();
+          ctx.moveTo(laPts[0][0], laPts[0][1]);
+          laPts.forEach(([x, y]) => ctx.lineTo(x, y));
+          ctx.lineTo(laPts[laPts.length - 1][0], innerY + innerH * 0.85);
+          ctx.lineTo(laPts[0][0], innerY + innerH * 0.85);
+          ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.5;
+          ctx.beginPath(); laPts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)); ctx.stroke();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'voronoi': {
           // Voronoi：区域分割线 + 散点
           const vCells = [

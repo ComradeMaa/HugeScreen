@@ -7,6 +7,8 @@ interface HistogramWidgetProps {
   /** 分箱数量 */
   binCount?: number;
   barColor?: string;
+  /** 刻度线对齐标签（category 轴） */
+  showTick?: boolean;
 }
 
 // 钟形分布示例数据（60 个样本，均值 50 附近）
@@ -54,6 +56,7 @@ export function HistogramWidget({
   data,
   binCount = 10,
   barColor = '#00D4FF',
+  showTick = true,
 }: HistogramWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
@@ -84,7 +87,7 @@ export function HistogramWidget({
         type: 'category' as const,
         data: binLabels,
         axisLabel: { color: '#9E9EA8', fontSize: 9, interval: Math.max(0, Math.ceil(binLabels.length / 8) - 1) },
-        axisTick: { show: false },
+        axisTick: { show: showTick, alignWithLabel: showTick, interval: Math.max(0, Math.ceil(binLabels.length / 8) - 1) },
         axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
       },
       yAxis: {
@@ -96,6 +99,7 @@ export function HistogramWidget({
           // 清理浮点误差刻度（如 12.649999999999999 → 12.65）
           formatter: (v: number) => String(Math.round(v * 100) / 100),
         },
+        axisTick: { show: showTick },
       },
       series: [{
         name: '频数', type: 'bar' as const, data: binValues,
@@ -125,7 +129,7 @@ export function HistogramWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(binLabels), JSON.stringify(binValues), barColor]);
+  }, [JSON.stringify(binLabels), JSON.stringify(binValues), barColor, showTick]);
 
   return <div ref={chartRef} className="w-full h-full" />;
 }

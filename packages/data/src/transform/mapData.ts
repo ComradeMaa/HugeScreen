@@ -45,6 +45,9 @@ export function mapData(
     case 'group-chart': return mapGroupBar(raw, mapping);
     case 'histogram': return mapHistogram(raw, mapping);
     case 'voronoi': return mapVoronoi(raw, mapping);
+    case 'confidence-band': return mapConfidenceBand(raw, mapping);
+    case 'large-area-chart': return mapLargeArea(raw, mapping);
+    case 'dynamic-time': return mapLargeArea(raw, mapping);  // 动态时间轴与大规模面积图同格式
     default: return asRecord(raw);
   }
 }
@@ -385,6 +388,98 @@ function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> 
   }
 
   return {};
+}
+
+/**
+ * 大规模面积图（时间序列）— 多格式适配：
+ *   1. 官方格式：[[timestamp, value], …]
+ *   2. 对象数组：[{time/date/t, value/y/v}, …]
+ *   3. 列式：{times/dates:[], values:[]}
+ * 时间键统一转时间戳（ISO 字符串 → Date.parse），输出 {points:[{time, value}]}
+ */
+function mapLargeArea(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const toTs = (v: unknown): number => {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const n = parseFloat(v);
+      if (Number.isFinite(n) && !/[:T-]/.test(v)) return n;  // 纯数字字符串 → 直接当时间戳
+      const d = Date.parse(v);                                 // ISO/日期字符串 → 时间戳
+      return Number.isFinite(d) ? d : NaN;
+    }
+    return NaN;
+  };
+  const toVal = (v: unknown) => (typeof v === 'number' ? v : parseFloat(String(v ?? '')));
+
+  const src = resolveSrc(raw, m, 'points', 'data', 'items', 'series');
+  if (src.length > 0) {
+    const timeKey = m.time || 'time';
+    const valueKey = m.value || 'value';
+    const points = src
+      .map((it) => {
+        // 官方格式 [ts, value]
+        if (Array.isArray(it)) {
+          return { time: toTs(it[0]), value: toVal(it[1]) };
+        }
+        const r = asRecord(it);
+        return {
+          time: toTs(r[timeKey] ?? r.t ?? r.date ?? r.x ?? r[0]),
+          value: toVal(r[valueKey] ?? r.y ?? r.v ?? r[1]),
+        };
+      })
+      .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
+    if (points.length > 0) return { points };
+  }
+
+  // 列式：{times:[], values:[]} / {dates:[], values:[]} / {x:[], y:[]}
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const timesArr = asArray(rec[m.time || 'times'] ?? rec['times'] ?? rec['dates'] ?? rec['x']);
+    const valuesArr = asArray(rec[m.value || 'values'] ?? rec['values'] ?? rec['y']);
+    if (valuesArr.length > 0) {
+      const len = Math.max(timesArr.length, valuesArr.length);
+      const points: { time: number; value: number }[] = [];
+      for (let i = 0; i < len; i++) {
+        const time = toTs(timesArr[i]);
+        const value = toVal(valuesArr[i]);
+        if (Number.isFinite(time) && Number.isFinite(value)) points.push({ time, value });
+      }
+      if (points.length > 0) return { points };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * 置信区间带 — 参照 mapLine：xLabels + 主线 → {xLabels, mainSeries, upper, lower}
+ * 上下界支持 mapping 自定义路径 + 常见键名（upper/lower/ci_upper/ci_lower 等）。
+ */
+function mapConfidenceBand(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const labels = resolveSrc(raw, m, 'xLabels', 'categories').map(String);
+  if (labels.length) out.xLabels = labels;
+
+  // 主线：series 数组第一项，或 mapping.series 指定
+  const series = resolveSrc(raw, m, 'series', 'series', 'data', 'items');
+  const main = asRecord(series[0]);
+  if (main) {
+    out.mainSeries = {
+      name: String(main[m.name || 'name'] ?? '观测值'),
+      data: asArray(main[m.data || 'data']).map((v) => toNum(v)),
+    };
+  }
+
+  // 上下界：对象字段（支持 mapping + 常见键名）
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const upperArr = asArray(rec[m.upper || 'upper'] ?? rec['ci_upper'] ?? rec['ciUpper'] ?? rec['band_upper']);
+    const lowerArr = asArray(rec[m.lower || 'lower'] ?? rec['ci_lower'] ?? rec['ciLower'] ?? rec['band_lower']);
+    if (upperArr.length) out.upper = upperArr.map((v) => toNum(v));
+    if (lowerArr.length) out.lower = lowerArr.map((v) => toNum(v));
+  }
+
+  return out;
 }
 
 /**

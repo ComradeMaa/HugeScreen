@@ -11,6 +11,8 @@ interface BarChartWidgetProps {
   showLabel?: boolean;
   labelFontSize?: string; labelFontWeight?: string; labelColor?: string;
   barWidth?: string;
+  /** 刻度线对齐标签（category 轴） */
+  showTick?: boolean;
 }
 
 const DEFAULT_CATEGORIES: BarCategory[] = [
@@ -23,6 +25,7 @@ export function BarChartWidget({
   xLabels, series, categories,
   direction = 'vertical', showLabel = false,
   labelFontSize = '10px', labelFontWeight = '600', labelColor = '#FF8C42', barWidth = '50%',
+  showTick = true,
 }: BarChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const isHorizontal = direction === 'horizontal';
@@ -42,13 +45,13 @@ export function BarChartWidget({
     const xMax = isHorizontal && showLabel && dataMax > 0 ? dataMax * 1.18 : undefined;
     const needZoom = !isHorizontal && cats.length > ZOOM_THRESHOLD;
 
-    const xa = isHorizontal ? { type: 'value' as const, max: xMax }
+    const xa = isHorizontal ? { type: 'value' as const, max: xMax, axisTick: { show: showTick } }
       : { type: 'category' as const, data: catLabels, axisLabel: { color: '#9E9EA8', fontSize: 10 } };
     const ya = isHorizontal ? { type: 'category' as const, data: catLabels, axisLabel: { color: '#9E9EA8', fontSize: 10 } }
-      : { type: 'value' as const, max: yMax, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } }, axisLabel: { color: '#9E9EA8', fontSize: 10 } };
+      : { type: 'value' as const, max: yMax, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } }, axisLabel: { color: '#9E9EA8', fontSize: 10 }, axisTick: { show: showTick } };
     const xAf = isHorizontal ? { ...xa, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } }, axisLabel: { color: '#9E9EA8', fontSize: 10 } }
-      : { ...xa, axisTick: { show: false }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } };
-    const yAf = isHorizontal ? { ...ya, axisTick: { show: false }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } } : ya;
+      : { ...xa, axisTick: { show: showTick, alignWithLabel: showTick }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } };
+    const yAf = isHorizontal ? { ...ya, axisTick: { show: showTick, alignWithLabel: showTick }, axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } } } : ya;
     const gridTop = !isHorizontal && showLabel ? 20 : 4;
     const gridBottom = needZoom ? 36 : (isHorizontal ? 4 : 24);
 
@@ -101,7 +104,7 @@ export function BarChartWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(catLabels), JSON.stringify(catValues), isHorizontal, showLabel, barWidth, labelFontSize, labelFontWeight, labelColor, cats.length]);
+  }, [JSON.stringify(catLabels), JSON.stringify(catValues), isHorizontal, showLabel, barWidth, labelFontSize, labelFontWeight, labelColor, cats.length, showTick]);
 
   return <div ref={chartRef} className="w-full h-full" />;
 }

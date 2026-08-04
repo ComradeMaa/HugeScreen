@@ -15,6 +15,8 @@ interface BarLineChartWidgetProps {
   showArea?: boolean;
   barWidth?: string;
   showLabel?: boolean;
+  /** 刻度线对齐标签（category 轴） */
+  showTick?: boolean;
 }
 
 const DEFAULT_LABELS = ['2020', '2021', '2022', '2023', '2024', '2025'];
@@ -32,6 +34,7 @@ const SERIES_COLORS = ['#00D4FF', '#FF8C42', '#34d399', '#a78bfa', '#60a5fa', '#
 export function BarLineChartWidget({
   xLabels, mixedSeries,
   smooth = true, showArea = false, barWidth = '50%', showLabel = false,
+  showTick = true,
 }: BarLineChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
@@ -91,7 +94,7 @@ export function BarLineChartWidget({
       xAxis: {
         type: 'category' as const, data: labels,
         axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
-        axisTick: { show: false }, axisLabel: { color: '#9E9EA8', fontSize: 10 },
+        axisTick: { show: showTick, alignWithLabel: showTick }, axisLabel: { color: '#9E9EA8', fontSize: 10 },
       },
       yAxis: [
         {
@@ -100,6 +103,7 @@ export function BarLineChartWidget({
           nameTextStyle: { color: '#9E9EA8', fontSize: 9 },
           splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
           axisLabel: { color: '#9E9EA8', fontSize: 10 },
+          axisTick: { show: showTick },
         },
         {
           type: 'value' as const, position: 'right' as const,
@@ -107,6 +111,7 @@ export function BarLineChartWidget({
           nameTextStyle: { color: '#9E9EA8', fontSize: 9 },
           splitLine: { show: false },
           axisLabel: { color: '#9E9EA8', fontSize: 10 },
+          axisTick: { show: showTick },
         },
       ],
       series: mkSeries(animated, zero),
@@ -123,7 +128,7 @@ export function BarLineChartWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(series), JSON.stringify(labels), smooth, showArea, barWidth, showLabel]);
+  }, [JSON.stringify(series), JSON.stringify(labels), smooth, showArea, barWidth, showLabel, showTick]);
 
   return (
     <div className="relative w-full h-full">

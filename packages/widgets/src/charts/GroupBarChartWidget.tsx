@@ -11,6 +11,8 @@ interface GroupBarChartWidgetProps {
   barSeries?: GroupBarSeries[];
   showLabel?: boolean;
   barWidth?: string;
+  /** 刻度线对齐标签（category 轴） */
+  showTick?: boolean;
 }
 
 const DEFAULT_LABELS = ['周一', '周二', '周三', '周四', '周五'];
@@ -30,6 +32,7 @@ export function GroupBarChartWidget({
   barSeries,
   showLabel = false,
   barWidth = '40%',
+  showTick = true,
 }: GroupBarChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
@@ -70,12 +73,13 @@ export function GroupBarChartWidget({
       xAxis: {
         type: 'category' as const, data: labels,
         axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
-        axisTick: { show: false }, axisLabel: { color: '#9E9EA8', fontSize: 10 },
+        axisTick: { show: showTick, alignWithLabel: showTick }, axisLabel: { color: '#9E9EA8', fontSize: 10 },
       },
       yAxis: {
         type: 'value' as const,
         splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
         axisLabel: { color: '#9E9EA8', fontSize: 10 },
+        axisTick: { show: showTick },
       },
       series: mkSeries(animated, zero),
     });
@@ -91,7 +95,7 @@ export function GroupBarChartWidget({
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
-  }, [JSON.stringify(series), JSON.stringify(labels), showLabel, barWidth]);
+  }, [JSON.stringify(series), JSON.stringify(labels), showLabel, barWidth, showTick]);
 
   return (
     <div className="relative w-full h-full">

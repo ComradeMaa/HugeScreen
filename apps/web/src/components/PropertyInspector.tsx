@@ -62,6 +62,11 @@ function SlotChartEditors({
             <LabelSelectRow label="粗细" value={String(opts.barWidth ?? '50%')}
               options={['30%','50%','70%','90%']}
               onChange={(v) => onUpdate({ barWidth: v })} />
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+              <input type="checkbox" checked={(opts.showTick as boolean) ?? true}
+                onChange={(e) => onUpdate({ showTick: e.target.checked })} className="rounded" />
+            </label>
           </CollapsibleFieldGroup>
           <CollapsibleFieldGroup label="数值" defaultOpen={false}>
             <label className="flex items-center justify-between">
@@ -113,6 +118,11 @@ function SlotChartEditors({
             <span className="text-[11px] text-textSecondary/70">显示数值</span>
             <input type="checkbox" checked={!!opts.showLabel}
               onChange={(e) => onUpdate({ showLabel: e.target.checked })} className="rounded" />
+          </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+            <input type="checkbox" checked={(opts.showTick as boolean) ?? true}
+              onChange={(e) => onUpdate({ showTick: e.target.checked })} className="rounded" />
           </label>
           <LabelSelectRow label="柱宽" value={String(opts.barWidth ?? '50%')}
             options={['30%','50%','70%','90%']}
@@ -493,6 +503,12 @@ function SlotChartEditors({
           <CollapsibleFieldGroup label="样式" defaultOpen={false}>
             <ColorSwatchRow label="盒子颜色" value={(opts.boxColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => onUpdate({ boxColor: c })} />
             <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+              <input type="checkbox" checked={(opts.showTick as boolean) ?? true}
+                onChange={(e) => onUpdate({ showTick: e.target.checked })}
+                className="rounded" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-textSecondary/70">盒子宽度</span>
               <input type="number" value={Number(opts.boxWidth ?? 20)} min={5} max={50}
                 onChange={(e) => onUpdate({ boxWidth: Number(e.target.value) })}
@@ -656,8 +672,64 @@ function VoronoiDataEditor({ points, onChange }: { points: any[]; onChange: (pts
   );
 }
 
-/** 直方图数据编辑器 — 逗号/空格分隔的数值数组 */
-function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d: number[]) => void }) {
+/** 大规模面积图数据编辑器 — 每行「时间戳, 数值」，支持批量粘贴与生成模拟数据 */
+function LargeAreaDataEditor({ points, onChange }: { points: { time: number; value: number }[]; onChange: (pts: { time: number; value: number }[]) => void }) {
+  const parse = (raw: string): { time: number; value: number }[] =>
+    raw.split('\n').map((l) => l.trim()).filter(Boolean).map((line) => {
+      const [t, v] = line.split(/[,，\s]+/);
+      return { time: Number(t), value: Number(v) };
+    }).filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value));
+
+  const [text, setText] = useState(points.map((p) => `${p.time}, ${p.value}`).join('\n'));
+  useEffect(() => {
+    const fromText = parse(text);
+    if (JSON.stringify(fromText) !== JSON.stringify(points)) {
+      setText(points.map((p) => `${p.time}, ${p.value}`).join('\n'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(points)]);
+
+  const genMock = (count: number) => {
+    const start = Date.now() - count * 3600_000;
+    const pts: { time: number; value: number }[] = [];
+    let v = 100;
+    for (let i = 0; i < count; i++) {
+      v += Math.sin(i / 25) * 2.5 + (Math.sin(i / 7) * 0.8) + (Math.random() - 0.5) * 3;
+      pts.push({ time: start + i * 3600_000, value: Math.round(v * 10) / 10 });
+    }
+    onChange(pts);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => genMock(600)}
+          className="flex-1 text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">生成模拟数据 (600点)</button>
+        <button
+          onClick={() => genMock(10000)}
+          className="flex-1 text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">生成模拟数据 (1万点)</button>
+      </div>
+      <textarea
+        value={text}
+        rows={6}
+        placeholder={'时间戳, 数值（每行一组，支持粘贴 CSV）\n如: 1710000000000, 102.5'}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          onChange(parse(raw));
+        }}
+        className="w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors resize-y" />
+    </div>
+  );
+}
+
+/**
+ * 通用数值数组编辑器 — 逗号/空格分隔的 textarea（直方图数据、置信区间上下界等复用）。
+ * 本地文本缓冲：空串不解析（避免 Number('')=0 占位）、删减不被打断；
+ * 仅当解析结果与外部数据不一致时（REST 推送）才回写显示。
+ */
+function NumberArrayTextEditor({ data, onChange, placeholder }: { data: number[]; onChange: (d: number[]) => void; placeholder?: string }) {
   const parse = (raw: string): number[] =>
     raw.split(/[,，\s]+/)
       .map((s) => s.trim())
@@ -666,8 +738,6 @@ function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d:
       .filter((n) => Number.isFinite(n));
 
   const [text, setText] = useState(data.join(', '));
-  // 外部数据变化（REST 推送回写 options.data）时同步显示；
-  // 用户输入产生的 data 与文本解析结果一致 → 不回写，保证输入过程自由（逗号/删减不被打断）
   useEffect(() => {
     const fromText = parse(text);
     if (JSON.stringify(fromText) !== JSON.stringify(data)) {
@@ -680,7 +750,7 @@ function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d:
     <textarea
       value={text}
       rows={4}
-      placeholder="35, 42, 38, 51, 47, 55, 60 ..."
+      placeholder={placeholder ?? "35, 42, 38, 51, 47, 55, 60 ..."}
       onChange={(e) => {
         const raw = e.target.value;
         setText(raw);
@@ -688,6 +758,11 @@ function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d:
       }}
       className="w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors resize-y" />
   );
+}
+
+/** 直方图数据编辑器 — 逗号/空格分隔的数值数组（复用通用编辑器） */
+function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d: number[]) => void }) {
+  return <NumberArrayTextEditor data={data} onChange={onChange} placeholder="35, 42, 38, 51, 47, 55, 60 ..." />;
 }
 
 /** 蜡烛图数据编辑器 — 每根 K 线: 名称 + 开盘/收盘/最高/最低 */
@@ -1162,6 +1237,13 @@ export function PropertyInspector() {
               <LabelSelectRow label="粗细" value={String((widget.options as any).barWidth ?? '50%')}
                 options={['30%','50%','70%','90%']}
                 onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), barWidth: v } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+                <input type="checkbox"
+                  checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
             </CollapsibleFieldGroup>
 
             <CollapsibleFieldGroup label="数值" defaultOpen={false}>
@@ -1308,6 +1390,12 @@ export function PropertyInspector() {
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLabel: e.target.checked } })}
                 className="rounded" />
             </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+              <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                className="rounded" />
+            </label>
             <LabelSelectRow label="柱宽" value={String((widget.options as Record<string, unknown>).barWidth ?? '50%')}
               options={['30%','50%','70%','90%']}
               onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), barWidth: v } })} />
@@ -1328,6 +1416,12 @@ export function PropertyInspector() {
                 <span className="text-[11px] text-textSecondary/70">显示数值</span>
                 <input type="checkbox" checked={!!(widget.options as Record<string, unknown>).showLabel}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showLabel: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
                   className="rounded" />
               </label>
               <LabelSelectRow label="柱宽" value={String((widget.options as Record<string, unknown>).barWidth ?? '40%')}
@@ -1351,10 +1445,115 @@ export function PropertyInspector() {
             <CollapsibleFieldGroup label="样式" defaultOpen={false}>
               <ColorSwatchRow label="柱色" value={((widget.options as Record<string, unknown>).barColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), barColor: c } })} />
               <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-textSecondary/70">分箱数量</span>
                 <input type="number" value={Number((widget.options as Record<string, unknown>).binCount ?? 10)} min={2} max={30}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), binCount: Math.max(2, Math.min(30, Number(e.target.value) || 10)) } })}
                   className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 置信区间图配置 ═══ */}
+        {widget.type === 'confidence-band' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <LineChartDataEditor
+                xLabels={Array.isArray((widget.options as any).xLabels) ? (widget.options as any).xLabels : ['周一','周二','周三','周四','周五','周六','周日']}
+                lineSeries={((widget.options as any).mainSeries && Array.isArray((widget.options as any).mainSeries.data)) ? [(widget.options as any).mainSeries] : [{ name: '观测值', data: [42,45,44,48,46,50,49] }]}
+                onChange={(xLabels, series) => updateWidget(widget.id, { options: { ...(widget.options as object), xLabels, mainSeries: series[0] } })} />
+              <div className="mt-2 space-y-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-textSecondary/70">上界（与主线同长度）</span>
+                  <NumberArrayTextEditor
+                    data={Array.isArray((widget.options as any).upper) ? (widget.options as any).upper as number[] : []}
+                    onChange={(d) => updateWidget(widget.id, { options: { ...(widget.options as object), upper: d } })}
+                    placeholder="46, 49, 48, 53, 51, 55, 54 ..." />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[11px] text-textSecondary/70">下界（与主线同长度）</span>
+                  <NumberArrayTextEditor
+                    data={Array.isArray((widget.options as any).lower) ? (widget.options as any).lower as number[] : []}
+                    onChange={(d) => updateWidget(widget.id, { options: { ...(widget.options as object), lower: d } })}
+                    placeholder="38, 41, 40, 43, 41, 45, 44 ..." />
+                </label>
+              </div>
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="主线颜色" value={((widget.options as Record<string, unknown>).lineColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), lineColor: c } })} />
+              <ColorSwatchRow label="区间颜色" value={((widget.options as Record<string, unknown>).bandColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), bandColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 大规模面积图配置 ═══ */}
+        {widget.type === 'large-area-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <LargeAreaDataEditor
+                points={Array.isArray((widget.options as any).points) ? (widget.options as any).points as { time: number; value: number }[] : []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), points: pts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="线颜色" value={((widget.options as Record<string, unknown>).lineColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), lineColor: c } })} />
+              <ColorSwatchRow label="面积颜色" value={((widget.options as Record<string, unknown>).areaColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), areaColor: c } })} />
+              <LabelSelectRow label="降采样" value={String((widget.options as Record<string, unknown>).sampling ?? 'lttb')}
+                options={['lttb','average','max','min','sum','none']}
+                labels={['LTTB','平均','最大','最小','求和','关闭']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), sampling: v } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 动态时间轴配置 ═══ */}
+        {widget.type === 'dynamic-time' && (
+          <>
+            <CollapsibleFieldGroup label="动态" defaultOpen={true}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">动态追加</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).dynamic as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), dynamic: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <LabelSelectRow label="更新间隔" value={String((widget.options as Record<string, unknown>).interval ?? 1000)}
+                options={['500','1000','2000','5000']}
+                labels={['0.5秒','1秒','2秒','5秒']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), interval: Number(v) } })} />
+              <LabelSelectRow label="滑窗大小" value={String((widget.options as Record<string, unknown>).windowSize ?? 60)}
+                options={['30','60','120','240']}
+                labels={['30点','60点','120点','240点']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), windowSize: Number(v) } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="数值" defaultOpen={false}>
+              <LargeAreaDataEditor
+                points={Array.isArray((widget.options as any).points) ? (widget.options as any).points as { time: number; value: number }[] : []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), points: pts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="线颜色" value={((widget.options as Record<string, unknown>).lineColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), lineColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
               </label>
             </CollapsibleFieldGroup>
           </>
@@ -1598,6 +1797,12 @@ export function PropertyInspector() {
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="样式" defaultOpen={false}>
               <ColorSwatchRow label="盒子颜色" value={((widget.options as Record<string, unknown>).boxColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), boxColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">刻度线对齐标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showTick as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
+                  className="rounded" />
+              </label>
               <label className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-textSecondary/70">盒子宽度</span>
                 <input type="number" value={Number((widget.options as Record<string, unknown>).boxWidth ?? 20)} min={5} max={50}
