@@ -255,6 +255,22 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.moveTo(w - 16, h - 12); ctx.lineTo(w - 12, h - 18); ctx.lineTo(w - 8, h - 12);
     ctx.stroke();
 
+  } else if (type === 'attack-globe') {
+    // 网络攻击地球：球体轮廓 + 经线椭圆 + 攻击弧线 + 源/目标点
+    const r = 22, gx = cx, gy = cy + 3;
+    ctx.strokeStyle = 'rgba(0,212,255,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(gx, gy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.25; ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.ellipse(gx, gy, r * 0.45, r, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.75; ctx.strokeStyle = '#FF8C42'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(gx + 16, gy - 13);
+    ctx.quadraticCurveTo(gx + 4, gy - 30, gx - 18, gy + 6); ctx.stroke();
+    ctx.fillStyle = '#FF8C42';
+    ctx.beginPath(); ctx.arc(gx + 16, gy - 13, 2.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00D4FF';
+    ctx.beginPath(); ctx.arc(gx - 18, gy + 6, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
   } else if (type === 'bar-line-chart') {
     const bars = [[20, 52], [38, 44], [56, 38], [74, 30]];
     bars.forEach(([x, top]) => {

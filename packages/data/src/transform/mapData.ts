@@ -62,6 +62,7 @@ export function mapData(
     case 'multiple-x-axis-chart': return mapMultipleXAxis(raw, mapping);
     case 'sankey-chart': return mapSankey(raw, mapping);
     case 'marquee-table': return mapMarqueeTable(raw, mapping);
+    case 'attack-globe': return mapAttackGlobe(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -1200,6 +1201,100 @@ function mapMarqueeTable(raw: unknown, m: FieldMapping): Record<string, unknown>
   if (headers.length) out.headers = headers;
   if (rows.length) out.rows = rows;
   return out.headers || out.rows ? out : {};
+}
+
+/**
+ * 网络攻击地球 — 攻击数据多格式适配：
+ *   A 标准：{sources:[{id,name,lat,lng}], targets:[...], attacks:[{source,target,count}]}
+ *   B 坐标内联：{attacks:[{source:{name,lat,lng}, target:{name,lat,lng}, count}]}（自动收集匿名源/目标）
+ *   C 单列表：{sources:[...], attacks:[{source:"名", target:"名", count}]}（无 targets，未命中跳过）
+ *   D 裸数组：[["源名",lat,lng,"目标名",lat,lng,count], ...]
+ *   E 仅事件：[{from:"A", to:"B", count:320}]（from/to 别名）
+ * 字段别名：lat↔latitude/y、lng↔lon/longitude/x、count↔value/volume/attacks
+ * 输出 {sources, targets, attacks}
+ */
+function mapAttackGlobe(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const nameKey = m.name || 'name';
+  const latKey = m.lat || 'lat';
+  const lngKey = m.lng || 'lng';
+  const countKey = m.count || 'count';
+
+  const num = (v: unknown): number => toNum(v, NaN);
+  const loc = (r: Record<string, unknown>): { lat: number; lng: number } | null => {
+    const lat = num(r[latKey] ?? r.latitude ?? r.y);
+    const lng = num(r[lngKey] ?? r.lon ?? r.longitude ?? r.x);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  };
+  const srcName = (r: Record<string, unknown>): string => String(r[nameKey] ?? r.label ?? '');
+
+  // 直接对象
+  const candidate = asRecord(raw);
+  const srcArr = resolveSrc(raw, m, 'sources', 'source', 'src');
+  const tgtArr = resolveSrc(raw, m, 'targets', 'target', 'dst');
+  const atkArr = resolveSrc(raw, m, 'attacks', 'events', 'data', 'items');
+
+  const sources: { id: string; name: string; lat: number; lng: number }[] = [];
+  const targets: { id: string; name: string; lat: number; lng: number }[] = [];
+  const attacks: { source: string; target: string; count: number }[] = [];
+  const seen = { src: new Set<string>(), tgt: new Set<string>() };
+  const addLoc = (arr: typeof sources, key: 'src' | 'tgt', r: Record<string, unknown>, fallbackName: string) => {
+    const pos = loc(r);
+    const name = srcName(r) || fallbackName;
+    if (!pos || !name || seen[key].has(name)) return;
+    seen[key].add(name);
+    arr.push({ id: name, name, ...pos });
+  };
+
+  for (const it of srcArr) addLoc(sources, 'src', asRecord(it), '');
+  for (const it of tgtArr) addLoc(targets, 'tgt', asRecord(it), '');
+
+  // 事件处理（含坐标内联格式 B）
+  for (const it of atkArr) {
+    const r = asRecord(it);
+    if (r.source && typeof r.source === 'object' && !Array.isArray(r.source)) {
+      addLoc(sources, 'src', asRecord(r.source), '');
+    }
+    if (r.target && typeof r.target === 'object' && !Array.isArray(r.target)) {
+      addLoc(targets, 'tgt', asRecord(r.target), '');
+    }
+    const sRef = typeof r.source === 'string' ? r.source
+      : typeof r.from === 'string' ? r.from
+      : srcName(asRecord(r.source));
+    const tRef = typeof r.target === 'string' ? r.target
+      : typeof r.to === 'string' ? r.to
+      : srcName(asRecord(r.target));
+    if (!sRef || !tRef) continue;
+    attacks.push({
+      source: sRef,
+      target: tRef,
+      count: Math.max(0, toNum(r[countKey] ?? r.value ?? r.volume ?? r.attacks, 1)),
+    });
+  }
+
+  // 裸数组格式 D：[源名, lat, lng, 目标名, lat, lng, count]
+  if (atkArr.length === 0 && Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0])) {
+    for (const row of raw as unknown[][]) {
+      if (row.length < 6) continue;
+      const [sn, slat, slng, tn, tlat, tlng] = row.map((v) => String(v ?? ''));
+      const count = toNum(row[6] ?? 1, 1);
+      const sLat = parseFloat(slat), sLng = parseFloat(slng);
+      const tLat = parseFloat(tlat), tLng = parseFloat(tlng);
+      if (!sn || !tn || !Number.isFinite(sLat) || !Number.isFinite(tLat)) continue;
+      if (!seen.src.has(sn)) { seen.src.add(sn); sources.push({ id: sn, name: sn, lat: sLat, lng: sLng }); }
+      if (!seen.tgt.has(tn)) { seen.tgt.add(tn); targets.push({ id: tn, name: tn, lat: tLat, lng: tLng }); }
+      attacks.push({ source: sn, target: tn, count: Math.max(0, count) });
+    }
+  }
+
+  if (attacks.length > 0 || sources.length > 0 || targets.length > 0) {
+    const out: Record<string, unknown> = {};
+    if (sources.length) out.sources = sources;
+    if (targets.length) out.targets = targets;
+    if (attacks.length) out.attacks = attacks;
+    return out;
+  }
+  return {};
 }
 
 /**

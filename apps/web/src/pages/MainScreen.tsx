@@ -727,6 +727,23 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'attack-globe': {
+          // 网络攻击地球：球体轮廓 + 经线 + 攻击弧线 + 源/目标点
+          const agR = Math.min(rw, rh) * 0.35;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.5; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(cx, cy, agR, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalAlpha = 0.25; ctx.lineWidth = 0.6;
+          ctx.beginPath(); ctx.ellipse(cx, cy, agR * 0.45, agR, 0, 0, Math.PI * 2); ctx.stroke();
+          ctx.globalAlpha = 0.75; ctx.strokeStyle = '#FF8C42'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(cx + agR * 0.7, cy - agR * 0.55);
+          ctx.quadraticCurveTo(cx, cy - agR * 1.3, cx - agR * 0.8, cy + agR * 0.25); ctx.stroke();
+          ctx.fillStyle = '#FF8C42';
+          ctx.beginPath(); ctx.arc(cx + agR * 0.7, cy - agR * 0.55, 2.8, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(cx - agR * 0.8, cy + agR * 0.25, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'border-frame':
         case 'screen-header':
         case 'header-title':

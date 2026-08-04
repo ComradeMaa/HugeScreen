@@ -601,6 +601,24 @@ function SlotChartEditors({
         </>
       )}
 
+      {/* ═══ 网络攻击地球 — 与主编辑器一致 ═══ */}
+      {chartType === 'attack-globe' && (
+        <>
+          <CollapsibleFieldGroup label="地球" defaultOpen={true}>
+            <label className="flex items-center justify-between">
+              <span className="text-[11px] text-textSecondary/70">自动旋转</span>
+              <input type="checkbox" checked={opts.autoRotate !== false}
+                onChange={(e) => onUpdate({ autoRotate: e.target.checked })} className="rounded" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">显示网格</span>
+              <input type="checkbox" checked={!!(opts.showGrid ?? true)}
+                onChange={(e) => onUpdate({ showGrid: e.target.checked })} className="rounded" />
+            </label>
+          </CollapsibleFieldGroup>
+        </>
+      )}
+
       {/* ═══ 赛博地图 — 与主编辑器一致 ═══ */}
       {chartType === 'cyber-map' && (
         <>
@@ -1044,6 +1062,112 @@ function MarqueeTableDataEditor({ headers, rows, onChange }: {
           placeholder={'1, 华东, 320, +12.4%\n2, 华南, 260, +8.2%\n3, 华北, 240, +15.7%'}
           className={inputCls} />
       </label>
+    </div>
+  );
+}
+
+/** 网络攻击地球数据编辑器 — 攻击源/被攻击地点（名称+经纬度）+ 攻击事件（下拉+次数） */
+function AttackGlobeDataEditor({ sources, targets, attacks, onChange }: {
+  sources: { id: string; name: string; lat: number; lng: number }[];
+  targets: { id: string; name: string; lat: number; lng: number }[];
+  attacks: { source: string; target: string; count: number }[];
+  onChange: (s: typeof sources, t: typeof targets, a: typeof attacks) => void;
+}) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right w-12';
+  const selectCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text focus:outline-none focus:border-accent-cool/50 transition-colors flex-1 min-w-0';
+  const ss = sources.length ? sources : [];
+  const ts = targets.length ? targets : [];
+  const as = attacks.length ? attacks : [];
+
+  const rowEditor = (item: { id: string; name: string; lat: number; lng: number }, i: number, arr: typeof sources, set: (v: typeof sources) => void) => (
+    <div key={i} className="flex items-center gap-1 p-1 rounded bg-surface-base/50">
+      <input type="text" value={item.name ?? ''} placeholder="名称"
+        onChange={(e) => {
+          const next = [...arr]; next[i] = { ...item, name: e.target.value };
+          set(next);
+        }}
+        className={`${inputCls} flex-1 text-left w-auto`} />
+      <input type="number" value={item.lat ?? ''} title="纬度" placeholder="纬度" step="any"
+        onChange={(e) => {
+          if (e.target.value === '' || e.target.value === '-') return;
+          const next = [...arr]; next[i] = { ...item, lat: Number(e.target.value) }; set(next);
+        }}
+        className={inputCls} />
+      <input type="number" value={item.lng ?? ''} title="经度" placeholder="经度" step="any"
+        onChange={(e) => {
+          if (e.target.value === '' || e.target.value === '-') return;
+          const next = [...arr]; next[i] = { ...item, lng: Number(e.target.value) }; set(next);
+        }}
+        className={inputCls} />
+      <button onClick={() => set(arr.filter((_, j) => j !== i))}
+        className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-2">
+      {/* 攻击源 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">攻击源</span>
+          <button
+            onClick={() => onChange([...ss, { id: `s${ss.length + 1}`, name: `源${ss.length + 1}`, lat: 55, lng: 37 }], ts, as)}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加源</button>
+        </div>
+        <div className="space-y-1">
+          {ss.map((s, i) => rowEditor(s, i, ss, (v) => onChange(v, ts, as)))}
+        </div>
+      </div>
+      {/* 被攻击地点 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">被攻击地点</span>
+          <button
+            onClick={() => onChange(ss, [...ts, { id: `t${ts.length + 1}`, name: `目标${ts.length + 1}`, lat: 31, lng: 121 }], as)}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加地点</button>
+        </div>
+        <div className="space-y-1">
+          {ts.map((t, i) => rowEditor(t, i, ts, (v) => onChange(ss, v, as)))}
+        </div>
+      </div>
+      {/* 攻击事件 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">攻击事件（源 → 目标，次数）</span>
+          <button
+            onClick={() => onChange(ss, ts, [...as, { source: ss[0]?.name ?? '', target: ts[0]?.name ?? '', count: 1 }])}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加攻击</button>
+        </div>
+        <div className="space-y-1">
+          {as.map((a, i) => (
+            <div key={i} className="flex items-center gap-1 p-1 rounded bg-surface-base/50">
+              <select value={a.source}
+                onChange={(e) => {
+                  const next = [...as]; next[i] = { ...a, source: e.target.value }; onChange(ss, ts, next);
+                }}
+                className={selectCls}>
+                {ss.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+              <span className="text-[10px] text-textSecondary/40">→</span>
+              <select value={a.target}
+                onChange={(e) => {
+                  const next = [...as]; next[i] = { ...a, target: e.target.value }; onChange(ss, ts, next);
+                }}
+                className={selectCls}>
+                {ts.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+              </select>
+              <input type="number" value={a.count ?? 1} placeholder="次数" step="any"
+                onChange={(e) => {
+                  if (e.target.value === '' || e.target.value === '-') return;
+                  const next = [...as]; next[i] = { ...a, count: Number(e.target.value) }; onChange(ss, ts, next);
+                }}
+                className={`${inputCls} w-12`} />
+              <button onClick={() => onChange(ss, ts, as.filter((_, j) => j !== i))}
+                className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -3217,6 +3341,37 @@ export function PropertyInspector() {
               </>
             )}
           </CollapsibleFieldGroup>
+        )}
+
+        {/* ═══ 网络攻击地球专属配置 ═══ */}
+        {widget.type === 'attack-globe' && (
+          <>
+            <CollapsibleFieldGroup label="数据" defaultOpen={true}>
+              <AttackGlobeDataEditor
+                sources={Array.isArray((widget.options as any).sources) ? (widget.options as any).sources : []}
+                targets={Array.isArray((widget.options as any).targets) ? (widget.options as any).targets : []}
+                attacks={Array.isArray((widget.options as any).attacks) ? (widget.options as any).attacks : []}
+                onChange={(s, t, a) => updateWidget(widget.id, { options: { ...(widget.options as object), sources: s, targets: t, attacks: a } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="地球配置" defaultOpen={false}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">自动旋转</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).autoRotate as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), autoRotate: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <LabelSelectRow label="聚合模式" value={String((widget.options as Record<string, unknown>).aggregationMode ?? 'auto')}
+                options={['auto', 'fixed']}
+                labels={['自动分档（分位数）', '固定阈值 5/20/100']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), aggregationMode: v } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">显示网格</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showGrid as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showGrid: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
         )}
 
         {/* ═══ 赛博地图专属配置 ═══ */}
