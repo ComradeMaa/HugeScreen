@@ -14,13 +14,15 @@ interface CompositeChartWidgetProps {
   compositeKey?: string;
   /** Or a direct config (used by the builder preview, not needed for runtime) */
   composite?: CompositeConfig | null;
+  /** 浏览模式交互透传（WidgetBody 传入；成员组件如 3D 地图据此启用拖拽旋转/悬停高亮） */
+  interactive?: boolean;
 }
 
 /**
  * Composite chart widget — renders sub-charts in a CSS Grid layout.
  * Looks up configuration via compositeKey in the session store.
  */
-export function CompositeChartWidget({ composite, compositeKey }: CompositeChartWidgetProps) {
+export function CompositeChartWidget({ composite, compositeKey, interactive = false }: CompositeChartWidgetProps) {
   const depth = useContext(NestDepth);
 
   // Resolve config: prefer direct composite, then key lookup
@@ -73,7 +75,7 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
               className="w-full h-full overflow-hidden"
             >
               <NestDepth.Provider value={depth + 1}>
-                <CompositeChartWidget composite={slot.inlineComposite} />
+                <CompositeChartWidget composite={slot.inlineComposite} interactive={interactive} />
               </NestDepth.Provider>
             </div>
           );
@@ -90,6 +92,8 @@ export function CompositeChartWidget({ composite, compositeKey }: CompositeChart
           ...(slotLiveData as object ?? {}),
           dataSource: slot.dataSource,
           widgetId: slot.id,
+          // ★ 浏览模式交互透传（3D 组件据此启用旋转/悬停；编辑模式 false 与 dnd-kit 无冲突）
+          interactive,
         };
 
         return (
