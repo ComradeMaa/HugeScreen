@@ -53,6 +53,8 @@ export function mapData(
     case 'intraday-chart': return mapIntraday(raw, mapping);
     case 'radar-chart': return mapRadar(raw, mapping);
     case 'heatmap': return mapHeatmap(raw, mapping);
+    case 'relation-chart': return mapRelation(raw, mapping);
+    case 'tree-chart': return mapTree(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -390,6 +392,143 @@ function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> 
       }
       return { candles };
     }
+  }
+
+  return {};
+}
+
+/**
+ * 树形图 — 多格式适配：
+ *   1. 嵌套树：{name, children:[…]} 或 [{name, children:[…]}, …]（多根）
+ *   2. 扁平列表 + parent：[{name, parent}] → 构建嵌套树（常见 API 格式）
+ *   3. 包装：{tree/trees/data: {…} 或 […]}
+ * 输出 {trees:[{name, children}]}（多根数组）
+ */
+function mapTree(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const nameKey = m.name || 'name';
+  const parentKey = m.parent || 'parent';
+  const childrenKey = m.children || 'children';
+
+  const clean = (node: Record<string, unknown>): { name: string; children?: unknown[] } => ({
+    name: String(node[nameKey] ?? node.label ?? ''),
+    children: asArray(node[childrenKey]).map((c) => clean(asRecord(c))),
+  });
+
+  // 直接是根节点（对象）或根节点数组
+  const candidate = raw as Record<string, unknown>;
+  if (Array.isArray(raw)) {
+    const trees = raw.map((r) => clean(asRecord(r))).filter((t) => t.name);
+    if (trees.length > 0) return { trees };
+  } else if (candidate[nameKey] != null) {
+    const t = clean(candidate);
+    if (t.name) return { trees: [t] };
+  }
+  // 包装：{tree/trees/data/root}
+  const wrapped = candidate['trees'] ?? candidate['tree'] ?? candidate['data'] ?? candidate['root'];
+  if (Array.isArray(wrapped)) {
+    const trees = wrapped.map((r) => clean(asRecord(r))).filter((t) => t.name);
+    if (trees.length > 0) return { trees };
+  } else {
+    const wr = asRecord(wrapped);
+    if (wr[nameKey] != null) {
+      const t = clean(wr);
+      if (t.name) return { trees: [t] };
+    }
+  }
+
+  // 扁平列表 + parent → 构建嵌套树（支持多个根）
+  const src = resolveSrc(raw, m, 'nodes', 'data', 'items', 'nodes');
+  if (src.length > 0 && src.every((it) => !Array.isArray(it))) {
+    const items = src.map((it) => {
+      const r = asRecord(it);
+      return { name: String(r[nameKey] ?? r.label ?? ''), parent: r[parentKey] != null ? String(r[parentKey]) : undefined };
+    }).filter((n) => n.name);
+    const roots = items.filter((n) => !n.parent);
+    if (roots.length > 0) {
+      const childrenOf = (name: string): { name: string; children?: { name: string }[] }[] => {
+        const kids = items.filter((n) => n.parent === name);
+        return kids.map((k) => ({ name: k.name, ...(childrenOf(k.name).length > 0 ? { children: childrenOf(k.name) } : {}) }));
+      };
+      const trees = roots.map((r) => ({ name: r.name, ...(childrenOf(r.name).length > 0 ? { children: childrenOf(r.name) } : {}) }));
+      return { trees };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * 关系图 — nodes + links 多格式适配：
+ *   1. 官方：{nodes:[{name,x,y}], links:[{source,target}]}
+ *   2. edges 别名：{nodes, edges:[{from,to}]} → links
+ *   3. 边索引：links 的 source/target 为数字 → 按 nodes 索引转名称
+ *   4. 行内边：nodes 项带 target 字段 → 展开为 links
+ * 输出 {nodes:[{name,x,y}], links:[{source,target}]}
+ */
+function mapRelation(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+
+  // ── 标准/别名格式 ──
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>;
+    const nodesArr = asArray(rec[m.nodes || 'nodes'] ?? rec['nodes']);
+    if (nodesArr.length > 0) {
+      const nameKey = m.name || 'name';
+      const xKey = m.x || 'x';
+      const yKey = m.y || 'y';
+      const nodes = nodesArr.map((it) => {
+        const r = asRecord(it);
+        return {
+          name: String(r[nameKey] ?? r.id ?? r.label ?? `节点${nodesArr.indexOf(it) + 1}`),
+          x: toNum(r[xKey] ?? r[0], 50),
+          y: toNum(r[yKey] ?? r[1], 50),
+          // 行内边：节点带 target → 收集为链接
+          target: r.target != null ? String(r.target) : undefined,
+        };
+      });
+      // 行内边展开
+      const inlineLinks = nodes
+        .filter((n) => n.target)
+        .map((n) => ({ source: n.name, target: n.target as string }));
+      const linksArr = asArray(rec['links'] ?? rec['edges'] ?? rec['relations']);
+      const links = linksArr.map((it) => {
+        if (Array.isArray(it)) return { source: String(it[0]), target: String(it[1]) };
+        const r = asRecord(it);
+        return {
+          source: String(r.source ?? r.from ?? r[0] ?? ''),
+          target: String(r.target ?? r.to ?? r[1] ?? ''),
+        };
+      });
+      // 边索引 → 节点名
+      const idxToName = (v: string): string => {
+        const idx = Number(v);
+        return Number.isInteger(idx) && idx >= 0 && idx < nodes.length ? nodes[idx].name : v;
+      };
+      const normalizedLinks = links.map((l) => ({ source: idxToName(l.source), target: idxToName(l.target) }));
+      const allLinks = [...inlineLinks, ...normalizedLinks];
+      return {
+        nodes: nodes.map(({ name, x, y }) => ({ name, x, y })),
+        ...(allLinks.length > 0 ? { links: allLinks } : {}),
+      };
+    }
+  }
+
+  // ── 纯数组：[[name, x, y], ...] 节点 + [[src, dst], ...] 边 ──
+  const src = resolveSrc(raw, m, 'nodes', 'data', 'items');
+  if (src.length > 0 && src.every((it) => Array.isArray(it) && it.length >= 3)) {
+    const nodes = src.map((it, i) => ({
+      name: String((it as unknown[])[0] ?? `节点${i + 1}`),
+      x: toNum((it as unknown[])[1], 50),
+      y: toNum((it as unknown[])[2], 50),
+    }));
+    const linksArr = asArray((raw as Record<string, unknown>)['links'] ?? (raw as Record<string, unknown>)['edges']);
+    const links = linksArr.map((it) => {
+      if (Array.isArray(it)) return { source: String(it[0]), target: String(it[1]) };
+      const r = asRecord(it);
+      return { source: String(r.source ?? r.from ?? ''), target: String(r.target ?? r.to ?? '') };
+    });
+    return { nodes, ...(links.length > 0 ? { links } : {}) };
   }
 
   return {};

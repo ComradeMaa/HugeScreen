@@ -676,6 +676,152 @@ function VoronoiDataEditor({ points, onChange }: { points: any[]; onChange: (pts
   );
 }
 
+/** 树形图数据编辑器 — 递归嵌套结构：添加根节点（=一棵树），每个节点可继续添加子节点 */
+function TreeDataEditor({ trees, onChange }: {
+  trees: { name: string; children?: unknown[] }[];
+  onChange: (ts: { name: string; children?: unknown[] }[]) => void;
+}) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors';
+  const ts = trees.length ? trees : [];
+  const depthCls = (depth: number) => `flex items-center gap-1 p-1 rounded bg-surface-base/50 ${depth > 0 ? 'mt-0.5' : ''}`;
+
+  // 递归节点行：名称 + 添加子节点 + 删除
+  const renderNode = (
+    node: { name: string; children?: unknown[] },
+    depth: number,
+    update: (n: { name: string; children?: unknown[] }) => void,
+    remove: () => void,
+    key: number,
+  ) => {
+    const kids = Array.isArray(node.children) ? node.children as { name: string; children?: unknown[] }[] : [];
+    const updateKid = (i: number) => (n: { name: string; children?: unknown[] }) => {
+      const next = [...kids]; next[i] = n;
+      update({ ...node, children: next });
+    };
+    return (
+      <div key={key}>
+        <div className={depthCls(depth)} style={{ paddingLeft: depth * 16 }}>
+          <input type="text" value={node.name ?? ''}
+            onChange={(e) => update({ ...node, name: e.target.value })}
+            className={`${inputCls} flex-1 min-w-0 w-16`} />
+          <button
+            onClick={() => update({ ...node, children: [...kids, { name: `子节点${kids.length + 1}` }] })}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors whitespace-nowrap">+ 子节点</button>
+          <button onClick={remove}
+            className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+        </div>
+        {kids.map((k, i) => renderNode(k, depth + 1, updateKid(i), () => {
+          const next = [...kids]; next.splice(i, 1);
+          update({ ...node, children: next });
+        }, i))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-textSecondary/40">树（每个根节点一棵树）</span>
+        <button
+          onClick={() => onChange([...ts, { name: `根节点${ts.length + 1}` }])}
+          className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加根节点</button>
+      </div>
+      {ts.map((t, i) => renderNode(t, 0, (n) => {
+        const next = [...ts]; next[i] = n; onChange(next);
+      }, () => onChange(ts.filter((_, j) => j !== i)), i))}
+      {ts.length === 0 && (
+        <div className="text-[10px] text-textSecondary/30 text-center py-2">暂无树，点击「+ 添加根节点」创建</div>
+      )}
+    </div>
+  );
+}
+
+/** 关系图数据编辑器 — 节点列表（名称+坐标）+ 连线列表（起点/终点下拉） */
+function RelationDataEditor({ nodes, links, onChange }: {
+  nodes: { name: string; x: number; y: number }[];
+  links: { source: string; target: string }[];
+  onChange: (ns: { name: string; x: number; y: number }[], ls: { source: string; target: string }[]) => void;
+}) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right w-12';
+  const ns = nodes.length ? nodes : [{ name: '节点1', x: 50, y: 50 }];
+  const ls = links.length ? links : [];
+  const selectCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text focus:outline-none focus:border-accent-cool/50 transition-colors flex-1 min-w-0';
+
+  return (
+    <div className="space-y-2">
+      {/* 节点 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">节点</span>
+          <button
+            onClick={() => onChange([...ns, { name: `节点${ns.length + 1}`, x: 50, y: 50 }], ls)}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加节点</button>
+        </div>
+        <div className="space-y-1">
+          {ns.map((n, i) => (
+            <div key={i} className="flex items-center gap-1 p-1 rounded bg-surface-base/50">
+              <input type="text" value={n.name ?? ''}
+                onChange={(e) => {
+                  const next = [...ns]; next[i] = { ...n, name: e.target.value };
+                  onChange(next, ls);
+                }}
+                className={`${inputCls} flex-1 text-left w-auto`} />
+              <input type="number" value={n.x ?? 50} step="any"
+                onChange={(e) => {
+                  if (e.target.value === '' || e.target.value === '-') return;
+                  const next = [...ns]; next[i] = { ...n, x: Number(e.target.value) }; onChange(next, ls);
+                }}
+                className={inputCls} />
+              <input type="number" value={n.y ?? 50} step="any"
+                onChange={(e) => {
+                  if (e.target.value === '' || e.target.value === '-') return;
+                  const next = [...ns]; next[i] = { ...n, y: Number(e.target.value) }; onChange(next, ls);
+                }}
+                className={inputCls} />
+              <button onClick={() => onChange(ns.filter((_, j) => j !== i), ls)}
+                className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* 连线 */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-textSecondary/40">连线</span>
+          <button
+            onClick={() => onChange(ns, [...ls, { source: ns[0]?.name ?? '', target: ns[1]?.name ?? ns[0]?.name ?? '' }])}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加连线</button>
+        </div>
+        <div className="space-y-1">
+          {ls.map((l, i) => (
+            <div key={i} className="flex items-center gap-1 p-1 rounded bg-surface-base/50">
+              <select
+                value={l.source}
+                onChange={(e) => {
+                  const next = [...ls]; next[i] = { ...l, source: e.target.value }; onChange(ns, next);
+                }}
+                className={selectCls}>
+                {ns.map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}
+              </select>
+              <span className="text-[10px] text-textSecondary/40">→</span>
+              <select
+                value={l.target}
+                onChange={(e) => {
+                  const next = [...ls]; next[i] = { ...l, target: e.target.value }; onChange(ns, next);
+                }}
+                className={selectCls}>
+                {ns.map((n) => <option key={n.name} value={n.name}>{n.name}</option>)}
+              </select>
+              <button onClick={() => onChange(ns, ls.filter((_, j) => j !== i))}
+                className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** 热力图数据编辑器 — 每行「x, y, value」三元组，支持生成模拟数据（2万点验证性能） */
 function HeatmapDataEditor({ points, onChange }: { points: { x: number; y: number; value: number }[]; onChange: (pts: { x: number; y: number; value: number }[]) => void }) {
   const parse = (raw: string): { x: number; y: number; value: number }[] =>
@@ -1923,6 +2069,54 @@ export function PropertyInspector() {
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showTick: e.target.checked } })}
                   className="rounded" />
               </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 关系图配置 ═══ */}
+        {widget.type === 'relation-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <RelationDataEditor
+                nodes={Array.isArray((widget.options as any).nodes) ? (widget.options as any).nodes : []}
+                links={Array.isArray((widget.options as any).links) ? (widget.options as any).links : []}
+                onChange={(ns, ls) => updateWidget(widget.id, { options: { ...(widget.options as object), nodes: ns, links: ls } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="节点颜色" value={((widget.options as Record<string, unknown>).nodeColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), nodeColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">隐藏重叠标签</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).hideOverlap as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), hideOverlap: e.target.checked } })}
+                  className="rounded" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 树形图配置 ═══ */}
+        {widget.type === 'tree-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <TreeDataEditor
+                trees={Array.isArray((widget.options as any).trees) ? (widget.options as any).trees : []}
+                onChange={(ts) => updateWidget(widget.id, { options: { ...(widget.options as object), trees: ts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <LabelSelectRow label="朝向" value={String((widget.options as Record<string, unknown>).orient ?? 'LR')}
+                options={['LR', 'TB', 'RL', 'BT']}
+                labels={['左→右', '上→下', '右→左', '下→上']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), orient: v } })} />
+              <ColorSwatchRow label="节点颜色" value={((widget.options as Record<string, unknown>).nodeColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), nodeColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">点击展开/折叠</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).expandCollapse as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), expandCollapse: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <LabelSelectRow label="初始深度" value={String((widget.options as Record<string, unknown>).initialDepth ?? 2)}
+                options={['1','2','3','4']}
+                onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), initialDepth: Number(v) } })} />
             </CollapsibleFieldGroup>
           </>
         )}

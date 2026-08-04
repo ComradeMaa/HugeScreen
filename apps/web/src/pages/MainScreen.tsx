@@ -418,6 +418,41 @@ export function MainScreen() {
           }
           break;
         }
+        case 'relation-chart': {
+          // 关系图：中心节点 + 放射连线 + 周围节点
+          const rlC = [cx, cy];
+          const rlPts = [[0.1, 0.2], [0.9, 0.15], [0.08, 0.6], [0.93, 0.62], [0.5, 0.72]];
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.4; ctx.lineWidth = 0.8;
+          rlPts.forEach(([fx, fy]) => {
+            ctx.beginPath(); ctx.moveTo(rlC[0], rlC[1]); ctx.lineTo(innerX + fx * innerW, innerY + fy * innerH); ctx.stroke();
+          });
+          ctx.fillStyle = color; ctx.globalAlpha = 0.95;
+          ctx.beginPath(); ctx.arc(rlC[0], rlC[1], 4, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 0.8;
+          rlPts.forEach(([fx, fy]) => {
+            ctx.beginPath(); ctx.arc(innerX + fx * innerW, innerY + fy * innerH, 2.5, 0, Math.PI * 2); ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'tree-chart': {
+          // 树形图：根节点 + 分级分支线
+          const tX = innerX, tW = innerW, tY = innerY, tH = innerH;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.5; ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.moveTo(tX + tW / 2, tY + tH * 0.12); ctx.lineTo(tX + tW / 2, tY + tH * 0.22); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tX + tW * 0.15, tY + tH * 0.25); ctx.lineTo(tX + tW * 0.85, tY + tH * 0.25); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tX + tW * 0.15, tY + tH * 0.25); ctx.lineTo(tX + tW * 0.15, tY + tH * 0.4); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tX + tW * 0.08, tY + tH * 0.4); ctx.lineTo(tX + tW * 0.22, tY + tH * 0.4); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tX + tW / 2, tY + tH * 0.25); ctx.lineTo(tX + tW / 2, tY + tH * 0.4); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tX + tW * 0.43, tY + tH * 0.4); ctx.lineTo(tX + tW * 0.57, tY + tH * 0.4); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tX + tW * 0.85, tY + tH * 0.25); ctx.lineTo(tX + tW * 0.85, tY + tH * 0.4); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(tX + tW * 0.78, tY + tH * 0.4); ctx.lineTo(tX + tW * 0.92, tY + tH * 0.4); ctx.stroke();
+          ctx.fillStyle = color; ctx.globalAlpha = 0.95;
+          [[tW / 2, 0.12], [0.15, 0.25], [0.5, 0.25], [0.85, 0.25], [0.15, 0.4], [0.5, 0.4], [0.85, 0.4]]
+            .forEach(([fx, fy]) => { ctx.beginPath(); ctx.arc(tX + fx * tW, tY + fy * tH, 2.5, 0, Math.PI * 2); ctx.fill(); });
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'voronoi': {
           // Voronoi：区域分割线 + 散点
           const vCells = [

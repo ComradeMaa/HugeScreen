@@ -356,6 +356,70 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'tree-chart',
+      name: '树形图',
+      description: '层级关系树，四向可切换',
+      icon: 'GitBranch',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 4 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 8 },
+      component: lazy(() => import('./charts/TreeChartWidget').then(m => ({ default: m.TreeChartWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          orient: { type: 'string', title: '朝向', enum: ['LR', 'TB', 'RL', 'BT'] },
+          nodeColor: { type: 'string', title: '节点颜色' },
+          expandCollapse: { type: 'boolean', title: '展开折叠' },
+          initialDepth: { type: 'number', title: '初始深度' },
+          trees: { type: 'array', title: '树数据' },
+        },
+      },
+      defaultConfig: {
+        orient: 'LR',
+        nodeColor: '#00D4FF',
+        expandCollapse: true,
+        initialDepth: 2,
+        trees: [
+          {
+            name: '总部',
+            children: [
+              { name: '华东区', children: [{ name: '上海' }, { name: '杭州' }, { name: '南京' }] },
+              { name: '华南区', children: [{ name: '广州' }, { name: '深圳' }] },
+              { name: '华北区', children: [{ name: '北京' }, { name: '天津' }] },
+            ],
+          },
+        ],
+      },
+    },
+
+    {
+      type: 'relation-chart',
+      name: '关系图',
+      description: '节点连线关系网络',
+      icon: 'Network',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 4 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 8 },
+      component: lazy(() => import('./charts/RelationChartWidget').then(m => ({ default: m.RelationChartWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          nodeColor: { type: 'string', title: '节点颜色' },
+          lineColor: { type: 'string', title: '连线颜色' },
+          hideOverlap: { type: 'boolean', title: '隐藏重叠标签' },
+          nodes: { type: 'array', title: '节点' },
+          links: { type: 'array', title: '连线' },
+        },
+      },
+      defaultConfig: {
+        nodeColor: '#00D4FF',
+        hideOverlap: true,
+      },
+    },
+
+    {
       type: 'heatmap',
       name: '热力图',
       description: '二维密度分布，支持大数据量',

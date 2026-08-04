@@ -24,6 +24,8 @@ import {
   ChartLine,
   Radar,
   Grid3x3,
+  Network,
+  GitBranch,
   Plus,
   Trash2,
   Pencil,
@@ -53,6 +55,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ChartLine,
   Radar,
   Grid3x3,
+  Network,
+  GitBranch,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -398,6 +402,39 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
         ctx.fillRect(12 + c * (w - 24) / hcols, 8 + r * (h - 16) / hrows, (w - 24) / hcols + 0.5, (h - 16) / hrows + 0.5);
       }
     }
+
+  } else if (type === 'relation-chart') {
+    // 关系图：中心节点 + 放射连线 + 周围节点
+    const rnC = [cx, cy];
+    const rnPts = [[15, 18], [95, 16], [12, 52], [100, 55], [52, 62]];
+    ctx.strokeStyle = 'rgba(0,212,255,0.45)';
+    ctx.lineWidth = 0.8;
+    rnPts.forEach(([x, y]) => {
+      ctx.beginPath(); ctx.moveTo(rnC[0], rnC[1]); ctx.lineTo(x, y); ctx.stroke();
+    });
+    ctx.fillStyle = '#00D4FF';
+    ctx.beginPath(); ctx.arc(rnC[0], rnC[1], 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(0,212,255,0.85)';
+    rnPts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); });
+
+  } else if (type === 'tree-chart') {
+    // 树形图：根节点 + 分级分支线
+    ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+    ctx.lineWidth = 0.8;
+    // 一级分支
+    ctx.beginPath(); ctx.moveTo(60, 14); ctx.lineTo(60, 26); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(20, 30); ctx.lineTo(100, 30); ctx.stroke();
+    // 二级分支
+    ctx.beginPath(); ctx.moveTo(20, 30); ctx.lineTo(20, 44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(12, 44); ctx.lineTo(28, 44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(60, 30); ctx.lineTo(60, 44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(52, 44); ctx.lineTo(68, 44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(100, 30); ctx.lineTo(100, 44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(92, 44); ctx.lineTo(108, 44); ctx.stroke();
+    ctx.fillStyle = '#00D4FF';
+    [[60, 14], [20, 30], [60, 30], [100, 30], [20, 44], [60, 44], [100, 44]].forEach(([x, y]) => {
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+    });
 
   } else if (type === 'voronoi') {
     // Voronoi：区域分割线 + 散点

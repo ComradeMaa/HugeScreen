@@ -100,6 +100,8 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "intraday-chart": ["points"],
     "radar-chart": ["indicators", "series"],
     "heatmap": ["points"],
+    "relation-chart": ["nodes", "links"],
+    "tree-chart": ["trees"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};
