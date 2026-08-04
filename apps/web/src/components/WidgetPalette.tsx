@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { widgetRegistry } from '@hugescreen/core';
 import type { WidgetDefinition } from '@hugescreen/core';
 import type { WidgetCategory } from '@hugescreen/shared';
@@ -30,6 +31,7 @@ import {
   Waypoints,
   Filter,
   Gauge,
+  Search,
   Plus,
   Trash2,
   Pencil,
@@ -887,71 +889,102 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
     );
   }
 
+  // ─── 搜索过滤：名称/描述/类型模糊匹配（大小写不敏感） ───
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const match = (w: { name: string; description?: string; type: string }) =>
+    !q || w.name.toLowerCase().includes(q)
+      || (w.description ?? '').toLowerCase().includes(q)
+      || w.type.toLowerCase().includes(q);
+  const filteredHeader = headerElements.filter(match);
+  const filteredGroups = Array.from(grouped.entries())
+    .map(([category, widgets]) => [category, widgets.filter(match)] as const)
+    .filter(([, widgets]) => widgets.length > 0);
+  const totalMatched = filteredHeader.length
+    + filteredGroups.reduce((s, [, widgets]) => s + widgets.length, 0);
+
   return (
     <div className="p-3 space-y-4">
-      {/* ─── 顶栏组件 ─── */}
-      {headerElements.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-[10px] font-semibold text-accent-warm/50 uppercase tracking-wider">顶栏</span>
-            <button
-              onClick={toggleHeader}
-              className={`text-[9px] px-2 py-0.5 rounded-full border transition-colors ${
-                headerVisible
-                  ? 'bg-accent-cool/10 text-accent-cool border-accent-cool/25'
-                  : 'bg-surface-hover text-textSecondary/40 border-[rgba(255,255,255,0.06)]'
-              }`}
-            >
-              {headerVisible ? '显示' : '隐藏'}
-            </button>
-          </div>
-          <div className="space-y-1">
-            {headerElements.map((el) => (
-              <HeaderPaletteItem key={el.type} element={el} />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ─── 搜索栏 ─── */}
+      <div className="relative">
+        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-textSecondary/40 pointer-events-none" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索组件..."
+          className="w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded-md pl-7 pr-2 py-1.5 text-xs text-text placeholder:text-textSecondary/30 focus:outline-none focus:border-accent-cool/50 transition-colors"
+        />
+      </div>
 
-      {/* ─── 普通组件 ─── */}
-      {Array.from(grouped.entries()).map(([category, widgets]) => (
-        <div key={category}>
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-[10px] font-semibold text-textSecondary/40 uppercase tracking-wider">
-              {CATEGORY_LABELS[category]}
-            </span>
-            {/* ★ 图表分类显示"创建组合"入口 */}
-            {category === 'chart' && (
-              <button
-                onClick={() => onCreateComposite?.()}
-                className="flex items-center gap-1 text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors px-1.5 py-0.5 rounded border border-[rgba(0,212,255,0.15)] hover:border-[rgba(0,212,255,0.35)]"
-              >
-                <Plus size={10} />
-                创建组合
-              </button>
-            )}
-          </div>
-          <div className="space-y-1">
-            {widgets.map((widget) => (
-              <PaletteItem
-                key={widget.type}
-                widget={widget}
-                onRename={category === 'custom' ? () => {
-                  const name = window.prompt('重命名', widget.name);
-                  if (name && name.trim()) renameCustomComponent(widget.type, name.trim());
-                } : undefined}
-                onDelete={category === 'custom' ? () => {
-                  const count = instances.filter((w) => w.type === widget.type).length;
-                  const msg = count > 0
-                    ? `删除自定义组件「${widget.name}」？画布上有 ${count} 个实例将一并删除。`
-                    : `删除自定义组件「${widget.name}」？`;
-                  if (window.confirm(msg)) deleteCustomComponent(widget.type);
-                } : undefined}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+      {totalMatched === 0 ? (
+        <div className="text-center text-xs text-textSecondary/40 py-8">无匹配组件</div>
+      ) : (
+        <>
+          {/* ─── 顶栏组件 ─── */}
+          {filteredHeader.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-[10px] font-semibold text-accent-warm/50 uppercase tracking-wider">顶栏</span>
+                <button
+                  onClick={toggleHeader}
+                  className={`text-[9px] px-2 py-0.5 rounded-full border transition-colors ${
+                    headerVisible
+                      ? 'bg-accent-cool/10 text-accent-cool border-accent-cool/25'
+                      : 'bg-surface-hover text-textSecondary/40 border-[rgba(255,255,255,0.06)]'
+                  }`}
+                >
+                  {headerVisible ? '显示' : '隐藏'}
+                </button>
+              </div>
+              <div className="space-y-1">
+                {filteredHeader.map((el) => (
+                  <HeaderPaletteItem key={el.type} element={el} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── 普通组件 ─── */}
+          {filteredGroups.map(([category, widgets]) => (
+            <div key={category}>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-[10px] font-semibold text-textSecondary/40 uppercase tracking-wider">
+                  {CATEGORY_LABELS[category]}
+                </span>
+                {/* ★ 图表分类显示"创建组合"入口 */}
+                {category === 'chart' && (
+                  <button
+                    onClick={() => onCreateComposite?.()}
+                    className="flex items-center gap-1 text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors px-1.5 py-0.5 rounded border border-[rgba(0,212,255,0.15)] hover:border-[rgba(0,212,255,0.35)]"
+                  >
+                    <Plus size={10} />
+                    创建组合
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1">
+                {widgets.map((widget) => (
+                  <PaletteItem
+                    key={widget.type}
+                    widget={widget}
+                    onRename={category === 'custom' ? () => {
+                      const name = window.prompt('重命名', widget.name);
+                      if (name && name.trim()) renameCustomComponent(widget.type, name.trim());
+                    } : undefined}
+                    onDelete={category === 'custom' ? () => {
+                      const count = instances.filter((w) => w.type === widget.type).length;
+                      const msg = count > 0
+                        ? `删除自定义组件「${widget.name}」？画布上有 ${count} 个实例将一并删除。`
+                        : `删除自定义组件「${widget.name}」？`;
+                      if (window.confirm(msg)) deleteCustomComponent(widget.type);
+                    } : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
