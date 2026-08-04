@@ -44,6 +44,7 @@ export function mapData(
     case 'candlestick': return mapCandlestick(raw, mapping);
     case 'group-chart': return mapGroupBar(raw, mapping);
     case 'histogram': return mapHistogram(raw, mapping);
+    case 'voronoi': return mapVoronoi(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -384,6 +385,30 @@ function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> 
   }
 
   return {};
+}
+
+/**
+ * Voronoi 图 — 参照 mapPie 模式：对象数组 → {points:[{name, x, y}]}
+ * 支持 mapping 自定义 x/y/name 键；y 自动 fallback value 等常见键名。
+ */
+function mapVoronoi(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const src = resolveSrc(raw, m, 'points', 'data', 'items', 'series');
+  if (src.length === 0) return {};
+  const xKey = m.x || 'x';
+  const yKey = m.y || 'y';
+  const nameKey = m.name || 'name';
+  const points = src
+    .map((it) => {
+      const r = asRecord(it);
+      return {
+        name: String(r[nameKey] ?? r.label ?? r.id ?? ''),
+        x: toNum(r[xKey] ?? r.lng ?? r.lon ?? r['0']),
+        y: toNum(r[yKey] ?? r.value ?? r.lat ?? r['1']),
+      };
+    })
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  return points.length > 0 ? { points } : {};
 }
 
 /** 直方图 — 提取原始数值数组 → {data: number[]}（分箱由组件内部完成） */

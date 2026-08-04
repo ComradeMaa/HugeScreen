@@ -626,6 +626,36 @@ function BoxPlotDataEditor({ categories, onChange }: { categories: any[]; onChan
   );
 }
 
+/** Voronoi 图数据编辑器 — 每点: 名称 + X + Y */
+function VoronoiDataEditor({ points, onChange }: { points: any[]; onChange: (pts: any[]) => void }) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right w-12';
+  const pts = points.length ? points : [{ name: 'A', x: 12, y: 38 }];
+  return (
+    <div className="space-y-1.5">
+      <button onClick={() => onChange([...pts, { name: String.fromCharCode(65 + pts.length), x: 50, y: 50 }])}
+        className="w-full text-[10px] py-1 rounded border border-[rgba(0,212,255,0.12)] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加点</button>
+      {pts.map((p: any, i: number) => (
+        <div key={i} className="flex items-center gap-1 flex-wrap p-1 rounded bg-surface-base/50">
+          <input type="text" value={p.name ?? ''} placeholder="名称"
+            onChange={(e) => { const n = [...pts]; n[i] = { ...p, name: e.target.value }; onChange(n); }}
+            className={`${inputCls} w-10 text-left`} />
+          {(['x','y'] as const).map((f) => (
+            <input key={f} type="number" value={p[f] ?? ''} title={f.toUpperCase()} placeholder="0" step="any"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '' || raw === '-') return;
+                const n = [...pts]; n[i] = { ...p, [f]: Number(raw) }; onChange(n);
+              }}
+              className={inputCls} />
+          ))}
+          <button onClick={() => onChange(pts.filter((_: any, j: number) => j !== i))}
+            className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** 直方图数据编辑器 — 逗号/空格分隔的数值数组 */
 function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d: number[]) => void }) {
   const parse = (raw: string): number[] =>
@@ -1325,6 +1355,26 @@ export function PropertyInspector() {
                 <input type="number" value={Number((widget.options as Record<string, unknown>).binCount ?? 10)} min={2} max={30}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), binCount: Math.max(2, Math.min(30, Number(e.target.value) || 10)) } })}
                   className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ Voronoi 图配置 ═══ */}
+        {widget.type === 'voronoi' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <VoronoiDataEditor
+                points={Array.isArray((widget.options as any).points) ? (widget.options as any).points : []}
+                onChange={(pts) => updateWidget(widget.id, { options: { ...(widget.options as object), points: pts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="点颜色" value={((widget.options as Record<string, unknown>).pointColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), pointColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">显示区域</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).showCells as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), showCells: e.target.checked } })}
+                  className="rounded" />
               </label>
             </CollapsibleFieldGroup>
           </>

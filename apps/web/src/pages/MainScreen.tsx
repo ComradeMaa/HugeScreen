@@ -279,6 +279,30 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'voronoi': {
+          // Voronoi：区域分割线 + 散点
+          const vCells = [
+            [[0.08, 0.1], [0.5, 0.28], [0.22, 0.72]],
+            [[0.5, 0.28], [0.92, 0.08], [0.78, 0.75], [0.5, 0.28]],
+            [[0.22, 0.72], [0.5, 0.28], [0.78, 0.75], [0.92, 0.08], [0.92, 0.88], [0.78, 0.75]],
+          ];
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.35; ctx.lineWidth = 0.8;
+          vCells.forEach((cell) => {
+            ctx.beginPath();
+            cell.forEach(([vx, vy], i) => {
+              const px = innerX + vx * innerW, py = innerY + vy * innerH;
+              if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            });
+            ctx.closePath(); ctx.stroke();
+          });
+          const vPts = [[0.08, 0.1], [0.5, 0.28], [0.22, 0.72], [0.92, 0.08], [0.78, 0.75]];
+          ctx.fillStyle = color; ctx.globalAlpha = 0.9;
+          vPts.forEach(([vx, vy]) => {
+            ctx.beginPath(); ctx.arc(innerX + vx * innerW, innerY + vy * innerH, 2.5, 0, Math.PI * 2); ctx.fill();
+          });
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'group-chart': {
           // 分组柱状图：主色 + 白色两组并列柱
           const barCount = 4, groupW = innerW / barCount, gap = 2;

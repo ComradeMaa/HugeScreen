@@ -91,6 +91,7 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "candlestick": ["candles"],
     "group-chart": ["xLabels", "barSeries"],
     "histogram": ["data"],
+    "voronoi": ["points"],
   };
   const keys = dataKeys[chartType] ?? Object.keys(props);
   const out: Record<string, unknown> = {};

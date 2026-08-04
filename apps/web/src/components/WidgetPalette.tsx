@@ -19,6 +19,7 @@ import {
   Video,
   Droplets,
   CandlestickChart,
+  ChartScatter,
   Plus,
   Trash2,
   Pencil,
@@ -43,6 +44,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Video,
   Droplets,
   CandlestickChart,
+  ChartScatter,
 };
 
 function WidgetIcon({ name }: { name: string }) {
@@ -255,6 +257,20 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
       const bh = maxH * heights[i];
       ctx.fillRect(10 + i * barW + 1, baseY - bh, barW - 2, bh);
     }
+
+  } else if (type === 'voronoi') {
+    // Voronoi：区域分割线 + 散点
+    ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(10, 14); ctx.lineTo(58, 34); ctx.lineTo(30, 62); ctx.lineTo(10, 14); ctx.closePath(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(58, 34); ctx.lineTo(110, 18); ctx.lineTo(94, 60); ctx.lineTo(58, 34); ctx.closePath(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(30, 62); ctx.lineTo(58, 34); ctx.lineTo(94, 60); ctx.lineTo(110, 18); ctx.lineTo(110, 64); ctx.lineTo(94, 60); ctx.closePath(); ctx.stroke();
+    const pts = [[10, 14], [58, 34], [30, 62], [110, 18], [94, 60]];
+    ctx.fillStyle = '#00D4FF';
+    pts.forEach(([px, py]) => { ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill(); });
 
   } else if (type === 'group-chart') {
     // 分组柱状图：电光蓝 + 琥珀橙两组并列柱

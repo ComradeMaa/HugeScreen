@@ -349,6 +349,30 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'voronoi',
+      name: 'Voronoi 图',
+      description: '散点分布 + 最近邻区域划分',
+      icon: 'ChartScatter',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/VoronoiWidget').then(m => ({ default: m.VoronoiWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          pointColor: { type: 'string', title: '点颜色' },
+          showCells: { type: 'boolean', title: '显示区域' },
+          points: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        pointColor: '#00D4FF',
+        showCells: true,
+      },
+    },
+
+    {
       type: 'histogram',
       name: '直方图',
       description: '数据分布频率柱状图',
