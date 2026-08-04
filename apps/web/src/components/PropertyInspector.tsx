@@ -676,6 +676,72 @@ function VoronoiDataEditor({ points, onChange }: { points: any[]; onChange: (pts
   );
 }
 
+/** 矩形树图数据编辑器 — 递归嵌套：节点带名称+值，每个节点可继续添加子节点 */
+function TreemapDataEditor({ treemaps, onChange }: {
+  treemaps: { name: string; value?: number; children?: unknown[] }[];
+  onChange: (ts: { name: string; value?: number; children?: unknown[] }[]) => void;
+}) {
+  const inputCls = 'bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors';
+  const ts = treemaps.length ? treemaps : [];
+  const depthCls = (depth: number) => `flex items-center gap-1 p-1 rounded bg-surface-base/50 ${depth > 0 ? 'mt-0.5' : ''}`;
+
+  const renderNode = (
+    node: { name: string; value?: number; children?: unknown[] },
+    depth: number,
+    update: (n: { name: string; value?: number; children?: unknown[] }) => void,
+    remove: () => void,
+    key: number,
+  ) => {
+    const kids = Array.isArray(node.children) ? node.children as { name: string; value?: number; children?: unknown[] }[] : [];
+    const updateKid = (i: number) => (n: { name: string; value?: number; children?: unknown[] }) => {
+      const next = [...kids]; next[i] = n;
+      update({ ...node, children: next });
+    };
+    return (
+      <div key={key}>
+        <div className={depthCls(depth)} style={{ paddingLeft: depth * 16 }}>
+          <input type="text" value={node.name ?? ''}
+            onChange={(e) => update({ ...node, name: e.target.value })}
+            className={`${inputCls} flex-1 min-w-0 w-16`} />
+          <input type="number" value={node.value ?? ''} placeholder="值" step="any"
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === '' || raw === '-') return;
+              update({ ...node, value: Number(raw) });
+            }}
+            className={`${inputCls} w-14`} />
+          <button
+            onClick={() => update({ ...node, children: [...kids, { name: `子节点${kids.length + 1}` }] })}
+            className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors whitespace-nowrap">+ 子节点</button>
+          <button onClick={remove}
+            className="text-textSecondary/30 hover:text-negative text-xs px-0.5">×</button>
+        </div>
+        {kids.map((k, i) => renderNode(k, depth + 1, updateKid(i), () => {
+          const next = [...kids]; next.splice(i, 1);
+          update({ ...node, children: next });
+        }, i))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-textSecondary/40">树（节点：名称 + 值）</span>
+        <button
+          onClick={() => onChange([...ts, { name: `根节点${ts.length + 1}` }])}
+          className="text-[10px] text-accent-cool/60 hover:text-accent-cool transition-colors">+ 添加根节点</button>
+      </div>
+      {ts.map((t, i) => renderNode(t, 0, (n) => {
+        const next = [...ts]; next[i] = n; onChange(next);
+      }, () => onChange(ts.filter((_, j) => j !== i)), i))}
+      {ts.length === 0 && (
+        <div className="text-[10px] text-textSecondary/30 text-center py-2">暂无树，点击「+ 添加根节点」创建</div>
+      )}
+    </div>
+  );
+}
+
 /** 树形图数据编辑器 — 递归嵌套结构：添加根节点（=一棵树），每个节点可继续添加子节点 */
 function TreeDataEditor({ trees, onChange }: {
   trees: { name: string; children?: unknown[] }[];
@@ -2117,6 +2183,37 @@ export function PropertyInspector() {
               <LabelSelectRow label="初始深度" value={String((widget.options as Record<string, unknown>).initialDepth ?? 2)}
                 options={['1','2','3','4']}
                 onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), initialDepth: Number(v) } })} />
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 矩形树图配置 ═══ */}
+        {widget.type === 'treemap-chart' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <TreemapDataEditor
+                treemaps={Array.isArray((widget.options as any).treemaps) ? (widget.options as any).treemaps : []}
+                onChange={(ts) => updateWidget(widget.id, { options: { ...(widget.options as object), treemaps: ts } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">面包屑导航</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).breadcrumb as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), breadcrumb: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">滚轮缩放</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).roam as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), roam: e.target.checked } })}
+                  className="rounded" />
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">点击下钻</span>
+                <input type="checkbox" checked={((widget.options as Record<string, unknown>).drillDown as boolean) ?? true}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), drillDown: e.target.checked } })}
+                  className="rounded" />
+              </label>
             </CollapsibleFieldGroup>
           </>
         )}

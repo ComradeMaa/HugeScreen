@@ -356,6 +356,43 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'treemap-chart',
+      name: '矩形树图',
+      description: '面积层级矩形分布',
+      icon: 'Grid3x3',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 4 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 8 },
+      component: lazy(() => import('./charts/TreemapWidget').then(m => ({ default: m.TreemapWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          breadcrumb: { type: 'boolean', title: '面包屑' },
+          roam: { type: 'boolean', title: '缩放' },
+          drillDown: { type: 'boolean', title: '点击下钻' },
+          treemaps: { type: 'array', title: '树数据' },
+        },
+      },
+      defaultConfig: {
+        breadcrumb: true,
+        roam: true,
+        drillDown: true,
+        treemaps: [
+          {
+            name: '总销售额',
+            children: [
+              { name: '华东', children: [{ name: '上海', value: 320 }, { name: '杭州', value: 180 }, { name: '南京', value: 150 }] },
+              { name: '华南', children: [{ name: '广州', value: 260 }, { name: '深圳', value: 240 }] },
+              { name: '华北', children: [{ name: '北京', value: 280 }, { name: '天津', value: 120 }] },
+              { name: '西南', children: [{ name: '成都', value: 190 }, { name: '重庆', value: 170 }] },
+            ],
+          },
+        ],
+      },
+    },
+
+    {
       type: 'tree-chart',
       name: '树形图',
       description: '层级关系树，四向可切换',

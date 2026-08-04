@@ -436,6 +436,23 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
       ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
     });
 
+  } else if (type === 'treemap-chart') {
+    // 矩形树图：嵌套矩形分布
+    ctx.fillStyle = 'rgba(0,212,255,0.9)';
+    ctx.fillRect(12, 10, 30, 52);
+    ctx.fillStyle = 'rgba(0,212,255,0.65)';
+    ctx.fillRect(44, 10, 56, 24);
+    ctx.fillStyle = 'rgba(0,212,255,0.35)';
+    ctx.fillRect(44, 36, 24, 26);
+    ctx.fillStyle = 'rgba(0,212,255,0.55)';
+    ctx.fillRect(70, 36, 30, 26);
+    ctx.strokeStyle = 'rgba(44,44,52,1)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(12, 10, 30, 52);
+    ctx.strokeRect(44, 10, 56, 24);
+    ctx.strokeRect(44, 36, 24, 26);
+    ctx.strokeRect(70, 36, 30, 26);
+
   } else if (type === 'voronoi') {
     // Voronoi：区域分割线 + 散点
     ctx.strokeStyle = 'rgba(0,212,255,0.3)';

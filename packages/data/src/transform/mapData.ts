@@ -55,6 +55,7 @@ export function mapData(
     case 'heatmap': return mapHeatmap(raw, mapping);
     case 'relation-chart': return mapRelation(raw, mapping);
     case 'tree-chart': return mapTree(raw, mapping);
+    case 'treemap-chart': return mapTreemap(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -391,6 +392,86 @@ function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> 
         });
       }
       return { candles };
+    }
+  }
+
+  return {};
+}
+
+/**
+ * 矩形树图 — 嵌套结构（节点带 value）+ 扁平列表多格式适配：
+ *   1. 嵌套：{name, value, children:[…]} 或数组（多根）
+ *   2. 扁平列表 + parent：[{name, value, parent}] → 构建嵌套
+ *   3. 包装：{treemap/tree/data: {…} 或 […]}
+ * 输出 {treemaps:[{name, value, children}]}
+ */
+function mapTreemap(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const nameKey = m.name || 'name';
+  const valueKey = m.value || 'value';
+  const parentKey = m.parent || 'parent';
+  const childrenKey = m.children || 'children';
+
+  const clean = (node: Record<string, unknown>): { name: string; value?: number; children?: unknown[] } => {
+    const out: { name: string; value?: number; children?: unknown[] } = {
+      name: String(node[nameKey] ?? node.label ?? ''),
+    };
+    const v = toNum(node[valueKey], NaN);
+    if (Number.isFinite(v)) out.value = v;
+    const kids = asArray(node[childrenKey]);
+    if (kids.length > 0) out.children = kids.map((c) => clean(asRecord(c)));
+    return out;
+  };
+
+  // 直接是根（对象）或根数组
+  if (Array.isArray(raw)) {
+    const trees = raw.map((r) => clean(asRecord(r))).filter((t) => t.name);
+    if (trees.length > 0) return { treemaps: trees };
+  } else {
+    const candidate = raw as Record<string, unknown>;
+    if (candidate[nameKey] != null) {
+      const t = clean(candidate);
+      if (t.name) return { treemaps: [t] };
+    }
+    // 包装
+    const wrapped = candidate['treemaps'] ?? candidate['treemap'] ?? candidate['tree'] ?? candidate['data'] ?? candidate['root'];
+    if (Array.isArray(wrapped)) {
+      const trees = wrapped.map((r) => clean(asRecord(r))).filter((t) => t.name);
+      if (trees.length > 0) return { treemaps: trees };
+    } else {
+      const wr = asRecord(wrapped);
+      if (wr[nameKey] != null) {
+        const t = clean(wr);
+        if (t.name) return { treemaps: [t] };
+      }
+    }
+  }
+
+  // 扁平列表 + parent → 构建嵌套（保留 value）
+  const src = resolveSrc(raw, m, 'nodes', 'data', 'items', 'nodes');
+  if (src.length > 0 && src.every((it) => !Array.isArray(it))) {
+    const items = src.map((it) => {
+      const r = asRecord(it);
+      return {
+        name: String(r[nameKey] ?? r.label ?? ''),
+        value: toNum(r[valueKey], NaN),
+        parent: r[parentKey] != null ? String(r[parentKey]) : undefined,
+      };
+    }).filter((n) => n.name);
+    const roots = items.filter((n) => !n.parent);
+    if (roots.length > 0) {
+      const childrenOf = (name: string): { name: string; value?: number; children?: { name: string; value?: number }[] }[] =>
+        items.filter((n) => n.parent === name).map((k) => ({
+          name: k.name,
+          ...(Number.isFinite(k.value) ? { value: k.value } : {}),
+          ...(childrenOf(k.name).length > 0 ? { children: childrenOf(k.name) } : {}),
+        }));
+      const trees = roots.map((r) => ({
+        name: r.name,
+        ...(Number.isFinite(r.value) ? { value: r.value } : {}),
+        ...(childrenOf(r.name).length > 0 ? { children: childrenOf(r.name) } : {}),
+      }));
+      return { treemaps: trees };
     }
   }
 

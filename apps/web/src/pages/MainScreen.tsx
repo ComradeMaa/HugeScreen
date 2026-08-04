@@ -453,6 +453,25 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'treemap-chart': {
+          // 矩形树图：嵌套矩形分布
+          const tmFill = [0.9, 0.65, 0.35, 0.55];
+          const tmRects = [
+            [0.08, 0.1, 0.28, 0.8],
+            [0.38, 0.1, 0.54, 0.36],
+            [0.38, 0.48, 0.23, 0.42],
+            [0.63, 0.48, 0.29, 0.42],
+          ];
+          tmRects.forEach(([fx, fy, fw, fh], i) => {
+            const x = innerX + fx * innerW, y = innerY + fy * innerH, w = fw * innerW, h = fh * innerH;
+            ctx.fillStyle = color; ctx.globalAlpha = tmFill[i];
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = 'rgba(44,44,52,1)'; ctx.globalAlpha = 1; ctx.lineWidth = 1.5;
+            ctx.strokeRect(x, y, w, h);
+          });
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'voronoi': {
           // Voronoi：区域分割线 + 散点
           const vCells = [
