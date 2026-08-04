@@ -2408,12 +2408,6 @@ export function PropertyInspector() {
                   className="rounded" />
               </label>
               <label className="flex items-center justify-between mt-2">
-                <span className="text-[11px] text-textSecondary/70">滚轮缩放</span>
-                <input type="checkbox" checked={((widget.options as Record<string, unknown>).roam as boolean) ?? true}
-                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), roam: e.target.checked } })}
-                  className="rounded" />
-              </label>
-              <label className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-textSecondary/70">点击下钻</span>
                 <input type="checkbox" checked={((widget.options as Record<string, unknown>).drillDown as boolean) ?? true}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), drillDown: e.target.checked } })}

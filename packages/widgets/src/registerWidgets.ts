@@ -369,14 +369,12 @@ export function registerBuiltinWidgets(): void {
         type: 'object',
         properties: {
           breadcrumb: { type: 'boolean', title: '面包屑' },
-          roam: { type: 'boolean', title: '缩放' },
           drillDown: { type: 'boolean', title: '点击下钻' },
           treemaps: { type: 'array', title: '树数据' },
         },
       },
       defaultConfig: {
         breadcrumb: true,
-        roam: true,
         drillDown: true,
         treemaps: [
           {

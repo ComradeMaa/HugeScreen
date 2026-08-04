@@ -12,8 +12,6 @@ interface TreemapWidgetProps {
   treemaps?: TreemapNode[];
   /** 面包屑导航（顶部，点击返回上级） */
   breadcrumb?: boolean;
-  /** 可缩放/平移 */
-  roam?: boolean;
   /** 点击有子节点的卡片下钻 */
   drillDown?: boolean;
 }
@@ -57,7 +55,6 @@ const DEFAULT_TREEMAP: TreemapNode = {
 export function TreemapWidget({
   treemaps,
   breadcrumb = true,
-  roam = true,
   drillDown = true,
 }: TreemapWidgetProps) {
   const { chartRef, setOption } = useECharts();
@@ -188,7 +185,7 @@ export function TreemapWidget({
         type: 'treemap' as const,
         data: renderData,
         nodeClick: false as const,
-        roam,
+        // roam 关闭：禁止拖拽平移/滚轮缩放（点按不再粘连鼠标），仅保留点击下钻 + 面包屑
         top: breadcrumb ? 26 : 8,
         left: 8, right: 8, bottom: 8,
         label: {
@@ -217,7 +214,7 @@ export function TreemapWidget({
       setDidInit(true);
       setOption(opt(false), true);
     }
-  }, [JSON.stringify(display), JSON.stringify(drillTarget), breadcrumb, roam, path, fadePhase]);
+  }, [JSON.stringify(display), JSON.stringify(drillTarget), breadcrumb, path, fadePhase]);
 
   // 顶部面包屑（手动渲染，点击返回上级）
   const crumb = [root.name, ...path];
