@@ -231,8 +231,8 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.fillText('60%', cx, cy + 2);
 
   } else if (type === 'box-plot') {
-    const drawBox = (bx, min, q1, med, q3, max) => {
-      const s = (v) => cy + 24 - v * 0.8;
+    const drawBox = (bx: number, min: number, q1: number, med: number, q3: number, max: number) => {
+      const s = (v: number) => cy + 24 - v * 0.8;
       ctx.strokeStyle = "rgba(0,212,255,0.6)"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(bx, s(max)); ctx.lineTo(bx, s(min)); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(bx - 3, s(min)); ctx.lineTo(bx + 3, s(min)); ctx.stroke();
@@ -248,8 +248,8 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
 
   } else if (type === 'candlestick') {
     // K线：阳线绿实心、阴线红空心
-    const drawCandle = (bx, open, close, high, low) => {
-      const s = (v) => cy + 24 - v * 0.55;
+    const drawCandle = (bx: number, open: number, close: number, high: number, low: number) => {
+      const s = (v: number) => cy + 24 - v * 0.55;
       const up = close >= open;
       ctx.strokeStyle = up ? "rgba(52,211,153,0.8)" : "rgba(248,113,113,0.8)";
       ctx.lineWidth = 1;

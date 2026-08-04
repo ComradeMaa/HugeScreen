@@ -65,9 +65,6 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
       series: [{
         type: 'pie' as const,
         // 有引出线时缩小饼图半径腾空间
-        radius: hasAnyLabelLine
-          ? (donut ? ['38%', '62%'] : ['0%', '58%'])
-          : (donut ? ['45%', '72%'] : ['0%', '70%']),
         center: showLegend ? ['40%', '50%'] : ['50%', '50%'],
         // 南丁格尔玫瑰图：扇区半径按数值比例（需外半径按数据变化）
         roseType: roseType === 'none' ? undefined : (roseType as 'radius'),

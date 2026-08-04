@@ -141,7 +141,7 @@ class DataFetcher {
   private _fetchCount = 0;
 
   /** 安全获取响应数据：JSON → 解析; 非JSON(视频流/图片等) → 返回 {url} 供直接使用 */
-  private static async safeResponseData(resp: Response, url: string): Promise<unknown> {
+  static async safeResponseData(resp: Response, url: string): Promise<unknown> {
     const ct = resp.headers.get('content-type') || '';
     if (ct.includes('application/json') || ct.includes('text/') || ct === '') {
       try {

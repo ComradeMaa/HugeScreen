@@ -226,8 +226,8 @@ function SlotChartEditors({
               onChange={(e) => onUpdate({ suffix: e.target.value })}
               className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
           </label>
-          <ColorSwatchRow label="数值颜色" value={opts.valueColor ?? "#FFFFFF"} colors={PRESET_VALUE_COLORS} onChange={(c) => onUpdate({ valueColor: c })} />
-          <ColorSwatchRow label="单位颜色" value={opts.suffixColor ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ suffixColor: c })} />
+          <ColorSwatchRow label="数值颜色" value={(opts.valueColor as string) ?? "#FFFFFF"} colors={PRESET_VALUE_COLORS} onChange={(c) => onUpdate({ valueColor: c })} />
+          <ColorSwatchRow label="单位颜色" value={(opts.suffixColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ suffixColor: c })} />
 
           <hr className="border-[rgba(255,255,255,0.04)] my-1" />
           <label className="flex items-center justify-between">
@@ -308,7 +308,7 @@ function SlotChartEditors({
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 if (files.length === 0) return;
-                const existing: any[] = [...(opts.images || [])];
+                const existing: any[] = [...((opts.images as any[]) || [])];
                 let loaded = 0;
                 files.forEach((file) => {
                   const reader = new FileReader();
@@ -364,7 +364,7 @@ function SlotChartEditors({
               })}
             </div>
           )}
-          {opts.src && !(opts.images as any[])?.length && (
+          {(opts.src as string) && !(opts.images as any[])?.length && (
             <button onClick={() => onUpdate({ src: undefined })}
               className="text-[11px] text-negative/60 hover:text-negative mt-1"
             >移除图片</button>
@@ -1469,7 +1469,6 @@ function PinInstanceEditor({ pinInstances, pinTypes, onChange }: { pinInstances:
         className="w-full text-[11px] py-1.5 rounded border border-[rgba(0,212,255,0.15)] text-accent-cool/70 hover:text-accent-cool transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >+ 添加实例</button>
       {pinInstances.map((pi: any, i: number) => {
-        const pt = pinTypes.find((t: any) => t.id === pi.pinTypeId);
         const isActive = lastDraggedPinId === pi.id;
         return (
           <div key={pi.id ?? i}

@@ -1051,7 +1051,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
             const sourcePx = headerSlotPixels.find(p => p.id === info.sourceSlotId);
             if (!targetSlot?.elementType || !sourcePx) return null;
             const targetDef = headerElementRegistry.get(targetSlot.elementType);
-            const TargetComp = targetDef?.component;
+            const TargetComp = targetDef?.component as React.ComponentType<any> | undefined;
             if (!TargetComp) return null;
             const isActive = !!headerSwapPreview;
             return (
@@ -1066,7 +1066,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
                   opacity: isActive ? 1 : 0,
                 }}
               >
-                <TargetComp {...(targetDef.defaultConfig ?? {})} {...(targetSlot.options as object)} />
+                <TargetComp {...(targetDef?.defaultConfig ?? {})} {...(targetSlot.options as object)} />
               </div>
             );
           })()}
@@ -1074,7 +1074,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           {header.slots.map((slot, idx) => {
             const px = headerSlotPixels.find(p => p.id === slot.id);
             const elDef = slot.elementType ? headerElementRegistry.get(slot.elementType) : undefined;
-            const ElComp = elDef?.component;
+            const ElComp = elDef?.component as React.ComponentType<any> | undefined;
             const isHeaderSwapTarget = headerSwapPreview?.targetSlotId === slot.id;
             return (
               <div
@@ -1132,7 +1132,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
                 </div>
 
                 {/* ═══ 顶栏边框 ═══ */}
-                {slot.elementType && (slot.options as Record<string, unknown>)?.borderStyle
+                {slot.elementType && ((slot.options as Record<string, unknown>).borderStyle as string)
                   && (slot.options as Record<string, unknown>).borderStyle !== 'none'
                   && px && (
                   (slot.options as Record<string, unknown>).borderStyle === 'header-custom'

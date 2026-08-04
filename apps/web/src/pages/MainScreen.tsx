@@ -110,7 +110,7 @@ export function MainScreen() {
     }
     ctx.setLineDash([]);
 
-    const COLORS = { stat: '#FF8C42', chart: '#34d399', table: '#00D4FF', '3d': '#7c3aed', media: '#c084fc', decorator: '#9E9EA8' };
+    const COLORS: Record<string, string> = { stat: '#FF8C42', chart: '#34d399', table: '#00D4FF', '3d': '#7c3aed', media: '#c084fc', decorator: '#9E9EA8' };
 
     // 查找自定义组件定义
     function findComposite(type: string) { return customComps.find((d: any) => d.type === type); }
@@ -707,7 +707,6 @@ export function MainScreen() {
       };
       const tpl = template || '2col';
       const areaStr = TEMPLATE_AREAS[tpl] || TEMPLATE_AREAS['2col'];
-      const rows2 = areaStr.split('" "').length;
       // Parse grid areas
       const lines = areaStr.split('" "').map((s: string) => s.replace(/"/g, ''));
       const areas = lines.map((l: string) => l.split(' '));

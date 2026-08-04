@@ -67,8 +67,8 @@ export function DataSourceEditor({ dataSource, chartType, onChange }: DataSource
   const setMapping = (m: Record<string, string>) => onChange({ ...ds, mapping: m });
 
   /** Build clean headers for fetch — always strip corruption and re-wrap the token */
-function buildCleanHeaders(cfg) {
-  const clean = {};
+function buildCleanHeaders(cfg: DataSourceConfig['config']) {
+  const clean: Record<string, string> = {};
   if (cfg.headers) {
     for (const [k, v] of Object.entries(cfg.headers)) {
       if (k.toLowerCase() === "authorization") {
@@ -82,7 +82,7 @@ function buildCleanHeaders(cfg) {
   return clean;
 }
 
-function extractBearerFromString(a) {
+function extractBearerFromString(a: string) {
   let s = a.trim();
   const ai = s.toLowerCase().indexOf("authorization:");
   if (ai !== -1) s = s.slice(ai + 14).trim();

@@ -850,7 +850,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     let widgetBlobsDirty = false;
 
     if (config.widgets) {
-      const updatedWidgets = await Promise.all(config.widgets.map(async (widget) => {
+      const updatedWidgets = await Promise.all(config.widgets.map(async (widget: any) => {
         for (const v of ((widget.options as any).videos || (widget.options as any).images || [])) {
           const u = typeof v === 'string' ? v : v?.url;
           if (u && u.startsWith('/uploads/')) oldUploadUrls.add(u);
@@ -1007,8 +1007,8 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         raw.header = createDefaultHeader();
       }
       // 迁移：旧版配置 header 没有 visible → 默认显示
-      if (raw.header && (raw.header as Record<string, unknown>).visible === undefined) {
-        (raw.header as Record<string, unknown>).visible = true;
+      if (raw.header && (raw.header as unknown as Record<string, unknown>).visible === undefined) {
+        (raw.header as unknown as Record<string, unknown>).visible = true;
       }
       // 清理旧版残留：screen-header 组件、row 0 的组件（现在属于固定顶栏区域）
       if (raw.widgets) {

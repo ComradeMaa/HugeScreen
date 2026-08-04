@@ -990,7 +990,7 @@ function mapStepLine(raw: unknown, m: FieldMapping): Record<string, unknown> {
       const points: { x: number | string; value: number }[] = [];
       for (let i = 0; i < len; i++) {
         const xv = xArr[i];
-        const x = typeof xv === 'string' && /^[-.\d]+$/.test(xv) ? parseFloat(xv) : xv;
+        const x = typeof xv === 'string' && /^[-.\d]+$/.test(xv) ? parseFloat(xv) : (typeof xv === 'number' ? xv : undefined);
         const value = toNum(valuesArr[i]);
         if (x != null && Number.isFinite(value)) points.push({ x, value });
       }

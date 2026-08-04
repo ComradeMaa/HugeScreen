@@ -18,6 +18,6 @@ export function useRelativeTime(isoStr: string | undefined): string {
     if (hours < 24) return `${hours} 小时前`;
     if (days < 7) return `${days} 天前`;
     if (days < 30) return `${Math.floor(days / 7)} 周前`;
-    return then.toLocaleString('zh-CN', { month: 'short', day: 'numeric' }).replace('月', '月').replace('日', '日');
+    return new Date(isoStr).toLocaleString('zh-CN', { month: 'short', day: 'numeric' });
   }, [isoStr]);
 }

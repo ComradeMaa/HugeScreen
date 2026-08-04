@@ -226,7 +226,7 @@ export function CyberMapWidget({
 
         const raw = outer.map(([lng, lat]: number[]) => lngLatToWorld(lng, lat, bounds));
         let cx = 0, cz = 0;
-        raw.forEach(p => { cx += p.x; cz += p.z; });
+        raw.forEach((p: THREE.Vector3) => { cx += p.x; cz += p.z; });
         cx /= raw.length; cz /= raw.length;
 
         const shape = new THREE.Shape();
