@@ -78,8 +78,10 @@ export function FunnelWidget({
       series: [{
         type: 'funnel' as const,
         data: cats,
-        left: showLegend ? '30%' : '10%',
-        right: showLegend ? '14%' : '10%',
+        // ★ left/right 必须对称：funnel 布局以 [left, left+width] 为基准居中，
+        // 不对称（如 30%/14%）会把漏斗中心推到 58% 偏右。图例浮动于顶部右上，无需缩窄留位。
+        left: '10%',
+        right: '10%',
         top: 30,
         bottom: 8,
         sort: sortMap[sortMode],
