@@ -296,8 +296,8 @@ PM2 路径: /home/ubuntu/.npm-global/bin/pm2（非交互 SSH 需 export PATH）
 **方式一：一键部署（仅 dist 更新）**
 
 ```bash
-# 1. 本地构建
-cd apps/web && npx vite build
+# 1. 本地构建（仓库根目录，含 TypeScript 类型检查）
+pnpm build
 
 # 2. 打包上传（tar 管道）
 cd apps/web/dist && tar czf - . | ssh -n -o StrictHostKeyChecking=no \
@@ -314,8 +314,8 @@ ssh -n -o StrictHostKeyChecking=no ubuntu@221.131.69.161 -p 60222 \
 **方式二：完整部署（含服务器代码变更）**
 
 ```bash
-# 1. 本地构建
-cd apps/web && npx vite build    # 产出 dist/
+# 1. 本地构建（仓库根目录，含 TypeScript 类型检查）
+pnpm build    # 产出 dist/
 
 # 2. 上传所有文件到服务器（注意目标路径是 /home/ubuntu/hugescreen/，不是 apps/web/）
 # 用 tar 管道分别上传 dist/ 和服务器代码
@@ -408,8 +408,8 @@ pnpm dev              # 启动 Vite 开发服务器 (:3000) + API 服务器 (:30
 pnpm dev:desktop      # 启动 Electron 开发
 
 # 构建与部署
-pnpm build            # 构建 Web 生产版本（⚠️ tsc 有预存错误，会失败）
-npx vite build        # 跳过 tsc 直接构建 (cd apps/web && npx vite build)
+pnpm build            # 构建 Web 生产版本（tsc 类型检查 + vite build）
+npx vite build        # 仅构建跳过 tsc (cd apps/web && npx vite build)，类型排查时用
 pnpm serve            # 启动生产服务器 (Express, :3001)
 pnpm build:desktop    # 打包 Electron 应用
 
@@ -419,4 +419,4 @@ pnpm test:e2e         # 运行 Playwright E2E 测试
 pnpm lint             # ESLint + Prettier 检查
 ```
 
-**注意：** `pnpm build`（即 `tsc && vite build`）目前因 TypeScript 类型错误（three.js 声明文件缺失、隐式 any 等预存问题）会失败。部署时使用 `npx vite build` 直接构建即可。
+**注意：** 预存的 TypeScript 类型错误已全部修复（含 three.js 类型，@types/three@0.185.1），`pnpm build`（即 `tsc && vite build`）可正常构建，类型检查通过。
