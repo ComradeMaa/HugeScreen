@@ -43,6 +43,7 @@ export function mapData(
     case 'box-plot': return mapBoxPlot(raw, mapping);
     case 'candlestick': return mapCandlestick(raw, mapping);
     case 'group-chart': return mapGroupBar(raw, mapping);
+    case 'histogram': return mapHistogram(raw, mapping);
     default: return asRecord(raw);
   }
 }
@@ -383,6 +384,18 @@ function mapCandlestick(raw: unknown, m: FieldMapping): Record<string, unknown> 
   }
 
   return {};
+}
+
+/** 直方图 — 提取原始数值数组 → {data: number[]}（分箱由组件内部完成） */
+function mapHistogram(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  if (raw == null) return {};
+  const src = resolveSrc(raw, m, 'data', 'data', 'values', 'items');
+  if (src.length === 0) return {};
+  const valueKey = m.value || 'value';
+  const nums = src
+    .map((it) => (typeof it === 'number' ? it : toNum(asRecord(it)[valueKey] ?? asRecord(it)['y'])))
+    .filter((n) => Number.isFinite(n));
+  return nums.length > 0 ? { data: nums } : {};
 }
 
 /** 分组柱状图 — 参照 mapLine：xLabels + 多系列 → {xLabels, barSeries} */

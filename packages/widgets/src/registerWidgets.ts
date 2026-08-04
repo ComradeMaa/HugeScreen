@@ -349,6 +349,30 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'histogram',
+      name: '直方图',
+      description: '数据分布频率柱状图',
+      icon: 'BarChart3',
+      category: 'chart',
+      defaultSize: { colSpan: 4, rowSpan: 3 },
+      minSize: { colSpan: 2, rowSpan: 2 },
+      maxSize: { colSpan: 8, rowSpan: 5 },
+      component: lazy(() => import('./charts/HistogramWidget').then(m => ({ default: m.HistogramWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          binCount: { type: 'number', title: '分箱数量' },
+          barColor: { type: 'string', title: '柱色' },
+          data: { type: 'array', title: '数据' },
+        },
+      },
+      defaultConfig: {
+        binCount: 10,
+        barColor: '#00D4FF',
+      },
+    },
+
+    {
       type: 'group-chart',
       name: '分组柱状图',
       description: '多系列并列柱状图对比',

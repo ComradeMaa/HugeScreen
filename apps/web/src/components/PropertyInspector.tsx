@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useEditorStore, stageUploadFile } from '../store/editorStore';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetStyle } from '@hugescreen/shared';
@@ -623,6 +623,40 @@ function BoxPlotDataEditor({ categories, onChange }: { categories: any[]; onChan
         </div>
       ))}
     </div>
+  );
+}
+
+/** 直方图数据编辑器 — 逗号/空格分隔的数值数组 */
+function HistogramDataEditor({ data, onChange }: { data: number[]; onChange: (d: number[]) => void }) {
+  const parse = (raw: string): number[] =>
+    raw.split(/[,，\s]+/)
+      .map((s) => s.trim())
+      .filter((s) => s !== '')          // ★ 关键：空串不解析，避免 Number('')=0 占位
+      .map((s) => Number(s))
+      .filter((n) => Number.isFinite(n));
+
+  const [text, setText] = useState(data.join(', '));
+  // 外部数据变化（REST 推送回写 options.data）时同步显示；
+  // 用户输入产生的 data 与文本解析结果一致 → 不回写，保证输入过程自由（逗号/删减不被打断）
+  useEffect(() => {
+    const fromText = parse(text);
+    if (JSON.stringify(fromText) !== JSON.stringify(data)) {
+      setText(data.join(', '));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(data)]);
+
+  return (
+    <textarea
+      value={text}
+      rows={4}
+      placeholder="35, 42, 38, 51, 47, 55, 60 ..."
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        onChange(parse(raw));
+      }}
+      className="w-full bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1 text-[11px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors resize-y" />
   );
 }
 
@@ -1269,6 +1303,29 @@ export function PropertyInspector() {
               <LabelSelectRow label="柱宽" value={String((widget.options as Record<string, unknown>).barWidth ?? '40%')}
                 options={['30%','40%','50%','70%']}
                 onChange={(v) => updateWidget(widget.id, { options: { ...(widget.options as object), barWidth: v } })} />
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
+        {/* ═══ 直方图配置 ═══ */}
+        {widget.type === 'histogram' && (
+          <>
+            <CollapsibleFieldGroup label="数值" defaultOpen={true}>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] text-textSecondary/70">数据（数值数组，逗号/空格分隔）</span>
+                <HistogramDataEditor
+                  data={Array.isArray((widget.options as any).data) ? (widget.options as any).data as number[] : []}
+                  onChange={(d) => updateWidget(widget.id, { options: { ...(widget.options as object), data: d } })} />
+              </label>
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="样式" defaultOpen={false}>
+              <ColorSwatchRow label="柱色" value={((widget.options as Record<string, unknown>).barColor as string) ?? '#00D4FF'} colors={PRESET_VALUE_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), barColor: c } })} />
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">分箱数量</span>
+                <input type="number" value={Number((widget.options as Record<string, unknown>).binCount ?? 10)} min={2} max={30}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), binCount: Math.max(2, Math.min(30, Number(e.target.value) || 10)) } })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-16 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
             </CollapsibleFieldGroup>
           </>
         )}

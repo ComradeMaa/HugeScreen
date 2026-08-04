@@ -265,6 +265,20 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'histogram': {
+          // 直方图：钟形分布密集柱
+          const barCount = 9, barW = innerW / barCount;
+          const baseY = innerY + innerH * 0.85;
+          const maxH = innerH * 0.55;
+          const heights = [0.2, 0.4, 0.65, 0.85, 1, 0.85, 0.65, 0.4, 0.2];
+          ctx.fillStyle = color; ctx.globalAlpha = 0.55;
+          for (let i = 0; i < barCount; i++) {
+            const bh = maxH * heights[i];
+            ctx.fillRect(innerX + i * barW + 1, baseY - bh, barW - 2, bh);
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'group-chart': {
           // 分组柱状图：主色 + 白色两组并列柱
           const barCount = 4, groupW = innerW / barCount, gap = 2;

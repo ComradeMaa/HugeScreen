@@ -244,6 +244,18 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     drawCandle(60, 38, 34, 40, 30);
     drawCandle(95, 34, 46, 48, 32);
 
+  } else if (type === 'histogram') {
+    // 直方图：钟形分布的密集柱
+    const barCount = 9, totalW = w - 20;
+    const barW = totalW / barCount;
+    const baseY = h - 12, maxH = h * 0.5;
+    const heights = [0.2, 0.4, 0.65, 0.85, 1, 0.85, 0.65, 0.4, 0.2];
+    ctx.fillStyle = 'rgba(0,212,255,0.55)';
+    for (let i = 0; i < barCount; i++) {
+      const bh = maxH * heights[i];
+      ctx.fillRect(10 + i * barW + 1, baseY - bh, barW - 2, bh);
+    }
+
   } else if (type === 'group-chart') {
     // 分组柱状图：电光蓝 + 琥珀橙两组并列柱
     const barCount = 4, gap = 4, totalW = w - 24;
