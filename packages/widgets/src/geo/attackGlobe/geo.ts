@@ -90,8 +90,28 @@ export interface CountryMeshes {
 }
 
 /**
- * 球面三角化：顶点放球面，剖分在"该国中心为法线的切线平面"做（THREE.ShapeUtils.triangulateShape），
- * 索引映射回球面 3D 顶点。孔环同法投影。所有 polygon 合并进一个 BufferGeometry。
+ * 经度 unwrap：把跨 180° 经线的环（俄罗斯/美国阿拉斯加等）转成连续平面坐标。
+ * 找到最大经度跳变处（>180°），跳变后的点整体 ±360°。
+ */
+function unwrapRing(ring: number[][]): number[][] {
+  const pts = ring.map((p) => [p[0], p[1]] as [number, number]);
+  let maxJump = 0, jumpAt = -1;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const d = Math.abs(pts[i + 1][0] - pts[i][0]);
+    if (d > maxJump) { maxJump = d; jumpAt = i; }
+  }
+  if (maxJump > 180 && jumpAt >= 0) {
+    const shift = pts[jumpAt + 1][0] > pts[jumpAt][0] ? -360 : 360;
+    for (let i = jumpAt + 1; i < pts.length; i++) pts[i][0] += shift;
+  }
+  return pts;
+}
+
+/**
+ * 球面三角化：顶点放球面（geoToSphere），剖分在**经纬度平面**做（THREE.ShapeUtils.triangulateShape）。
+ * ★ 为什么不用切线平面投影：大国（美/俄/中）球面曲率大，投影后外环自交 → earcut 产生空洞；
+ *   经纬度平面下 GeoJSON 数据本身是无自交的合法多边形，剖分 100% 成功（跨 180° 环先 unwrap）。
+ * 索引映射回球面 3D 顶点（同一序号）。孔环同法。所有 polygon 合并进一个 BufferGeometry。
  */
 export function buildCountryMeshes(features: CountryFeature[], radius: number): CountryMeshes {
   const fillPos: number[] = [];
@@ -100,45 +120,33 @@ export function buildCountryMeshes(features: CountryFeature[], radius: number): 
 
   for (const c of features) {
     for (const ringGroup of c.rings) {
-      // 收集本 poly 全部顶点（外环 + 孔）的 3D 球面坐标与 2D 切线投影
+      // 外环/孔：经纬度平面坐标（unwrap 后）做剖分，3D 球面坐标做顶点
       const all3D: THREE.Vector3[] = [];
       const all2D: number[][] = [];
-      // 中心 = 外环顶点平均方向
-      let cx = 0, cy = 0, cz = 0;
-      const outer3D = ringGroup.outer.map(([lon, lat]) => geoToSphere(lon, lat, radius));
-      for (const v of outer3D) { cx += v.x; cy += v.y; cz += v.z; }
-      const center = new THREE.Vector3(cx, cy, cz).normalize();
-      // 局部基：z=center，x 取与 center 不共线的轴叉乘
-      const ref = Math.abs(center.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-      const xAxis = new THREE.Vector3().crossVectors(ref, center).normalize();
-      const yAxis = new THREE.Vector3().crossVectors(center, xAxis).normalize();
-
-      const holes: { x: number; y: number }[][] = [];
-      // 外环先
-      for (const [lon, lat] of ringGroup.outer) {
-        const v = geoToSphere(lon, lat, radius);
-        all3D.push(v);
-        all2D.push([v.dot(xAxis), v.dot(yAxis)]);
+      const uOuter = unwrapRing(ringGroup.outer);
+      for (const [lon, lat] of uOuter) {
+        all3D.push(geoToSphere(lon, lat, radius));
+        all2D.push([lon, lat]);
       }
+      const holes2D: number[][][] = [];
       for (const h of ringGroup.holes) {
         const start = all2D.length;
-        for (const [lon, lat] of h) {
-          const v = geoToSphere(lon, lat, radius);
-          all3D.push(v);
-          all2D.push([v.dot(xAxis), v.dot(yAxis)]);
+        const uh = unwrapRing(h);
+        for (const [lon, lat] of uh) {
+          all3D.push(geoToSphere(lon, lat, radius));
+          all2D.push([lon, lat]);
         }
-        holes.push(all2D.slice(start).map((p) => ({ x: p[0], y: p[1] })));
+        holes2D.push(all2D.slice(start));
       }
 
       if (all2D.length < 3) continue;
 
-      // 三角剖分（外环 + 孔）— ShapeUtils.triangulateShape 内部调用 points[i].equals()，
-      // 必须传 THREE.Vector2（{x,y} 字面量没有 equals 方法会抛异常）
+      // 三角剖分 — ShapeUtils.triangulateShape 内部调用 points[i].equals()，必须传 THREE.Vector2
       let tris: number[][] = [];
       try {
         tris = THREE.ShapeUtils.triangulateShape(
-          all2D.slice(0, outer3D.length).map((p) => new THREE.Vector2(p[0], p[1])),
-          holes.map((h) => h.map((p) => new THREE.Vector2(p.x, p.y))),
+          all2D.slice(0, uOuter.length).map((p) => new THREE.Vector2(p[0], p[1])),
+          holes2D.map((h) => h.map((p) => new THREE.Vector2(p[0], p[1]))),
         );
       } catch {
         continue;
