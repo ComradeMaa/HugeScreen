@@ -118,8 +118,9 @@ function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Fl
     positions[i * 3 + 3] = p.x - tmpN.x * halfW;
     positions[i * 3 + 4] = p.y - tmpN.y * halfW;
     positions[i * 3 + 5] = p.z - tmpN.z * halfW;
-    // 亮度渐变：head 全亮 → tail 15% 亮度
-    const bright = 0.15 + 0.85 * (u - tail) / len;
+    // 流星拖尾渐变：头部超亮核心（>1 过曝发光）→ 立方指数衰减到尾端几近消失
+    const u01 = (u - tail) / len;  // 0=tail 尾 → 1=head 头
+    const bright = Math.pow(u01, 3) * 1.3;
     const r = c.r * bright, g = c.g * bright, b = c.b * bright;
     colors[i * 3] = r;
     colors[i * 3 + 1] = g;
