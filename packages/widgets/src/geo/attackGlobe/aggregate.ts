@@ -4,7 +4,7 @@ export interface AttackSource { id: string; name: string; lat: number; lng: numb
 export interface AttackTarget { id: string; name: string; lat: number; lng: number; }
 export interface AttackEvent { source: string; target: string; count: number; }
 
-/** 档位样式（颜色严格用项目色板） */
+/** 档位样式 */
 export interface LevelStyle {
   color: string;
   arcOpacity: number;
@@ -14,9 +14,15 @@ export interface LevelStyle {
   sourceRadius: number;    // 攻击源标记半径（单位）
 }
 
+/**
+ * ★ 档位用色规则：攻击线/粒子禁用项目电光蓝 #00D4FF——
+ *   国家轮廓线、经纬网格、赤道环同为电蓝，同色会糊在一起看不清。
+ *   攻击强度梯度全用暖色系：绿(低) → 亮琥珀黄 → 琥珀橙 → 红(高)，
+ *   与暗蓝背景和电蓝轮廓均有明显区分。
+ */
 export const LEVEL_STYLES: LevelStyle[] = [
   { color: '#34d399', arcOpacity: 0.30, particleCount: 1, particleSpeed: 0.05, particleSize: 6, sourceRadius: 4 },
-  { color: '#00D4FF', arcOpacity: 0.45, particleCount: 2, particleSpeed: 0.07, particleSize: 8, sourceRadius: 6 },
+  { color: '#FFD34D', arcOpacity: 0.45, particleCount: 2, particleSpeed: 0.07, particleSize: 8, sourceRadius: 6 },
   { color: '#FF8C42', arcOpacity: 0.60, particleCount: 3, particleSpeed: 0.09, particleSize: 11, sourceRadius: 8 },
   { color: '#f87171', arcOpacity: 0.75, particleCount: 5, particleSpeed: 0.12, particleSize: 15, sourceRadius: 11 },
 ];
