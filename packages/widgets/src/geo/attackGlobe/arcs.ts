@@ -2,8 +2,20 @@ import * as THREE from 'three';
 import { geoToSphere, GLOBE_R } from './geo';
 import type { AggregatedAttack, LevelStyle } from './aggregate';
 
-/** 大圆弧采样点数（静态弧几何） */
+/**
+ * 攻击线动态方案（极简）：
+ * 静态带状弧线（8c85410 验证正常）+ 每弧一段"移动亮段"——
+ * 亮段是弧线的一段区间 [t−LEN, t]，每帧把 t 沿弧推进（t 到 1 回 0 循环），
+ * 视觉上就是一段亮线沿弧线从攻击源流向被攻击地点。
+ * 顶点色渐变（head 亮 → tail 暗），Additive 混合。
+ */
+
+/** 静态弧线采样点数 */
 const ARC_SEGMENTS = 64;
+/** 移动亮段采样段数 */
+const LIGHT_SEGS = 24;
+/** 亮段长度（弧长比例） */
+const LIGHT_LEN = 0.25;
 
 /**
  * 大圆弧插值：P(t) = R·normalize((1−t)·A + t·B)
@@ -19,38 +31,28 @@ export function greatCirclePoint(a: THREE.Vector3, b: THREE.Vector3, t: number, 
 }
 
 export interface FlowArc {
-  /** 静态弧线几何（球面 R+6 薄壳，随 globeGroup 自转） */
+  /** 静态弧线几何（球面 R+6 薄壳带状，随 globeGroup 自转） */
   geometry: THREE.BufferGeometry;
-  /** 粒子相位（0-1 弧长比例，同档粒子错开避免同步） */
-  phases: number[];
   style: LevelStyle;
   sourceName: string;
   targetName: string;
-  /** 端点单位向量（粒子每帧插值用，避免重复三角函数） */
+  /** 端点单位向量（亮段每帧插值用） */
   a: THREE.Vector3;
   b: THREE.Vector3;
 }
 
 export interface FlowSystem {
   arcs: FlowArc[];
-  /** 全部粒子合并的 Points（单 draw call） */
-  points: THREE.Points;
-  positions: Float32Array;
-  /** 每粒子所属弧索引 */
-  arcIndexOf: number[];
-  /** 每粒子相位（弧长比例） */
-  phaseOf: number[];
-  /** 每粒子速度（弧长比例/秒） */
-  speedOf: number[];
+  /** 每条弧一个移动亮段 Mesh（共享材质，单材质切换） */
+  lightMeshes: THREE.Mesh[];
+  lightPositions: Float32Array[];
+  lightColors: Float32Array[];
+  lightMaterial: THREE.MeshBasicMaterial;
+  /** 每亮段当前进度（0-1，沿弧从源到目标循环） */
+  tOf: number[];
 }
 
-/**
- * 弧线带状几何（替代 LineSegments）：
- * ★ WebGL linewidth 恒 1px，长距离弧半透明细线几乎不可见——
- *   改为沿弧横向展开的三角带，宽度可按档位控制，配合 Additive 混合呈发光粗线。
- * 每采样点：切向 T = P[i+1]−P[i−1]，横向法向 N = normalize(T × P[i])（P[i] 近似球面外法线），
- * 左右顶点 = P[i] ± N·width/2。
- */
+/** 静态带状弧线几何（WebGL 线恒 1px，带状才能控制宽度） */
 function buildArcGeometry(a: THREE.Vector3, b: THREE.Vector3, width: number): THREE.BufferGeometry | null {
   const pts: THREE.Vector3[] = [];
   for (let i = 0; i <= ARC_SEGMENTS; i++) {
@@ -80,105 +82,118 @@ function buildArcGeometry(a: THREE.Vector3, b: THREE.Vector3, width: number): TH
   return g;
 }
 
-/**
- * 构建全部攻击弧 + 合并粒子系统。
- * 粒子每帧沿所属弧插值：pos = greatCirclePoint(a, b, phase)，phase += speed·dt（取模 1）。
- */
+// 复用临时对象（writeLight 每帧调用，避免分配）
+const tmpColor = new THREE.Color();
+const tmpTan = new THREE.Vector3();
+const tmpN = new THREE.Vector3();
+
+/** 重写亮段几何：弧段 [tail, head] 的带状 + 顶点色渐变（head 亮 → tail 暗） */
+function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Float32Array): void {
+  const head = t;
+  const tail = Math.max(0, t - LIGHT_LEN);
+  const len = head - tail;
+  if (len < 1e-4) {
+    positions.fill(0);
+    colors.fill(0);
+    return;
+  }
+  const halfW = arc.style.arcWidth / 2;
+  const c = tmpColor.set(arc.style.color);
+  for (let s = 0; s <= LIGHT_SEGS; s++) {
+    const u = tail + len * (s / LIGHT_SEGS);
+    const p = greatCirclePoint(arc.a, arc.b, u, GLOBE_R + 6);
+    if (!p) {
+      positions.fill(0);
+      colors.fill(0);
+      return;
+    }
+    const up = greatCirclePoint(arc.a, arc.b, Math.max(tail, u - len / LIGHT_SEGS), GLOBE_R + 6);
+    const un = greatCirclePoint(arc.a, arc.b, Math.min(head, u + len / LIGHT_SEGS), GLOBE_R + 6);
+    tmpTan.subVectors(un!, up!);
+    tmpN.crossVectors(tmpTan, p).normalize();
+    const i = s * 2;
+    positions[i * 3] = p.x + tmpN.x * halfW;
+    positions[i * 3 + 1] = p.y + tmpN.y * halfW;
+    positions[i * 3 + 2] = p.z + tmpN.z * halfW;
+    positions[i * 3 + 3] = p.x - tmpN.x * halfW;
+    positions[i * 3 + 4] = p.y - tmpN.y * halfW;
+    positions[i * 3 + 5] = p.z - tmpN.z * halfW;
+    // 亮度渐变：head 全亮 → tail 15% 亮度
+    const bright = 0.15 + 0.85 * (u - tail) / len;
+    const r = c.r * bright, g = c.g * bright, b = c.b * bright;
+    colors[i * 3] = r;
+    colors[i * 3 + 1] = g;
+    colors[i * 3 + 2] = b;
+    colors[i * 3 + 3] = r;
+    colors[i * 3 + 4] = g;
+    colors[i * 3 + 5] = b;
+  }
+}
+
+/** 构建静态弧线 + 移动亮段系统 */
 export function buildFlowSystem(attacks: AggregatedAttack[]): FlowSystem | null {
   const arcs: FlowArc[] = [];
-  const positions: number[] = [];
-  const arcIndexOf: number[] = [];
-  const phaseOf: number[] = [];
-  const speedOf: number[] = [];
+  const lightMeshes: THREE.Mesh[] = [];
+  const lightPositions: Float32Array[] = [];
+  const lightColors: Float32Array[] = [];
+  const tOf: number[] = [];
+
+  const lightMaterial = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
 
   for (const atk of attacks) {
     const { style } = atk;
     const a = geoToSphere(atk.source.lng, atk.source.lat, GLOBE_R).normalize();
     const b = geoToSphere(atk.target.lng, atk.target.lat, GLOBE_R).normalize();
+    if (a.dot(b) < -0.9999) continue;  // 对跖点跳过
     const geometry = buildArcGeometry(a, b, style.arcWidth);
     if (!geometry) continue;
-    const phases: number[] = [];
-    // 粒子相位错开（彗尾效果：同弧 2 个相位差 0.03 的粒子，大头+小尾）
-    for (let i = 0; i < style.particleCount; i++) {
-      const phase = (i / style.particleCount + (i % 2) * 0.03) % 1;
-      phases.push(phase);
-      positions.push(0, 0, 0);
-      arcIndexOf.push(arcs.length);
-      phaseOf.push(phase);
-      speedOf.push(style.particleSpeed);
+    const arc: FlowArc = { geometry, style, sourceName: atk.source.name, targetName: atk.target.name, a, b };
+    arcs.push(arc);
+
+    // 移动亮段：初始相位按弧序错开（避免所有亮段同步）
+    const pos = new Float32Array((LIGHT_SEGS + 1) * 2 * 3);
+    const col = new Float32Array((LIGHT_SEGS + 1) * 2 * 3);
+    const t0 = ((arcs.length - 1) * 0.13) % 1;
+    writeLight(arc, t0, pos, col);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const indices: number[] = [];
+    for (let s = 0; s < LIGHT_SEGS; s++) {
+      const a2 = s * 2, b2 = a2 + 1, c = a2 + 2, d = a2 + 3;
+      indices.push(a2, c, b2, b2, c, d);
     }
-    arcs.push({ geometry, phases, style, sourceName: atk.source.name, targetName: atk.target.name, a, b });
+    geo.setIndex(indices);
+    const mesh = new THREE.Mesh(geo, lightMaterial);
+    mesh.frustumCulled = false;
+    lightMeshes.push(mesh);
+    lightPositions.push(pos);
+    lightColors.push(col);
+    tOf.push(t0);
   }
 
-  if (arcs.length === 0) return null;
-
-  // 粒子材质：圆点软边缘 + 加法混合（与 CyberSphere 海洋点云风格一致）
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  const mat = new THREE.ShaderMaterial({
-    vertexShader: /* glsl */ `
-      attribute float aSize;
-      attribute vec3 aColor;
-      varying vec3 vColor;
-      void main() {
-        vColor = aColor;
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = aSize * (300.0 / -mv.z);
-        gl_Position = projectionMatrix * mv;
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      varying vec3 vColor;
-      void main() {
-        float d = length(gl_PointCoord - vec2(0.5));
-        float alpha = smoothstep(0.5, 0.15, d);
-        gl_FragColor = vec4(vColor, alpha);
-      }
-    `,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-
-  const points = new THREE.Points(geo, mat);
-  points.frustumCulled = false;
-
-  // 每粒子颜色/大小（按弧档位属性）
-  const colors: number[] = [];
-  const sizes: number[] = [];
-  for (const arc of arcs) {
-    const c = new THREE.Color(arc.style.color);
-    for (let i = 0; i < arc.phases.length; i++) {
-      const size = i % 2 === 0 ? arc.style.particleSize : arc.style.particleSize * 0.55;  // 彗尾小粒子
-      colors.push(c.r, c.g, c.b);
-      sizes.push(size);
-    }
+  if (arcs.length === 0) {
+    lightMaterial.dispose();
+    return null;
   }
-  geo.setAttribute('aColor', new THREE.Float32BufferAttribute(colors, 3));
-  geo.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1));
-
-  return {
-    arcs,
-    points,
-    positions: geo.attributes.position.array as Float32Array,
-    arcIndexOf,
-    phaseOf,
-    speedOf,
-  };
+  return { arcs, lightMeshes, lightPositions, lightColors, lightMaterial, tOf };
 }
 
-/** 每帧更新粒子位置（沿所属弧插值，dt 秒） */
-export function updateParticles(system: FlowSystem, dt: number): void {
-  const pos = system.positions;
-  for (let i = 0; i < system.phaseOf.length; i++) {
-    const arc = system.arcs[system.arcIndexOf[i]];
-    if (!arc) continue;
-    system.phaseOf[i] = (system.phaseOf[i] + system.speedOf[i] * dt) % 1;
-    const pt = greatCirclePoint(arc.a, arc.b, system.phaseOf[i], GLOBE_R + 4);
-    if (!pt) continue;
-    pos[i * 3] = pt.x;
-    pos[i * 3 + 1] = pt.y;
-    pos[i * 3 + 2] = pt.z;
+/** 每帧推进亮段：t += speed·dt，越过目标回到源（循环） */
+export function updateLights(system: FlowSystem, dt: number): void {
+  for (let i = 0; i < system.arcs.length; i++) {
+    const arc = system.arcs[i];
+    system.tOf[i] += arc.style.particleSpeed * dt;
+    if (system.tOf[i] >= 1) system.tOf[i] -= 1;
+    writeLight(arc, system.tOf[i], system.lightPositions[i], system.lightColors[i]);
+    const geo = system.lightMeshes[i].geometry as THREE.BufferGeometry;
+    (geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
   }
-  (system.points.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
 }

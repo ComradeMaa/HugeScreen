@@ -9,7 +9,7 @@ import {
   aggregateAttacks, sourceLevelByTotal, LEVEL_STYLES,
   type AttackSource, type AttackTarget, type AttackEvent,
 } from './attackGlobe/aggregate';
-import { buildFlowSystem, updateParticles, type FlowSystem } from './attackGlobe/arcs';
+import { buildFlowSystem, updateLights, type FlowSystem } from './attackGlobe/arcs';
 import { worldToScreen } from './projection';
 
 interface AttackGlobeWidgetProps {
@@ -232,8 +232,8 @@ export function AttackGlobeWidget({
     // 清理旧攻击层
     s.attackGroup.clear();
     if (s.flow) {
-      s.flow.points.geometry.dispose();
-      (s.flow.points.material as THREE.Material).dispose();
+      for (const m of s.flow.lightMeshes) m.geometry.dispose();
+      s.flow.lightMaterial.dispose();
       s.flow = null;
     }
     for (const r of s.rings) (r.material as THREE.SpriteMaterial).dispose();
@@ -242,7 +242,7 @@ export function AttackGlobeWidget({
 
     const aggregated = aggregateAttacks(sources, targets, attacks, aggregationMode);
 
-    // 静态弧线（带状，档位色/透明度）+ 沿弧流动的粒子（动态效果）
+    // 静态弧线（带状，档位色/透明度）+ 移动亮段（沿弧流动的动态线条）
     if (aggregated.length > 0) {
       const flow = buildFlowSystem(aggregated);
       if (flow) {
@@ -260,7 +260,7 @@ export function AttackGlobeWidget({
             }),
           ));
         }
-        s.attackGroup.add(flow.points);
+        for (const m of flow.lightMeshes) s.attackGroup.add(m);
       }
     }
 
@@ -402,7 +402,7 @@ export function AttackGlobeWidget({
       elapsed += dt;
       if (autoRotate && !userInteracting) globeGroup.rotation.y += 0.05 * dt;
       if (controls) controls.update();
-      if (s.flow) updateParticles(s.flow, dt);
+      if (s.flow) updateLights(s.flow, dt);
       // 攻击源冲击波：环从 0 扩散到 RING_MAX_RADIUS 并淡出，频率按强度档位（0.7~2.0 Hz）
       for (const ring of s.rings) {
         const u = ring.userData as { freq: number; offset: number };
