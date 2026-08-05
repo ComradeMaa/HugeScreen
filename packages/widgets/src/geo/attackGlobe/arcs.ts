@@ -125,17 +125,17 @@ function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Fl
     tmpTan.subVectors(un!, up!);
     tmpN.crossVectors(tmpTan, p).normalize();
     const i = s * 2;
+    const u01 = (u - tail) / len;
     positions[i * 3] = p.x + tmpN.x * halfW;
     positions[i * 3 + 1] = p.y + tmpN.y * halfW;
     positions[i * 3 + 2] = p.z + tmpN.z * halfW;
     positions[i * 3 + 3] = p.x - tmpN.x * halfW;
     positions[i * 3 + 4] = p.y - tmpN.y * halfW;
     positions[i * 3 + 5] = p.z - tmpN.z * halfW;
-    // 发光方案（放弃过曝）：头部峰值 = 纯色满亮度（bright=1，sRGB 域乘法
-    // 色相保持、不超饱和 → 不偏粉），立方衰减到尾端；Additive 混合在暗背景
-    // 上叠加呈现发光感。
-    const u01 = (u - tail) / len;  // 0=tail 尾 → 1=head 头
-    const bright = Math.pow(u01, 3);
+    // 过曝方案（用户接受偏粉）：头部 1.5 倍乘法过曝（主通道饱和、暗通道
+    // 被放大 → 偏亮红/亮橙），立方衰减拖尾。Additive 混合下头部强烈发光，
+    // 醒目优先于色相纯正。
+    const bright = Math.pow(u01, 3) * 1.5;
     const r = srgbToLin(sr * bright), g = srgbToLin(sg * bright), b = srgbToLin(sb * bright);
     colors[i * 3] = r;
     colors[i * 3 + 1] = g;
