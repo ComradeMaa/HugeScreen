@@ -304,40 +304,40 @@ export function AttackGlobeWidget({
       s.markers.push(mesh);
     }
 
-    // 非交互模式静态渲染一帧
-    if (!interactive) s.renderer.render(s.scene, s.camera);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneVersion, sources, targets, attacks, aggregationMode]);
 
-  // ═══ 交互模式（浏览态）：OrbitControls + 自动旋转 + 粒子流动 + 标记悬停 ═══
+  // ═══ 渲染循环：编辑/浏览模式都动画（数据流光/冲击波/呼吸是组件本体效果） ═══
+  // OrbitControls 拖拽 + 标记悬停 tooltip 仅浏览模式创建（编辑模式不抢占 dnd-kit 拖拽）
   useEffect(() => {
     const s = sceneRef.current;
     const container = containerRef.current;
-    if (!interactive || !s || !container) return;
+    if (!s || !container) return;
 
     const { camera, renderer, scene, globeGroup } = s;
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0, 0);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.minDistance = 1800;
-    controls.maxDistance = 4500;
-    controls.minPolarAngle = 0.05;
-    controls.maxPolarAngle = Math.PI;
-    controls.enablePan = false;
-    controls.update();
-
-    // 拖拽时暂停自动旋转（ECharts-GL 手感）
+    let controls: OrbitControls | null = null;
     let userInteracting = false;
-    controls.addEventListener('start', () => { userInteracting = true; });
-    controls.addEventListener('end', () => { userInteracting = false; });
+    if (interactive) {
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 0, 0);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.minDistance = 1800;
+      controls.maxDistance = 4500;
+      controls.minPolarAngle = 0.05;
+      controls.maxPolarAngle = Math.PI;
+      controls.enablePan = false;
+      controls.update();
+      // 拖拽时暂停自动旋转（ECharts-GL 手感）
+      controls.addEventListener('start', () => { userInteracting = true; });
+      controls.addEventListener('end', () => { userInteracting = false; });
+    }
 
-    // 标记悬停 tooltip（直接操作 DOM，不经 React state）
+    // 标记悬停 tooltip（直接操作 DOM，不经 React state；仅浏览模式）
     const pointer = new THREE.Vector2();
     const raycaster = new THREE.Raycaster();
     let hoveredMarker: THREE.Mesh | null = null;
     const tooltip = tooltipRef.current;
-
     const updateTooltip = (mesh: THREE.Mesh | null) => {
       if (!tooltip) return;
       if (!mesh) { tooltip.style.opacity = '0'; return; }
@@ -349,7 +349,6 @@ export function AttackGlobeWidget({
       tooltip.textContent = label;
       tooltip.style.opacity = '1';
     };
-
     const onPointerMove = (e: PointerEvent) => {
       const rect = container.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
@@ -370,11 +369,13 @@ export function AttackGlobeWidget({
         }
       }
     };
-    container.addEventListener('pointermove', onPointerMove);
     const onLeave = () => { updateTooltip(null); };
-    container.addEventListener('pointerleave', onLeave);
+    if (interactive) {
+      container.addEventListener('pointermove', onPointerMove);
+      container.addEventListener('pointerleave', onLeave);
+    }
 
-    // 渲染循环：自动旋转 + 阻尼 + 粒子流动 + 源标记脉冲
+    // 渲染循环：自动旋转 + 阻尼 + 数据流光 + 冲击波 + 呼吸
     let disposed = false;
     let raf = 0;
     let last = performance.now();
@@ -387,7 +388,7 @@ export function AttackGlobeWidget({
       last = now;
       elapsed += dt;
       if (autoRotate && !userInteracting) globeGroup.rotation.y += 0.05 * dt;
-      controls.update();
+      if (controls) controls.update();
       if (s.flow) updateLights(s.flow, dt);
       // 攻击源冲击波：环从 0 扩散到 RING_MAX_RADIUS 并淡出，频率按强度档位（0.7~2.0 Hz）
       for (const ring of s.rings) {
@@ -417,13 +418,15 @@ export function AttackGlobeWidget({
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
-      container.removeEventListener('pointermove', onPointerMove);
-      container.removeEventListener('pointerleave', onLeave);
+      if (interactive) {
+        container.removeEventListener('pointermove', onPointerMove);
+        container.removeEventListener('pointerleave', onLeave);
+        controls?.dispose();
+      }
       if (tooltip) tooltip.style.opacity = '0';
-      controls.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interactive, sceneVersion, sources, targets, attacks, aggregationMode]);
+  }, [interactive, sceneVersion]);
 
   return (
     <div className="relative w-full h-full">
