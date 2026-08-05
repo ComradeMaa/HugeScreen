@@ -3461,19 +3461,13 @@ export function PropertyInspector() {
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="动画" defaultOpen={false}>
               <label className="flex items-center justify-between mt-1">
-                <span className="text-[11px] text-textSecondary/70">行驶速度</span>
-                <input type="range" min={0.2} max={4} step={0.1} value={Number((widget.options as Record<string, unknown>).animationSpeed ?? 1)}
-                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), animationSpeed: Number(e.target.value) } })}
-                  className="w-24" />
-                <span className="text-[11px] text-textSecondary/50 w-8 text-right font-mono">{Number((widget.options as Record<string, unknown>).animationSpeed ?? 1).toFixed(1)}</span>
-              </label>
-              <label className="flex items-center justify-between mt-2">
                 <span className="text-[11px] text-textSecondary/70">车辆点大小</span>
                 <input type="range" min={3} max={12} value={Number((widget.options as Record<string, unknown>).busRadius ?? 6)}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), busRadius: Number(e.target.value) } })}
                   className="w-24" />
                 <span className="text-[11px] text-textSecondary/50 w-8 text-right font-mono">{Number((widget.options as Record<string, unknown>).busRadius ?? 6)}</span>
               </label>
+              <p className="text-[10px] text-textSecondary/40 mt-1">车辆行驶节奏完全由数据源决定（到站时刻以数据为准），无速度调节</p>
             </CollapsibleFieldGroup>
           </>
         )}

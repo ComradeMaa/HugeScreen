@@ -20,7 +20,13 @@ import { DEMO_LINES, demoBuses, demoProgress } from './busMap/demo';
 import { getLinePath, type LinePath } from './busMap/route';
 import { easeInOut, pathPos, lerpPos } from './busMap/animate';
 
-const SEGMENT_MS = 25000; // 每站段行驶时长基准（animationSpeed 缩放）
+/**
+ * 站间行驶时长完全数据驱动：
+ * - 车辆出发（收到出发消息）时记录本地时刻 departTs
+ * - 数据源确认到站（current_station 变化或状态变停靠中）时，用真实耗时回填该段用时（按线路+段缓存，自学习）
+ * - 行驶中插值 t = (now - departTs) / 段用时 —— 与数据源真实节奏一致，任何设置都不会提前到站
+ */
+const DEFAULT_SEG_MS = 20000; // 无学习历史时的兜底段用时
 
 interface BusMapWidgetProps {
   // 数据（liveProps 注入）
@@ -35,7 +41,6 @@ interface BusMapWidgetProps {
   showStatusBanner?: boolean;
   showStationLabels?: boolean;
   showBusLabels?: boolean;
-  animationSpeed?: number;
   busRadius?: number;
   lineVisibility?: Record<string, boolean>;
   lineColors?: Record<string, string>;
@@ -58,7 +63,10 @@ interface BusAnim {
   curIdx: number;   // line.stations 下标
   nextIdx: number;
   phase: 'moving' | 'dwell';
+  /** 段内进度 0..1（由绝对时间与段用时推导，数据驱动） */
   t: number;
+  /** 本段出发时刻（收到出发消息的本地时间，epoch ms） */
+  departTs: number;
   color: string;
 }
 
@@ -66,7 +74,7 @@ export function BusMapWidget({
   lines, buses, online = true, connected = true, updatedAt,
   showLegend = true, showStats = true, showStatusBanner = true,
   showStationLabels = false, showBusLabels = false,
-  animationSpeed = 1, busRadius = 6,
+  busRadius = 6,
   lineVisibility, lineColors, minZoom = 10, maxZoom = 18,
   interactive = false, dataSource, widgetId,
   onUpdate,
@@ -79,8 +87,8 @@ export function BusMapWidget({
   const [stations, setStations] = useState<Map<string, [number, number]> | null>(null);
 
   // ── refs（rAF 循环用，避免闭包过期）──
-  const optsRef = useRef({ animationSpeed, busRadius, showBusLabels });
-  optsRef.current = { animationSpeed, busRadius, showBusLabels };
+  const optsRef = useRef({ busRadius, showBusLabels });
+  optsRef.current = { busRadius, showBusLabels };
   const stationsRef = useRef<Map<string, [number, number]> | null>(null);
   stationsRef.current = stations;
   const linePathsRef = useRef(new Map<number, LinePath>());
@@ -91,6 +99,8 @@ export function BusMapWidget({
   const warnedStationsRef = useRef(new Set<string>());
   const hasFitRef = useRef(false);
   const isDemoRef = useRef(false);
+  /** 段用时自学习缓存：`${lineId}:${fromIdx}:${toIdx}` → 实际行驶毫秒（数据源到站确认时回填） */
+  const segDurRef = useRef(new Map<string, number>());
 
   // ── 数据源：实时线路 vs 演示数据 ──
   const liveHasLines = !!lines && lines.length > 0;
@@ -298,23 +308,30 @@ export function BusMapWidget({
           curIdx: Math.max(0, curIdx), nextIdx: Math.max(0, nextIdx),
           phase: pos.status === '停靠中' ? 'dwell' : 'moving',
           t: pos.status === '停靠中' ? 1 : 0,
+          departTs: pos.status === '停靠中' ? 0 : Date.now(), // 出发时刻 = 收到消息的本地时间
           color,
         });
       } else {
-        // 已有车辆：站段变化检测
+        // 已有车辆：站段变化检测（数据源确认到站/换段）
         if (anim.cur !== pos.current_station || anim.next !== pos.next_station) {
+          // 到站学习：本段真实用时回填缓存（仅限此前确实在行驶中）
+          learnSegment(anim, Date.now());
           anim.cur = pos.current_station;
           anim.next = pos.next_station;
           anim.curIdx = Math.max(0, curIdx);
           anim.nextIdx = Math.max(0, nextIdx);
           anim.phase = pos.status === '停靠中' ? 'dwell' : 'moving';
           anim.t = pos.status === '停靠中' ? 1 : 0;
+          anim.departTs = pos.status === '停靠中' ? 0 : Date.now();
         } else if (pos.status === '停靠中' && anim.phase === 'moving') {
-          anim.phase = 'dwell'; // 到站
+          anim.phase = 'dwell'; // 到站（状态确认）
           anim.t = 1;
+          learnSegment(anim, Date.now());
+          anim.departTs = 0;
         } else if (pos.status === '行驶中' && anim.phase === 'dwell') {
           anim.phase = 'moving'; // 出发
           anim.t = 0;
+          anim.departTs = Date.now();
         }
         const dot = busDotsRef.current.get(key);
         if (dot) dot.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
@@ -333,19 +350,27 @@ export function BusMapWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amapReady, buses, isDemo, activeLines, busRadius, showBusLabels, lineColors]);
 
+  /** 到站学习：用真实耗时回填该段用时缓存（阈值 1.5s~10min 过滤异常值） */
+  const learnSegment = (anim: BusAnim, now: number) => {
+    if (anim.departTs <= 0) return;
+    const dur = now - anim.departTs;
+    if (dur > 1500 && dur < 10 * 60 * 1000) {
+      const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
+      segDurRef.current.set(segKey, dur);
+      console.log(`[busMap] segment learned ${segKey} = ${(dur / 1000).toFixed(1)}s`);
+    }
+  };
+
   // ═══ Effect 3b：rAF 动画循环（一次启动，无条件运行）═══
   useEffect(() => {
     let raf = 0;
-    let lastT = performance.now();
-    const tick = (nowMs: number) => {
-      const now = nowMs / 1000;
-      const dt = Math.min(0.1, now - lastT); // clamp 防跳帧
-      lastT = now;
+    const tick = () => {
       const map = mapRef.current;
 
       if (map && stationsRef.current) {
         if (isDemoRef.current) {
           // 演示：每帧从 demoBuses 直接映射（含到站/离站 frac）
+          const nowMs = Date.now();
           const demo = demoBuses(nowMs);
           for (const [key, pos] of Object.entries(demo)) {
             const m = busMarkersRef.current.get(key);
@@ -359,16 +384,20 @@ export function BusMapWidget({
             if (dot) dot.className = pos.status === '停靠中' ? 'bm-dot bm-dwell' : 'bm-dot';
           }
         } else {
-          // 实时：状态机推进 + 沿真实道路路径插值
+          // 实时：段进度 t 由绝对时间推导（数据驱动节奏）+ 沿真实道路路径插值
+          const now = Date.now();
           for (const anim of busAnimsRef.current.values()) {
             const m = busMarkersRef.current.get(anim.key);
             if (!m) continue;
             const curC = stationsRef.current.get(anim.cur);
             const nextC = stationsRef.current.get(anim.next);
             if (anim.phase === 'moving' && curC && nextC) {
-              anim.t += dt / (SEGMENT_MS / 1000 / optsRef.current.animationSpeed);
-              if (anim.t > 1) anim.t = 1;
-              const eased = easeInOut(anim.t);
+              // t = 已行驶时间 / 段用时（自学习缓存优先，兜底默认值）—— 永远按数据源真实节奏
+              const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
+              const dur = segDurRef.current.get(segKey) ?? DEFAULT_SEG_MS;
+              const t = Math.min(1, Math.max(0, (now - anim.departTs) / dur));
+              anim.t = t;
+              const eased = easeInOut(t);
               const path = linePathsRef.current.get(anim.lineId);
               let pos: [number, number] | null = null;
               if (path && path.coords.length >= 2 && anim.curIdx >= 0 && anim.nextIdx >= 0) {
