@@ -131,11 +131,16 @@ function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Fl
     positions[i * 3 + 3] = p.x - tmpN.x * halfW;
     positions[i * 3 + 4] = p.y - tmpN.y * halfW;
     positions[i * 3 + 5] = p.z - tmpN.z * halfW;
-    // 流星拖尾渐变：头部超亮核心（1.35 倍过曝，Additive 下呈发光白核）
-    // → 立方指数衰减到尾端几近消失
+    // 流星拖尾：头部 12% 为纯白过曝核（最亮），主体纯色立方衰减到尾端消失。
+    // ★ 过曝段不能用乘法（bright>1 时主通道饱和、暗通道被放大 → 红变粉），
+    //   头部直接切纯白核避开偏粉中间态；主体 bright≤1 在 sRGB 域乘法色相保持。
     const u01 = (u - tail) / len;  // 0=tail 尾 → 1=head 头
-    const bright = Math.pow(u01, 3) * 1.35;
-    const r = srgbToLin(sr * bright), g = srgbToLin(sg * bright), b = srgbToLin(sb * bright);
+    const core = u01 > 0.88 ? 1 : 0;
+    const bright = Math.pow(Math.min(u01 / 0.88, 1), 3);
+    const wr = sr * bright * (1 - core) + core;
+    const wg = sg * bright * (1 - core) + core;
+    const wb = sb * bright * (1 - core) + core;
+    const r = srgbToLin(wr), g = srgbToLin(wg), b = srgbToLin(wb);
     colors[i * 3] = r;
     colors[i * 3 + 1] = g;
     colors[i * 3 + 2] = b;
