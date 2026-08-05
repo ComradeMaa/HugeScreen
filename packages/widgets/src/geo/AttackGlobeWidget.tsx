@@ -43,8 +43,8 @@ interface SceneRef {
 const CYAN = 0x00d4ff;
 /** 源/目标标记统一半径（强度差异用冲击波频率体现，不再改变大小） */
 const MARKER_RADIUS = 15;
-/** 攻击源标记（红色系 #f87171） */
-const SOURCE_COLOR = 0xf87171;
+/** 攻击源标记（纯红 #FF3D3D，与攻击线高档同色系，醒目警告感） */
+const SOURCE_COLOR = 0xff3d3d;
 /** 被攻击地点标记（绿色系 #34d399） */
 const TARGET_COLOR = 0x34d399;
 /** 冲击波扩散最大半径（场景单位，球半径 1000） */
