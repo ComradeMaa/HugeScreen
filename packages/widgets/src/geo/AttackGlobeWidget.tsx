@@ -51,6 +51,9 @@ const TARGET_COLOR = 0x34d399;
 const RING_MAX_RADIUS = 150;
 /** 冲击波环淡出峰值透明度 */
 const RING_PEAK_OPACITY = 0.6;
+/** 目标标记缓慢呼吸：幅度 1 ± 0.3，频率 0.8 Hz（统一节奏，不按强度） */
+const TARGET_BREATH_AMPLITUDE = 0.3;
+const TARGET_BREATH_RATE = 0.8;
 
 /** 冲击波环纹理（模块级缓存，白色径向渐变环，SpriteMaterial.color 染色） */
 let ringTexture: THREE.Texture | null = null;
@@ -290,14 +293,18 @@ export function AttackGlobeWidget({
         s.rings.push(ring);
       }
     }
-    for (const tgt of targets) {
+    for (let i = 0; i < targets.length; i++) {
+      const tgt = targets[i];
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(MARKER_RADIUS, 16, 16),
         new THREE.MeshBasicMaterial({ color: TARGET_COLOR }),
       );
       const pos = geoToSphere(tgt.lng, tgt.lat, GLOBE_R + 12);
       mesh.position.copy(pos);
-      mesh.userData = { kind: 'target', name: tgt.name, lat: tgt.lat, lng: tgt.lng };
+      mesh.userData = {
+        kind: 'target', name: tgt.name, lat: tgt.lat, lng: tgt.lng,
+        phase: i * 1.1,  // 多目标错相呼吸
+      };
       s.attackGroup.add(mesh);
       s.markers.push(mesh);
     }
@@ -394,6 +401,13 @@ export function AttackGlobeWidget({
         const d = p * RING_MAX_RADIUS;
         ring.scale.set(d, d, 1);
         (ring.material as THREE.SpriteMaterial).opacity = (1 - p) * RING_PEAK_OPACITY;
+      }
+      // 被攻击目标缓慢呼吸：缩放 1 ± 0.3，统一 0.8 Hz（与源的冲击波区分）
+      for (const m of s.markers) {
+        if (m.userData.kind !== 'target') continue;
+        const u = m.userData as { phase: number };
+        const breath = 1 + TARGET_BREATH_AMPLITUDE * (0.5 + 0.5 * Math.sin(2 * Math.PI * TARGET_BREATH_RATE * elapsed + u.phase));
+        m.scale.setScalar(breath);
       }
       // tooltip 每帧跟随标记屏幕投影（球自转/拖拽时位置实时更新）
       if (hoveredMarker && tooltip) {
