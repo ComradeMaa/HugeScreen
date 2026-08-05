@@ -42,7 +42,7 @@ interface SceneRef {
 
 const CYAN = 0x00d4ff;
 /** 源/目标标记统一半径（强度差异用冲击波频率体现，不再改变大小） */
-const MARKER_RADIUS = 5;
+const MARKER_RADIUS = 15;
 /** 攻击源标记（红色系 #f87171） */
 const SOURCE_COLOR = 0xf87171;
 /** 被攻击地点标记（绿色系 #34d399） */
