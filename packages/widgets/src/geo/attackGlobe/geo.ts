@@ -165,9 +165,10 @@ export function buildCountryTexture(features: CountryFeature[], width = 2048, he
 
 /**
  * 经纬度 UV 对齐的球面网格（替代 SphereGeometry）：
- * 顶点 = geoToSphere(lon, lat, R)，UV = ((lon+180)/360, (90-lat)/180)。
- * ★ CanvasTexture 必须保持默认 flipY=true（flipY=false 时 three r185 渲染 canvas 纹理异常→球全白）；
- *   flipY=true 时 v=0 采样 canvas 顶部（北），与 buildCountryTexture 的 py(lat)=(90-lat)/180 对齐。
+ * 顶点 = geoToSphere(lon, lat, R)，UV = ((lon+180)/360, (90+lat)/180)。
+ * ★ v 用 (90+lat)/180：CanvasTexture 默认 flipY=true（UNPACK_FLIP_Y 翻转上传），
+ *   v=0 采样 canvas 底部（南极）、v=1 采样 canvas 顶部（北极）——
+ *   故 lat=90（北极）→ v=1，与 buildCountryTexture 的 py(lat)=(90-lat)/180（canvas 顶部=北）对齐。
  * 跨 180° 纹理切缝位于 lon=±180，UV 0/1 无缝。
  */
 export function buildLonLatGlobe(radius: number, lonSegs = 180, latSegs = 90): THREE.BufferGeometry {
@@ -177,7 +178,7 @@ export function buildLonLatGlobe(radius: number, lonSegs = 180, latSegs = 90): T
   const vtx = (lon: number, lat: number) => {
     const v = geoToSphere(lon, lat, radius);
     positions.push(v.x, v.y, v.z);
-    uvs.push((lon + 180) / 360, (90 - lat) / 180);
+    uvs.push((lon + 180) / 360, (90 + lat) / 180);
   };
   for (let j = 0; j <= latSegs; j++) {
     const lat = -90 + (180 * j) / latSegs;
