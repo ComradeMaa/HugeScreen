@@ -388,7 +388,7 @@ export function AttackGlobeWidget({
       container.addEventListener('pointerleave', onLeave);
     }
 
-    // 渲染循环：自动旋转 + 阻尼 + 数据流光 + 冲击波 + 呼吸
+    // 渲染循环：自动旋转 + 阻尼 + 移动亮段 + 冲击波 + 呼吸
     let disposed = false;
     let raf = 0;
     let last = performance.now();

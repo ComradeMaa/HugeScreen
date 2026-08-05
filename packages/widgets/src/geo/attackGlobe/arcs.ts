@@ -157,13 +157,16 @@ export function buildFlowSystem(attacks: AggregatedAttack[]): FlowSystem | null 
     arcs.push(arc);
 
     // 移动亮段：初始相位按弧序错开（避免所有亮段同步）
-    const pos = new Float32Array((LIGHT_SEGS + 1) * 2 * 3);
-    const col = new Float32Array((LIGHT_SEGS + 1) * 2 * 3);
+    // ★ Float32BufferAttribute 构造会复制传入数组（new Float32Array(array)），
+    //   必须用 attr.array（mesh 实际持有的数组）作为写入目标——
+    //   否则 updateLights 写外部数组，mesh 持有的副本不动 → 画面静止（sameArr:false）
+    const posAttr = new THREE.Float32BufferAttribute(new Float32Array((LIGHT_SEGS + 1) * 2 * 3), 3);
+    const colAttr = new THREE.Float32BufferAttribute(new Float32Array((LIGHT_SEGS + 1) * 2 * 3), 3);
     const t0 = ((arcs.length - 1) * 0.13) % 1;
-    writeLight(arc, t0, pos, col);
+    writeLight(arc, t0, posAttr.array as Float32Array, colAttr.array as Float32Array);
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute('position', posAttr);
+    geo.setAttribute('color', colAttr);
     const indices: number[] = [];
     for (let s = 0; s < LIGHT_SEGS; s++) {
       const a2 = s * 2, b2 = a2 + 1, c = a2 + 2, d = a2 + 3;
@@ -173,8 +176,8 @@ export function buildFlowSystem(attacks: AggregatedAttack[]): FlowSystem | null 
     const mesh = new THREE.Mesh(geo, lightMaterial);
     mesh.frustumCulled = false;
     lightMeshes.push(mesh);
-    lightPositions.push(pos);
-    lightColors.push(col);
+    lightPositions.push(posAttr.array as Float32Array);
+    lightColors.push(colAttr.array as Float32Array);
     tOf.push(t0);
   }
 
@@ -191,6 +194,7 @@ export function updateLights(system: FlowSystem, dt: number): void {
     const arc = system.arcs[i];
     system.tOf[i] += arc.style.particleSpeed * dt;
     if (system.tOf[i] >= 1) system.tOf[i] -= 1;
+    // ★ lightPositions[i] 即 mesh 持有的 attribute.array（构建时取自 attr.array）
     writeLight(arc, system.tOf[i], system.lightPositions[i], system.lightColors[i]);
     const geo = system.lightMeshes[i].geometry as THREE.BufferGeometry;
     (geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
