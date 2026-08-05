@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-  GLOBE_R, geoToSphere, loadCountries, buildCountryMeshes, createGrids, linesToGeometry, makeGlow,
+  GLOBE_R, geoToSphere, loadCountries, buildCountryTexture, buildLonLatGlobe, createGrids, linesToGeometry, makeGlow,
   lookupCountry, type CountryFeature,
 } from './attackGlobe/geo';
 import {
@@ -38,8 +38,6 @@ interface SceneRef {
   countries: CountryFeature[];
 }
 
-const OCEAN_COLOR = 0x141c26;      // 海洋底色（暗蓝灰）
-const LAND_COLOR = 0x3a3a48;       // 大陆填充（比海洋亮一档的机甲灰，保证对比）
 const CYAN = 0x00d4ff;
 
 /**
@@ -85,11 +83,14 @@ export function AttackGlobeWidget({
     const globeGroup = new THREE.Group();
     scene.add(globeGroup);
 
-    // 海洋底色球
-    globeGroup.add(new THREE.Mesh(
-      new THREE.SphereGeometry(GLOBE_R, 64, 32),
-      new THREE.MeshBasicMaterial({ color: OCEAN_COLOR }),
-    ));
+    // ★ 世界地图纹理球（替代海洋球+三角剖分面片+边界线）：
+    //   canvas 2D evenodd 填充原生处理自交/孔洞——三角剖分的空洞问题彻底消除
+    //   DoubleSide：自定义网格 winding 不保证朝外，双面渲染兜底
+    const globeMesh = new THREE.Mesh(
+      buildLonLatGlobe(GLOBE_R),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
+    );
+    globeGroup.add(globeMesh);
     // 背面遮罩（防透视看到内部）
     globeGroup.add(new THREE.Mesh(
       new THREE.SphereGeometry(GLOBE_R - 10, 64, 32),
@@ -120,21 +121,17 @@ export function AttackGlobeWidget({
       renderer.render(scene, camera);
     };
 
-    // 异步加载国家多边形 → 面片 + 边界线
+    // 异步加载国家数据 → 生成经纬度纹理贴球
     (async () => {
       try {
         const countries = await loadCountries();
         if (disposed) return;
-        const meshes = buildCountryMeshes(countries, GLOBE_R);
-        const fill = new THREE.Mesh(
-          meshes.fill,
-          new THREE.MeshBasicMaterial({ color: LAND_COLOR, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
-        );
-        globeGroup.add(fill);
-        globeGroup.add(new THREE.LineSegments(
-          meshes.borders,
-          new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.55 }),
-        ));
+        const texture = new THREE.CanvasTexture(buildCountryTexture(countries));
+        // ★ colorSpace：canvas 内容为 sRGB 数据，必须标注 SRGBColorSpace（否则按线性解读颜色错误）
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 4;
+        (globeMesh.material as THREE.MeshBasicMaterial).map = texture;
+        (globeMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
         if (sceneRef.current) sceneRef.current.countries = countries;
         setLoadState('ready');
         renderOnce();

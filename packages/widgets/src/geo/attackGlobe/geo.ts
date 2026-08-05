@@ -82,101 +82,122 @@ export function lookupCountry(features: CountryFeature[], lat: number, lng: numb
   return null;
 }
 
-// ─── 国家多边形 → 球面面片 + 边界线 ───
-
-export interface CountryMeshes {
-  fill: THREE.BufferGeometry;       // 三角化面片（半透明填充）
-  borders: THREE.BufferGeometry;    // 外环+孔轮廓线（无内部三角边）
-}
+// ─── 国家多边形 → 经纬度纹理 + 球面网格（替代三角剖分） ───
 
 /**
- * 经度 unwrap：把跨 180° 经线的环（俄罗斯/美国阿拉斯加等）转成连续平面坐标。
- * 找到最大经度跳变处（>180°），跳变后的点整体 ±360°。
+ * 生成世界地图经纬度纹理（canvas 2D）。
+ * ★ 为什么不用三角剖分：NE 数据部分国家外环自交（unwrap 后仍 107 处，俄罗斯 16/智利 7/巴西 4），
+ *   earcut 对自交多边形产生不规则中间空洞（大国空洞大、小国无——与用户观察完全一致）。
+ *   canvas 2D 的 evenodd 填充规则原生处理自交/孔洞，无空洞。
+ * ★ 跨 180° 的环（俄罗斯等）在 ±180 处切开成两段绘制——纹理左右边缘各一段，
+ *   球面 UV 环绕后无缝拼接。
  */
-function unwrapRing(ring: number[][]): number[][] {
-  const pts = ring.map((p) => [p[0], p[1]] as [number, number]);
-  let maxJump = 0, jumpAt = -1;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const d = Math.abs(pts[i + 1][0] - pts[i][0]);
-    if (d > maxJump) { maxJump = d; jumpAt = i; }
-  }
-  if (maxJump > 180 && jumpAt >= 0) {
-    const shift = pts[jumpAt + 1][0] > pts[jumpAt][0] ? -360 : 360;
-    for (let i = jumpAt + 1; i < pts.length; i++) pts[i][0] += shift;
-  }
-  return pts;
-}
+export function buildCountryTexture(features: CountryFeature[], width = 2048, height = 1024): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
 
-/**
- * 球面三角化：顶点放球面（geoToSphere），剖分在**经纬度平面**做（THREE.ShapeUtils.triangulateShape）。
- * ★ 为什么不用切线平面投影：大国（美/俄/中）球面曲率大，投影后外环自交 → earcut 产生空洞；
- *   经纬度平面下 GeoJSON 数据本身是无自交的合法多边形，剖分 100% 成功（跨 180° 环先 unwrap）。
- * 索引映射回球面 3D 顶点（同一序号）。孔环同法。所有 polygon 合并进一个 BufferGeometry。
- */
-export function buildCountryMeshes(features: CountryFeature[], radius: number): CountryMeshes {
-  const fillPos: number[] = [];
-  const fillIdx: number[] = [];
-  const borderPos: number[] = [];
+  // 海洋底色
+  ctx.fillStyle = '#141c26';
+  ctx.fillRect(0, 0, width, height);
 
+  const px = (lon: number) => ((lon + 180) / 360) * width;
+  const py = (lat: number) => ((90 - lat) / 180) * height;
+
+  // 环按 ±180 切开（跨 180 的环分成两段绘制，球面 UV 环绕后无缝）
+  const splitRings = (ring: number[][]): number[][][] => {
+    const segments: number[][][] = [];
+    let current: number[][] = [];
+    let shifted = 0;  // 当前段的经度偏移
+    for (let i = 0; i < ring.length; i++) {
+      const [lon, lat] = ring[i];
+      if (i > 0) {
+        const prev = ring[i - 1][0] + shifted;
+        if (Math.abs(lon - prev) > 180) {
+          // 跨 180：当前段结束，新段从对侧开始
+          if (current.length >= 2) segments.push(current);
+          current = [];
+          shifted = lon > prev ? -360 : 360;
+        }
+      }
+      current.push([lon + shifted, lat]);
+    }
+    if (current.length >= 2) segments.push(current);
+    return segments;
+  };
+
+  const traceRing = (ring: number[][]) => {
+    for (const seg of splitRings(ring)) {
+      seg.forEach(([lon, lat], i) => {
+        if (i === 0) ctx.moveTo(px(lon), py(lat));
+        else ctx.lineTo(px(lon), py(lat));
+      });
+      ctx.closePath();
+    }
+  };
+
+  // 大陆填充（evenodd：孔自动挖除）
+  ctx.fillStyle = '#3a3a48';
   for (const c of features) {
-    for (const ringGroup of c.rings) {
-      // 外环/孔：经纬度平面坐标（unwrap 后）做剖分，3D 球面坐标做顶点
-      const all3D: THREE.Vector3[] = [];
-      const all2D: number[][] = [];
-      const uOuter = unwrapRing(ringGroup.outer);
-      for (const [lon, lat] of uOuter) {
-        all3D.push(geoToSphere(lon, lat, radius));
-        all2D.push([lon, lat]);
-      }
-      const holes2D: number[][][] = [];
-      for (const h of ringGroup.holes) {
-        const start = all2D.length;
-        const uh = unwrapRing(h);
-        for (const [lon, lat] of uh) {
-          all3D.push(geoToSphere(lon, lat, radius));
-          all2D.push([lon, lat]);
-        }
-        holes2D.push(all2D.slice(start));
-      }
+    ctx.beginPath();
+    for (const rg of c.rings) {
+      traceRing(rg.outer);
+      for (const h of rg.holes) traceRing(h);
+    }
+    ctx.fill('evenodd');
+  }
 
-      if (all2D.length < 3) continue;
-
-      // 三角剖分 — ShapeUtils.triangulateShape 内部调用 points[i].equals()，必须传 THREE.Vector2
-      let tris: number[][] = [];
-      try {
-        tris = THREE.ShapeUtils.triangulateShape(
-          all2D.slice(0, uOuter.length).map((p) => new THREE.Vector2(p[0], p[1])),
-          holes2D.map((h) => h.map((p) => new THREE.Vector2(p[0], p[1]))),
-        );
-      } catch {
-        continue;
-      }
-      if (!tris.length) continue;
-
-      // 顶点去重（同一球面点在 fill/边界 间共享无必要——直接累积）
-      const base = fillPos.length / 3;
-      for (const v of all3D) fillPos.push(v.x, v.y, v.z);
-      for (const t of tris) fillIdx.push(base + t[0], base + t[1], base + t[2]);
-
-      // 边界线：外环 + 孔轮廓（LineSegments 点对）
-      const pushBorderRing = (ring: number[][]) => {
-        for (let i = 0; i < ring.length - 1; i++) {
-          const a = geoToSphere(ring[i][0], ring[i][1], radius + 2);
-          const b = geoToSphere(ring[i + 1][0], ring[i + 1][1], radius + 2);
-          borderPos.push(a.x, a.y, a.z, b.x, b.y, b.z);
-        }
-      };
-      pushBorderRing(ringGroup.outer);
-      for (const h of ringGroup.holes) pushBorderRing(h);
+  // 国家边界线
+  ctx.strokeStyle = 'rgba(0,212,255,0.85)';
+  ctx.lineWidth = 1.2;
+  for (const c of features) {
+    for (const rg of c.rings) {
+      ctx.beginPath();
+      traceRing(rg.outer);
+      for (const h of rg.holes) traceRing(h);
+      ctx.stroke();
     }
   }
 
-  const fill = new THREE.BufferGeometry();
-  fill.setAttribute('position', new THREE.Float32BufferAttribute(fillPos, 3));
-  fill.setIndex(fillIdx);
-  const borders = new THREE.BufferGeometry();
-  borders.setAttribute('position', new THREE.Float32BufferAttribute(borderPos, 3));
-  return { fill, borders };
+  return canvas;
+}
+
+/**
+ * 经纬度 UV 对齐的球面网格（替代 SphereGeometry）：
+ * 顶点 = geoToSphere(lon, lat, R)，UV = ((lon+180)/360, (90-lat)/180)。
+ * ★ CanvasTexture 必须保持默认 flipY=true（flipY=false 时 three r185 渲染 canvas 纹理异常→球全白）；
+ *   flipY=true 时 v=0 采样 canvas 顶部（北），与 buildCountryTexture 的 py(lat)=(90-lat)/180 对齐。
+ * 跨 180° 纹理切缝位于 lon=±180，UV 0/1 无缝。
+ */
+export function buildLonLatGlobe(radius: number, lonSegs = 180, latSegs = 90): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const vtx = (lon: number, lat: number) => {
+    const v = geoToSphere(lon, lat, radius);
+    positions.push(v.x, v.y, v.z);
+    uvs.push((lon + 180) / 360, (90 - lat) / 180);
+  };
+  for (let j = 0; j <= latSegs; j++) {
+    const lat = -90 + (180 * j) / latSegs;
+    for (let i = 0; i <= lonSegs; i++) {
+      const lon = -180 + (360 * i) / lonSegs;
+      vtx(lon, lat);
+    }
+  }
+  const row = lonSegs + 1;
+  for (let j = 0; j < latSegs; j++) {
+    for (let i = 0; i < lonSegs; i++) {
+      const a = j * row + i, b = a + 1, c = a + row, d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  g.setIndex(indices);
+  return g;
 }
 
 /** 经纬网格线（复制 CyberGlobe） */
