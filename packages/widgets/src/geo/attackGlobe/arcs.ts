@@ -83,9 +83,19 @@ function buildArcGeometry(a: THREE.Vector3, b: THREE.Vector3, width: number): TH
 }
 
 // 复用临时对象（writeLight 每帧调用，避免分配）
-const tmpColor = new THREE.Color();
 const tmpTan = new THREE.Vector3();
 const tmpN = new THREE.Vector3();
+
+/** sRGB 分量 → 线性分量（顶点色按线性空间存储，渲染输出 sRGB 编码后精确还原） */
+function srgbToLin(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+/** 解析 #RRGGBB → sRGB 分量数组（不经过 THREE.Color 的线性解码） */
+function hexToSrgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
 
 /** 重写亮段几何：弧段 [tail, head] 的带状 + 顶点色渐变（head 亮 → tail 暗） */
 function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Float32Array): void {
@@ -98,7 +108,10 @@ function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Fl
     return;
   }
   const halfW = arc.style.arcWidth / 2;
-  const c = tmpColor.set(arc.style.color);
+  // ★ 颜色必须保持纯正警告色：亮度乘法在 sRGB 域做（色相比例不变），
+  //   再线性解码存储——若在线性域乘法，sRGB 输出编码会把暗通道 gamma 抬升
+  //   （红线的 g/b 通道被抬起 → 亮段变粉红）
+  const [sr, sg, sb] = hexToSrgb(arc.style.color);
   for (let s = 0; s <= LIGHT_SEGS; s++) {
     const u = tail + len * (s / LIGHT_SEGS);
     const p = greatCirclePoint(arc.a, arc.b, u, GLOBE_R + 6);
@@ -118,10 +131,11 @@ function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Fl
     positions[i * 3 + 3] = p.x - tmpN.x * halfW;
     positions[i * 3 + 4] = p.y - tmpN.y * halfW;
     positions[i * 3 + 5] = p.z - tmpN.z * halfW;
-    // 流星拖尾渐变：头部超亮核心（>1 过曝发光）→ 立方指数衰减到尾端几近消失
+    // 流星拖尾渐变：头部超亮核心（1.35 倍过曝，Additive 下呈发光白核）
+    // → 立方指数衰减到尾端几近消失
     const u01 = (u - tail) / len;  // 0=tail 尾 → 1=head 头
-    const bright = Math.pow(u01, 3) * 1.3;
-    const r = c.r * bright, g = c.g * bright, b = c.b * bright;
+    const bright = Math.pow(u01, 3) * 1.35;
+    const r = srgbToLin(sr * bright), g = srgbToLin(sg * bright), b = srgbToLin(sb * bright);
     colors[i * 3] = r;
     colors[i * 3 + 1] = g;
     colors[i * 3 + 2] = b;
