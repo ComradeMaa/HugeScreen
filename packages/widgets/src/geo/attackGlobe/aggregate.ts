@@ -11,7 +11,7 @@ export interface LevelStyle {
   particleCount: number;   // 每弧粒子数
   particleSpeed: number;   // 弧长比例/秒
   particleSize: number;    // 粒子屏幕尺寸
-  sourceRadius: number;    // 攻击源标记半径（单位）
+  sourcePulseRate: number; // 攻击源标记脉冲频率（Hz，随强度档位递增）
 }
 
 /**
@@ -21,10 +21,10 @@ export interface LevelStyle {
  *   与暗蓝背景和电蓝轮廓均有明显区分。
  */
 export const LEVEL_STYLES: LevelStyle[] = [
-  { color: '#34d399', arcOpacity: 0.30, particleCount: 1, particleSpeed: 0.05, particleSize: 6, sourceRadius: 4 },
-  { color: '#FFD34D', arcOpacity: 0.45, particleCount: 2, particleSpeed: 0.07, particleSize: 8, sourceRadius: 6 },
-  { color: '#FF8C42', arcOpacity: 0.60, particleCount: 3, particleSpeed: 0.09, particleSize: 11, sourceRadius: 8 },
-  { color: '#f87171', arcOpacity: 0.75, particleCount: 5, particleSpeed: 0.12, particleSize: 15, sourceRadius: 11 },
+  { color: '#34d399', arcOpacity: 0.30, particleCount: 1, particleSpeed: 0.05, particleSize: 6, sourcePulseRate: 0.7 },
+  { color: '#FFD34D', arcOpacity: 0.45, particleCount: 2, particleSpeed: 0.07, particleSize: 8, sourcePulseRate: 1.1 },
+  { color: '#FF8C42', arcOpacity: 0.60, particleCount: 3, particleSpeed: 0.09, particleSize: 11, sourcePulseRate: 1.5 },
+  { color: '#f87171', arcOpacity: 0.75, particleCount: 5, particleSpeed: 0.12, particleSize: 15, sourcePulseRate: 2.0 },
 ];
 
 export const FIXED_THRESHOLDS = [5, 20, 100];
@@ -98,14 +98,13 @@ export function aggregateAttacks(
   });
 }
 
-/** 攻击源标记半径：按该源全部攻击求和套同一张表 */
-export function sourceRadiusByTotal(aggregated: AggregatedAttack[], srcId: string): number {
+/** 攻击源强度档位：按该源全部攻击求和套同一张表（决定脉冲频率） */
+export function sourceLevelByTotal(aggregated: AggregatedAttack[], srcId: string): 0 | 1 | 2 | 3 {
   let total = 0;
   for (const a of aggregated) {
     if (a.source.id === srcId) total += a.count;
   }
-  const level = total > 100 ? 3 : total > 20 ? 2 : total > 5 ? 1 : 0;
-  return LEVEL_STYLES[level].sourceRadius;
+  return total > 100 ? 3 : total > 20 ? 2 : total > 5 ? 1 : 0;
 }
 
 /** 档位颜色 → THREE.Color 缓存 */

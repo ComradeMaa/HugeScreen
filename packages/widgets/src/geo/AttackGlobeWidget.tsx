@@ -6,7 +6,7 @@ import {
   lookupCountry, type CountryFeature,
 } from './attackGlobe/geo';
 import {
-  aggregateAttacks, sourceRadiusByTotal, LEVEL_STYLES,
+  aggregateAttacks, sourceLevelByTotal, LEVEL_STYLES,
   type AttackSource, type AttackTarget, type AttackEvent,
 } from './attackGlobe/aggregate';
 import { buildFlowSystem, updateParticles, type FlowSystem } from './attackGlobe/arcs';
@@ -39,6 +39,14 @@ interface SceneRef {
 }
 
 const CYAN = 0x00d4ff;
+/** 源/目标标记统一半径（强度差异用脉冲频率体现，不再改变大小） */
+const MARKER_RADIUS = 5;
+/** 源标记脉冲缩放幅度（1 ± 0.3，即半径 5 → 3.5~6.5 视觉呼吸） */
+const PULSE_AMPLITUDE = 0.3;
+/** 攻击源标记（红色系 #f87171） */
+const SOURCE_COLOR = 0xf87171;
+/** 被攻击地点标记（绿色系 #34d399） */
+const TARGET_COLOR = 0x34d399;
 
 /**
  * AttackGlobeWidget — 3D 网络攻击来源地球（参考 ECharts-GL Hello World 交互手感）。
@@ -214,23 +222,28 @@ export function AttackGlobeWidget({
       }
     }
 
-    // 源标记（半径按该源总攻击分档，琥珀橙）+ 目标标记（固定小蓝点）
-    for (const src of sources) {
-      const radius = sourceRadiusByTotal(aggregated, src.id);
+    // 源标记（红色系，脉冲频率按该源总攻击档位）+ 目标标记（绿色系，大小相同）
+    for (let i = 0; i < sources.length; i++) {
+      const src = sources[i];
+      const level = sourceLevelByTotal(aggregated, src.id);
       const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(radius, 12, 12),
-        new THREE.MeshBasicMaterial({ color: 0xff8c42 }),
+        new THREE.SphereGeometry(MARKER_RADIUS, 16, 16),
+        new THREE.MeshBasicMaterial({ color: SOURCE_COLOR }),
       );
       const pos = geoToSphere(src.lng, src.lat, GLOBE_R + 12);
       mesh.position.copy(pos);
-      mesh.userData = { kind: 'source', name: src.name, lat: src.lat, lng: src.lng };
+      mesh.userData = {
+        kind: 'source', name: src.name, lat: src.lat, lng: src.lng,
+        pulseRate: LEVEL_STYLES[level].sourcePulseRate,
+        phase: i * 1.3,  // 多源错相，避免同步呼吸
+      };
       s.attackGroup.add(mesh);
       s.markers.push(mesh);
     }
     for (const tgt of targets) {
       const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(3.5, 10, 10),
-        new THREE.MeshBasicMaterial({ color: CYAN }),
+        new THREE.SphereGeometry(MARKER_RADIUS, 16, 16),
+        new THREE.MeshBasicMaterial({ color: TARGET_COLOR }),
       );
       const pos = geoToSphere(tgt.lng, tgt.lat, GLOBE_R + 12);
       mesh.position.copy(pos);
@@ -309,19 +322,28 @@ export function AttackGlobeWidget({
     const onLeave = () => { updateTooltip(null); };
     container.addEventListener('pointerleave', onLeave);
 
-    // 渲染循环：自动旋转 + 阻尼 + 粒子流动
+    // 渲染循环：自动旋转 + 阻尼 + 粒子流动 + 源标记脉冲
     let disposed = false;
     let raf = 0;
     let last = performance.now();
+    let elapsed = 0;
     const loop = () => {
       if (disposed) return;
       raf = requestAnimationFrame(loop);
       const now = performance.now();
       const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
+      elapsed += dt;
       if (autoRotate && !userInteracting) globeGroup.rotation.y += 0.05 * dt;
       controls.update();
       if (s.flow) updateParticles(s.flow, dt);
+      // 攻击源脉冲：缩放 1 ± PULSE_AMPLITUDE，频率按强度档位（0.7~2.0 Hz）
+      for (const m of s.markers) {
+        if (m.userData.kind !== 'source') continue;
+        const u = m.userData as { pulseRate: number; phase: number };
+        const pulse = 1 + PULSE_AMPLITUDE * (0.5 + 0.5 * Math.sin(2 * Math.PI * u.pulseRate * elapsed + u.phase));
+        m.scale.setScalar(pulse);
+      }
       // tooltip 每帧跟随标记屏幕投影（球自转/拖拽时位置实时更新）
       if (hoveredMarker && tooltip) {
         const sp = worldToScreen(hoveredMarker.position.clone(), camera, container.clientWidth, container.clientHeight);
