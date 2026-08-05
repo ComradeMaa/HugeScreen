@@ -43,13 +43,19 @@ export interface FlowArc {
 
 export interface FlowSystem {
   arcs: FlowArc[];
-  /** 每条弧一个移动亮段 Mesh（共享材质，单材质切换） */
-  lightMeshes: THREE.Mesh[];
-  lightPositions: Float32Array[];
-  lightColors: Float32Array[];
+  /** 全部亮段（每弧 style.particleCount 条，相位均匀错开 → 发射频率按强度分档） */
+  lights: LightSegment[];
   lightMaterial: THREE.MeshBasicMaterial;
-  /** 每亮段当前进度（0-1，沿弧从源到目标循环） */
-  tOf: number[];
+}
+
+export interface LightSegment {
+  arcIndex: number;
+  mesh: THREE.Mesh;
+  /** attr.array 引用（mesh 实际持有的数组） */
+  positions: Float32Array;
+  colors: Float32Array;
+  /** 进度 0-1（沿弧从源到目标循环） */
+  t: number;
 }
 
 /** 静态带状弧线几何（WebGL 线恒 1px，带状才能控制宽度） */
@@ -149,10 +155,7 @@ function writeLight(arc: FlowArc, t: number, positions: Float32Array, colors: Fl
 /** 构建静态弧线 + 移动亮段系统 */
 export function buildFlowSystem(attacks: AggregatedAttack[]): FlowSystem | null {
   const arcs: FlowArc[] = [];
-  const lightMeshes: THREE.Mesh[] = [];
-  const lightPositions: Float32Array[] = [];
-  const lightColors: Float32Array[] = [];
-  const tOf: number[] = [];
+  const lights: LightSegment[] = [];
 
   const lightMaterial = new THREE.MeshBasicMaterial({
     vertexColors: true,
@@ -172,47 +175,54 @@ export function buildFlowSystem(attacks: AggregatedAttack[]): FlowSystem | null 
     const arc: FlowArc = { geometry, style, sourceName: atk.source.name, targetName: atk.target.name, a, b };
     arcs.push(arc);
 
-    // 移动亮段：初始相位按弧序错开（避免所有亮段同步）
+    // 亮段条数 = style.particleCount（L0:1 … L3:5）→ 发射频率按强度分档：
+    // 高强度弧上多条亮段接连流动，低强度基本只有一条。
+    // 同弧内相位均匀错开（k/N），不同弧再按弧序偏移 0.13 避免全局同步。
     // ★ Float32BufferAttribute 构造会复制传入数组（new Float32Array(array)），
     //   必须用 attr.array（mesh 实际持有的数组）作为写入目标——
     //   否则 updateLights 写外部数组，mesh 持有的副本不动 → 画面静止（sameArr:false）
-    const posAttr = new THREE.Float32BufferAttribute(new Float32Array((LIGHT_SEGS + 1) * 2 * 3), 3);
-    const colAttr = new THREE.Float32BufferAttribute(new Float32Array((LIGHT_SEGS + 1) * 2 * 3), 3);
-    const t0 = ((arcs.length - 1) * 0.13) % 1;
-    writeLight(arc, t0, posAttr.array as Float32Array, colAttr.array as Float32Array);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', posAttr);
-    geo.setAttribute('color', colAttr);
-    const indices: number[] = [];
-    for (let s = 0; s < LIGHT_SEGS; s++) {
-      const a2 = s * 2, b2 = a2 + 1, c = a2 + 2, d = a2 + 3;
-      indices.push(a2, c, b2, b2, c, d);
+    for (let k = 0; k < style.particleCount; k++) {
+      const posAttr = new THREE.Float32BufferAttribute(new Float32Array((LIGHT_SEGS + 1) * 2 * 3), 3);
+      const colAttr = new THREE.Float32BufferAttribute(new Float32Array((LIGHT_SEGS + 1) * 2 * 3), 3);
+      const t0 = (k / style.particleCount + (arcs.length - 1) * 0.13) % 1;
+      writeLight(arc, t0, posAttr.array as Float32Array, colAttr.array as Float32Array);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', posAttr);
+      geo.setAttribute('color', colAttr);
+      const indices: number[] = [];
+      for (let s = 0; s < LIGHT_SEGS; s++) {
+        const a2 = s * 2, b2 = a2 + 1, c = a2 + 2, d = a2 + 3;
+        indices.push(a2, c, b2, b2, c, d);
+      }
+      geo.setIndex(indices);
+      const mesh = new THREE.Mesh(geo, lightMaterial);
+      mesh.frustumCulled = false;
+      lights.push({
+        arcIndex: arcs.length - 1,
+        mesh,
+        positions: posAttr.array as Float32Array,
+        colors: colAttr.array as Float32Array,
+        t: t0,
+      });
     }
-    geo.setIndex(indices);
-    const mesh = new THREE.Mesh(geo, lightMaterial);
-    mesh.frustumCulled = false;
-    lightMeshes.push(mesh);
-    lightPositions.push(posAttr.array as Float32Array);
-    lightColors.push(colAttr.array as Float32Array);
-    tOf.push(t0);
   }
 
   if (arcs.length === 0) {
     lightMaterial.dispose();
     return null;
   }
-  return { arcs, lightMeshes, lightPositions, lightColors, lightMaterial, tOf };
+  return { arcs, lights, lightMaterial };
 }
 
-/** 每帧推进亮段：t += speed·dt，越过目标回到源（循环） */
+/** 每帧推进全部亮段：t += speed·dt，越过目标回到源（循环） */
 export function updateLights(system: FlowSystem, dt: number): void {
-  for (let i = 0; i < system.arcs.length; i++) {
-    const arc = system.arcs[i];
-    system.tOf[i] += arc.style.particleSpeed * dt;
-    if (system.tOf[i] >= 1) system.tOf[i] -= 1;
-    // ★ lightPositions[i] 即 mesh 持有的 attribute.array（构建时取自 attr.array）
-    writeLight(arc, system.tOf[i], system.lightPositions[i], system.lightColors[i]);
-    const geo = system.lightMeshes[i].geometry as THREE.BufferGeometry;
+  for (const light of system.lights) {
+    const arc = system.arcs[light.arcIndex];
+    light.t += arc.style.particleSpeed * dt;
+    if (light.t >= 1) light.t -= 1;
+    // ★ light.positions 即 mesh 持有的 attribute.array（构建时取自 attr.array）
+    writeLight(arc, light.t, light.positions, light.colors);
+    const geo = light.mesh.geometry as THREE.BufferGeometry;
     (geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
     (geo.attributes.color as THREE.BufferAttribute).needsUpdate = true;
   }

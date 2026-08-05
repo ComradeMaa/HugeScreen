@@ -232,7 +232,7 @@ export function AttackGlobeWidget({
     // 清理旧攻击层
     s.attackGroup.clear();
     if (s.flow) {
-      for (const m of s.flow.lightMeshes) m.geometry.dispose();
+      for (const l of s.flow.lights) l.mesh.geometry.dispose();
       s.flow.lightMaterial.dispose();
       s.flow = null;
     }
@@ -260,7 +260,7 @@ export function AttackGlobeWidget({
             }),
           ));
         }
-        for (const m of flow.lightMeshes) s.attackGroup.add(m);
+        for (const l of flow.lights) s.attackGroup.add(l.mesh);
       }
     }
 
