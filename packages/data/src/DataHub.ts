@@ -26,6 +26,8 @@ export interface SubEntry {
   jsonPath?: string;
   chartType: string;
   mapping: Record<string, string>;
+  /** 时间段统计配置（attack-globe 等事件型组件透传） */
+  timeWindow?: import('./transform').TimeWindowConfig;
   /** 该 subscriber 自己的轮询间隔 (ms)，0 = 被动模式 */
   interval: number;
   lastPushTime: number;
@@ -213,7 +215,7 @@ class DataFetcher {
 
       let transformed: unknown;
       try {
-        transformed = mapData(slice, sub.chartType, sub.mapping);
+        transformed = mapData(slice, sub.chartType, sub.mapping, sub.timeWindow);
       } catch (err) {
         console.warn(`[DataHub] mapData failed for ${sub.chartType}:`, err);
         continue;
@@ -232,7 +234,7 @@ class DataFetcher {
     const slice = sub.jsonPath ? getByPath(raw, sub.jsonPath) : raw;
     let transformed: unknown;
     try {
-      transformed = mapData(slice, sub.chartType, sub.mapping);
+      transformed = mapData(slice, sub.chartType, sub.mapping, sub.timeWindow);
     } catch (err) {
       console.warn(`[DataHub] mapData failed for ${sub.chartType}:`, err);
       return;
@@ -325,7 +327,7 @@ class DataHub {
    * Widget 订阅数据。
    * @returns channelKey — Widget 用它监听 EventBus `data:updated:{channelKey}`
    */
-  subscribe(widgetId: string, ds: DataSourceConfig, chartType: string): string {
+  subscribe(widgetId: string, ds: DataSourceConfig, chartType: string, timeWindow?: import('./transform').TimeWindowConfig): string {
     // 先退订旧的（如果 widget 之前订阅过另一个 URL）
     this.unsubscribe(widgetId);
 
@@ -350,6 +352,7 @@ class DataHub {
       jsonPath: ds.config?.jsonPath,
       chartType,
       mapping: ds.mapping || {},
+      timeWindow,
       interval: ds.config?.interval ?? 0,
       lastPushTime: 0,
     };

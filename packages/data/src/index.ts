@@ -3,4 +3,4 @@ export { DataSourceManager, dataSourceManager, type DataAdapter } from './DataSo
 export { StaticAdapter } from './adapters/StaticAdapter';
 export { RESTAdapter } from './adapters/RESTAdapter';
 export { WebSocketAdapter } from './adapters/WebSocketAdapter';
-export { getByPath, mapData, type FieldMapping } from './transform';
+export { getByPath, mapData, type FieldMapping, type TimeWindowConfig } from './transform';

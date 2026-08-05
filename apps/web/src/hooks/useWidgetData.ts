@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { WidgetConfig } from '@hugescreen/shared';
-import { dataHub, mapData } from '@hugescreen/data';
+import { dataHub, mapData, type TimeWindowConfig } from '@hugescreen/data';
 import { eventBus } from '@hugescreen/core';
 
 /**
@@ -29,16 +29,20 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
     const fpChanged = dsFingerprint !== lastFpRef.current;
     lastFpRef.current = dsFingerprint;
 
+    const tw = widget.options?.timeWindow as TimeWindowConfig | undefined;
+
     if (!ds || ds.type === 'static') {
       setLiveProps(
-        ds?.staticData != null ? mapData(ds.staticData, chartType, ds.mapping ?? {}) : {},
+        ds?.staticData != null
+          ? mapData(ds.staticData, chartType, ds.mapping ?? {}, tw)
+          : {},
       );
       return;
     }
 
     if (ds.type === 'rest' && ds.config?.url) {
       console.log(`[useWidgetData] ${widget.id} subscribing: url=${ds.config.url} jsonPath=${ds.config.jsonPath} interval=${ds.config.interval}`);
-      const channelKey = dataHub.subscribe(widget.id, ds, chartType);
+      const channelKey = dataHub.subscribe(widget.id, ds, chartType, tw);
 
       const handler = (data: unknown) => {
         console.log(`[useWidgetData] ${widget.id} received data on ${channelKey}`);
@@ -54,7 +58,7 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
 
     // websocket 等：暂不处理
     setLiveProps({});
-  }, [dsFingerprint, chartType, widget.id]);
+  }, [dsFingerprint, chartType, widget.id, widget.options?.timeWindow]);
 
   return liveProps;
 }

@@ -1066,6 +1066,19 @@ function MarqueeTableDataEditor({ headers, rows, onChange }: {
   );
 }
 
+/** ISO 时间 ↔ datetime-local 显示值（本地时区） */
+function isoToLocalInput(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(v: string): string | undefined {
+  const t = v ? new Date(v).getTime() : NaN;
+  return Number.isFinite(t) ? new Date(t).toISOString() : undefined;
+}
+
 /** 网络攻击地球数据编辑器 — 攻击源/被攻击地点（名称+经纬度）+ 攻击事件（下拉+次数） */
 function AttackGlobeDataEditor({ sources, targets, attacks, onChange }: {
   sources: { id: string; name: string; lat: number; lng: number }[];
@@ -3352,6 +3365,57 @@ export function PropertyInspector() {
                 targets={Array.isArray((widget.options as any).targets) ? (widget.options as any).targets : []}
                 attacks={Array.isArray((widget.options as any).attacks) ? (widget.options as any).attacks : []}
                 onChange={(s, t, a) => updateWidget(widget.id, { options: { ...(widget.options as object), sources: s, targets: t, attacks: a } })} />
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="时间段统计" defaultOpen={false}>
+              {/* 开启后 mapAttackGlobe 只统计窗口内事件（事件需带时间戳），关闭 = 原有逻辑 */}
+              {(() => {
+                const tw = (widget.options as any)?.timeWindow ?? { enabled: false, type: 'last', minutes: 60 };
+                const setTw = (patch: Record<string, unknown>) => updateWidget(widget.id, {
+                  options: { ...(widget.options as object), timeWindow: { ...tw, ...patch } },
+                });
+                return (
+                  <>
+                    <label className="flex items-center justify-between">
+                      <span className="text-[11px] text-textSecondary/70">启用（只统计窗口内事件）</span>
+                      <input type="checkbox" checked={!!tw.enabled}
+                        onChange={(e) => setTw({ enabled: e.target.checked })}
+                        className="rounded" />
+                    </label>
+                    {tw.enabled && (
+                      <>
+                        <LabelSelectRow label="窗口方式" value={String(tw.type ?? 'last')}
+                          options={['last', 'range']}
+                          labels={['最近 N 分钟', '自定义起止']}
+                          onChange={(v) => setTw({ type: v })} />
+                        {tw.type === 'last' ? (
+                          <label className="flex items-center justify-between mt-2">
+                            <span className="text-[11px] text-textSecondary/70">最近（分钟）</span>
+                            <input type="number" min={1} value={tw.minutes ?? 60}
+                              onChange={(e) => setTw({ minutes: Math.max(1, Number(e.target.value) || 60) })}
+                              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+                          </label>
+                        ) : (
+                          <>
+                            <label className="flex items-center justify-between mt-2">
+                              <span className="text-[11px] text-textSecondary/70">开始</span>
+                              <input type="datetime-local" value={isoToLocalInput(tw.start)}
+                                onChange={(e) => setTw({ start: localInputToIso(e.target.value) })}
+                                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors" />
+                            </label>
+                            <label className="flex items-center justify-between mt-1">
+                              <span className="text-[11px] text-textSecondary/70">结束</span>
+                              <input type="datetime-local" value={isoToLocalInput(tw.end)}
+                                onChange={(e) => setTw({ end: localInputToIso(e.target.value) })}
+                                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[10px] text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors" />
+                            </label>
+                          </>
+                        )}
+                        <p className="text-[10px] text-textSecondary/50 mt-2">事件需带时间戳（time/timestamp/ts），窗口外及无时间戳事件不统计</p>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="地球配置" defaultOpen={false}>
               <label className="flex items-center justify-between">

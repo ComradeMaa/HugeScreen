@@ -13,6 +13,44 @@ import { getByPath } from './jsonPath';
  */
 export type FieldMapping = Record<string, string>;
 
+/** 时间段统计配置（attack-globe 等事件型组件）：开启后只统计窗口内事件 */
+export interface TimeWindowConfig {
+  enabled: boolean;
+  /** last=最近 N 分钟；range=自定义起止 */
+  type: 'last' | 'range';
+  minutes: number;
+  start?: string;
+  end?: string;
+}
+
+/** 解析事件时间戳：ISO 字符串 / epoch 毫秒 / epoch 秒 → 毫秒 | null */
+function parseTs(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === 'number') {
+    return Number.isFinite(v) ? (v > 1e11 ? v : v * 1000) : null;
+  }
+  if (typeof v === 'string') {
+    const trimmed = v.trim();
+    if (trimmed === '') return null;
+    const n = Number(trimmed);
+    if (Number.isFinite(n)) return n > 1e11 ? n : n * 1000;
+    const t = Date.parse(trimmed);
+    return Number.isFinite(t) ? t : null;
+  }
+  return null;
+}
+
+/** 时间窗口过滤（disabled 时不过滤） */
+function inTimeWindow(ts: number, tw: TimeWindowConfig, now: number): boolean {
+  if (!tw.enabled) return true;
+  if (tw.type === 'last') return ts >= now - Math.max(1, tw.minutes || 60) * 60000;
+  const s = tw.start ? Date.parse(tw.start) : NaN;
+  const e = tw.end ? Date.parse(tw.end) : NaN;
+  if (Number.isFinite(s) && ts < s) return false;
+  if (Number.isFinite(e) && ts > e) return false;
+  return true;
+}
+
 function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
 }
@@ -28,6 +66,7 @@ export function mapData(
   raw: unknown,
   chartType: string,
   mapping: FieldMapping = {},
+  timeWindow?: TimeWindowConfig,
 ): Record<string, unknown> {
   if (raw == null) return {};
   switch (chartType) {
@@ -62,7 +101,7 @@ export function mapData(
     case 'multiple-x-axis-chart': return mapMultipleXAxis(raw, mapping);
     case 'sankey-chart': return mapSankey(raw, mapping);
     case 'marquee-table': return mapMarqueeTable(raw, mapping);
-    case 'attack-globe': return mapAttackGlobe(raw, mapping);
+    case 'attack-globe': return mapAttackGlobe(raw, mapping, timeWindow);
     default: return asRecord(raw);
   }
 }
@@ -1213,12 +1252,15 @@ function mapMarqueeTable(raw: unknown, m: FieldMapping): Record<string, unknown>
  * 字段别名：lat↔latitude/y、lng↔lon/longitude/x、count↔value/volume/attacks
  * 输出 {sources, targets, attacks}
  */
-function mapAttackGlobe(raw: unknown, m: FieldMapping): Record<string, unknown> {
+function mapAttackGlobe(raw: unknown, m: FieldMapping, tw?: TimeWindowConfig): Record<string, unknown> {
   if (raw == null) return {};
   const nameKey = m.name || 'name';
   const latKey = m.lat || 'lat';
   const lngKey = m.lng || 'lng';
   const countKey = m.count || 'count';
+  // 时间窗口统计：开启后只统计窗口内事件（无时间戳的事件忽略）；关闭 = 原有逻辑
+  const timeKey = m.time || 'time';
+  const now = Date.now();
 
   const num = (v: unknown): number => toNum(v, NaN);
   const loc = (r: Record<string, unknown>): { lat: number; lng: number } | null => {
@@ -1265,6 +1307,11 @@ function mapAttackGlobe(raw: unknown, m: FieldMapping): Record<string, unknown> 
       : typeof r.to === 'string' ? r.to
       : srcName(asRecord(r.target));
     if (!sRef || !tRef) continue;
+    // 时间段统计：开启时按时间戳过滤（time/timestamp/ts/timeStamp/date 均兼容）
+    if (tw?.enabled) {
+      const ts = parseTs(r[timeKey] ?? r.timestamp ?? r.ts ?? r.timeStamp ?? r.date);
+      if (ts == null || !inTimeWindow(ts, tw, now)) continue;
+    }
     attacks.push({
       source: sRef,
       target: tRef,
@@ -1272,9 +1319,10 @@ function mapAttackGlobe(raw: unknown, m: FieldMapping): Record<string, unknown> 
     });
   }
 
-  // 裸数组格式 D：[源名, lat, lng, 目标名, lat, lng, count]
+  // 裸数组格式 D：[源名, lat, lng, 目标名, lat, lng, count]（无时间戳，窗口开启时忽略）
   if (atkArr.length === 0 && Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0])) {
     for (const row of raw as unknown[][]) {
+      if (tw?.enabled) continue;
       if (row.length < 6) continue;
       const [sn, slat, slng, tn, tlat, tlng] = row.map((v) => String(v ?? ''));
       const count = toNum(row[6] ?? 1, 1);
