@@ -35,18 +35,41 @@ interface SceneRef {
   attackGroup: THREE.Group;
   flow: FlowSystem | null;
   markers: THREE.Mesh[];
+  /** 攻击源冲击波环（Sprite，每源 2 个错半周期） */
+  rings: THREE.Sprite[];
   countries: CountryFeature[];
 }
 
 const CYAN = 0x00d4ff;
-/** 源/目标标记统一半径（强度差异用脉冲频率体现，不再改变大小） */
+/** 源/目标标记统一半径（强度差异用冲击波频率体现，不再改变大小） */
 const MARKER_RADIUS = 5;
-/** 源标记脉冲缩放幅度（1 ± 0.3，即半径 5 → 3.5~6.5 视觉呼吸） */
-const PULSE_AMPLITUDE = 0.3;
 /** 攻击源标记（红色系 #f87171） */
 const SOURCE_COLOR = 0xf87171;
 /** 被攻击地点标记（绿色系 #34d399） */
 const TARGET_COLOR = 0x34d399;
+/** 冲击波扩散最大半径（场景单位，球半径 1000） */
+const RING_MAX_RADIUS = 150;
+/** 冲击波环淡出峰值透明度 */
+const RING_PEAK_OPACITY = 0.6;
+
+/** 冲击波环纹理（模块级缓存，白色径向渐变环，SpriteMaterial.color 染色） */
+let ringTexture: THREE.Texture | null = null;
+function getRingTexture(): THREE.Texture {
+  if (ringTexture) return ringTexture;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(32, 32, 8, 32, 32, 30);
+  g.addColorStop(0.0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.7, 'rgba(255,255,255,0)');
+  g.addColorStop(0.88, 'rgba(255,255,255,0.6)');
+  g.addColorStop(1.0, 'rgba(255,255,255,1)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  ringTexture = new THREE.CanvasTexture(c);
+  ringTexture.colorSpace = THREE.SRGBColorSpace;
+  return ringTexture;
+}
 
 /**
  * AttackGlobeWidget — 3D 网络攻击来源地球（参考 ECharts-GL Hello World 交互手感）。
@@ -167,13 +190,15 @@ export function AttackGlobeWidget({
     });
     ro.observe(container);
 
-    sceneRef.current = { renderer, scene, camera, globeGroup, attackGroup, flow: null, markers: [], countries: [] };
+    sceneRef.current = { renderer, scene, camera, globeGroup, attackGroup, flow: null, markers: [], rings: [], countries: [] };
     setSceneVersion((v) => v + 1);
     renderOnce();
 
     return () => {
       disposed = true;
       ro.disconnect();
+      // Sprite 不在 traverse 的 Mesh/LineSegments/Points 分支内，单独释放材质
+      for (const r of sceneRef.current?.rings ?? []) (r.material as THREE.SpriteMaterial).dispose();
       scene.traverse((child) => {
         if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments || child instanceof THREE.Points) {
           child.geometry?.dispose();
@@ -199,6 +224,8 @@ export function AttackGlobeWidget({
       (s.flow.points.material as THREE.Material).dispose();
       s.flow = null;
     }
+    for (const r of s.rings) (r.material as THREE.SpriteMaterial).dispose();
+    s.rings = [];
     s.markers = [];
 
     const aggregated = aggregateAttacks(sources, targets, attacks, aggregationMode);
@@ -235,10 +262,29 @@ export function AttackGlobeWidget({
       mesh.userData = {
         kind: 'source', name: src.name, lat: src.lat, lng: src.lng,
         pulseRate: LEVEL_STYLES[level].sourcePulseRate,
-        phase: i * 1.3,  // 多源错相，避免同步呼吸
+        phase: i * 1.3,  // 多源错相，避免同步
       };
       s.attackGroup.add(mesh);
       s.markers.push(mesh);
+
+      // 冲击波环：每源 2 个 Sprite 错半周期（一个淡出时另一个已在扩散，衔接无感）
+      const freq = LEVEL_STYLES[level].sourcePulseRate;
+      for (const offset of [0, 0.5]) {
+        const ring = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: getRingTexture(),
+          color: SOURCE_COLOR,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }));
+        ring.position.copy(pos);
+        ring.scale.set(0, 0, 1);
+        ring.userData = { freq, offset };
+        ring.frustumCulled = false;
+        s.attackGroup.add(ring);
+        s.rings.push(ring);
+      }
     }
     for (const tgt of targets) {
       const mesh = new THREE.Mesh(
@@ -337,12 +383,13 @@ export function AttackGlobeWidget({
       if (autoRotate && !userInteracting) globeGroup.rotation.y += 0.05 * dt;
       controls.update();
       if (s.flow) updateParticles(s.flow, dt);
-      // 攻击源脉冲：缩放 1 ± PULSE_AMPLITUDE，频率按强度档位（0.7~2.0 Hz）
-      for (const m of s.markers) {
-        if (m.userData.kind !== 'source') continue;
-        const u = m.userData as { pulseRate: number; phase: number };
-        const pulse = 1 + PULSE_AMPLITUDE * (0.5 + 0.5 * Math.sin(2 * Math.PI * u.pulseRate * elapsed + u.phase));
-        m.scale.setScalar(pulse);
+      // 攻击源冲击波：环从 0 扩散到 RING_MAX_RADIUS 并淡出，频率按强度档位（0.7~2.0 Hz）
+      for (const ring of s.rings) {
+        const u = ring.userData as { freq: number; offset: number };
+        const p = (elapsed * u.freq + u.offset) % 1;
+        const d = p * RING_MAX_RADIUS;
+        ring.scale.set(d, d, 1);
+        (ring.material as THREE.SpriteMaterial).opacity = (1 - p) * RING_PEAK_OPACITY;
       }
       // tooltip 每帧跟随标记屏幕投影（球自转/拖拽时位置实时更新）
       if (hoveredMarker && tooltip) {
