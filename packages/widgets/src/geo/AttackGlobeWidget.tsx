@@ -59,11 +59,15 @@ function getRingTexture(): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const ctx = c.getContext('2d')!;
-  const g = ctx.createRadialGradient(32, 32, 8, 32, 32, 30);
+  // ★ 渐变终止半径（31）必须小于到画布角距离（45）：canvas 渐变外部区域
+  //   会填充为最后一个色标——若最后色标不透明，矩形四角会露出白色直角。
+  //   最后色标设为透明 → 四角与渐变外区域全部透明，只剩中心圆环。
+  const g = ctx.createRadialGradient(32, 32, 8, 32, 32, 31);
   g.addColorStop(0.0, 'rgba(255,255,255,0)');
   g.addColorStop(0.7, 'rgba(255,255,255,0)');
-  g.addColorStop(0.88, 'rgba(255,255,255,0.6)');
-  g.addColorStop(1.0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.88, 'rgba(255,255,255,0.8)');
+  g.addColorStop(1.0, 'rgba(255,255,255,0)');
+  ctx.clearRect(0, 0, 64, 64);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 64, 64);
   ringTexture = new THREE.CanvasTexture(c);
