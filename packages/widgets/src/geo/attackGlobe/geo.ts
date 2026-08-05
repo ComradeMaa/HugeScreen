@@ -92,7 +92,7 @@ export function lookupCountry(features: CountryFeature[], lat: number, lng: numb
  * ★ 跨 180° 的环（俄罗斯等）在 ±180 处切开成两段绘制——纹理左右边缘各一段，
  *   球面 UV 环绕后无缝拼接。
  */
-export function buildCountryTexture(features: CountryFeature[], width = 2048, height = 1024): HTMLCanvasElement {
+export function buildCountryTexture(features: CountryFeature[], width = 4096, height = 2048): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -171,7 +171,7 @@ export function buildCountryTexture(features: CountryFeature[], width = 2048, he
  *   故 lat=90（北极）→ v=1，与 buildCountryTexture 的 py(lat)=(90-lat)/180（canvas 顶部=北）对齐。
  * 跨 180° 纹理切缝位于 lon=±180，UV 0/1 无缝。
  */
-export function buildLonLatGlobe(radius: number, lonSegs = 180, latSegs = 90): THREE.BufferGeometry {
+export function buildLonLatGlobe(radius: number, lonSegs = 360, latSegs = 180): THREE.BufferGeometry {
   const positions: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];

@@ -129,7 +129,12 @@ export function AttackGlobeWidget({
         const texture = new THREE.CanvasTexture(buildCountryTexture(countries));
         // ★ colorSpace：canvas 内容为 sRGB 数据，必须标注 SRGBColorSpace（否则按线性解读颜色错误）
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.anisotropy = 4;
+        // ★ 清晰度：CanvasTexture 默认 generateMipmaps=false（线性过滤，旋转/缩放发糊），
+        //   显式开启三线性 mipmap + 各向异性过滤（4096×2048 是 2 的幂，mipmap 合法）
+        texture.generateMipmaps = true;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.anisotropy = 8;
         (globeMesh.material as THREE.MeshBasicMaterial).map = texture;
         (globeMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
         if (sceneRef.current) sceneRef.current.countries = countries;
