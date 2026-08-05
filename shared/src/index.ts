@@ -73,7 +73,7 @@ export interface WidgetConfig {
   style: WidgetStyle;
 }
 
-export type WidgetCategory = 'stat' | 'chart' | 'table' | '3d' | 'media' | 'decorator' | 'custom';
+export type WidgetCategory = 'stat' | 'chart' | 'table' | '3d' | 'media' | 'decorator' | 'custom' | 'map';
 
 export interface WidgetLayout {
   col: number;
@@ -141,7 +141,7 @@ export interface MapPinInstance {
 // ─── 数据源 ───
 
 export interface DataSourceConfig {
-  type: 'rest' | 'websocket' | 'static';
+  type: 'rest' | 'websocket' | 'static' | 'mqtt';
   config: DataSourceOptions;
   staticData?: unknown;
   mapping: Record<string, string>;
@@ -157,6 +157,8 @@ export interface DataSourceOptions {
   jsonPath?: string;
   reconnectInterval?: number;
   body?: unknown;
+  /** MQTT 订阅主题列表（type='mqtt' 时使用） */
+  topics?: string[];
 }
 
 export interface TransformStep {

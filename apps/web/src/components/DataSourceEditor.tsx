@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { DataSourceConfig, DataSourceOptions } from '@hugescreen/shared';
-import { getByPath, mapData } from '@hugescreen/data';
+import { getByPath, mapData, mqttHub, DEFAULT_MQTT_TOPICS } from '@hugescreen/data';
 
 const DEFAULT_DS: DataSourceConfig = { type: 'static', config: {}, mapping: {} };
 
@@ -137,7 +137,7 @@ const mappingRows = Object.entries(mapping);
     <div className="space-y-2.5">
       {/* 类型 */}
       <div className="flex gap-1.5">
-        {(['static', 'rest'] as const).map((t) => (
+        {(['static', 'rest', 'mqtt'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setType(t)}
@@ -147,7 +147,7 @@ const mappingRows = Object.entries(mapping);
                 : 'border-[rgba(255,255,255,0.06)] text-textSecondary/60 hover:text-textSecondary'
             }`}
           >
-            {t === 'static' ? '静态' : 'REST 接口'}
+            {t === 'static' ? '静态' : t === 'rest' ? 'REST 接口' : 'MQTT 订阅'}
           </button>
         ))}
       </div>
@@ -266,6 +266,48 @@ const mappingRows = Object.entries(mapping);
           )}
           {test.ok && test.mapped && (
             <pre className="text-[10px] text-textSecondary/60 bg-surface-base rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">{test.mapped}</pre>
+          )}
+        </>
+      )}
+
+      {ds.type === 'mqtt' && (
+        <>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-textSecondary/70">连接地址（MQTT over WebSocket）</span>
+            <input type="text" value={cfg.url ?? ''} placeholder="ws://host:port/mqtt"
+              onChange={(e) => patchConfig({ url: e.target.value })} className={inputCls} />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-textSecondary/70">订阅主题（每行一个）</span>
+            <textarea
+              rows={3}
+              value={(cfg.topics && cfg.topics.length ? cfg.topics : DEFAULT_MQTT_TOPICS).join('\n')}
+              onChange={(e) => {
+                const topics = e.target.value.split('\n').map((t) => t.trim()).filter(Boolean);
+                patchConfig({ topics });
+              }}
+              placeholder={DEFAULT_MQTT_TOPICS.join('\n')}
+              className={`${inputCls} font-mono resize-y`}
+            />
+          </label>
+          <p className="text-[10px] text-textSecondary/40 -mt-1">订阅成功后会立即收到各主题的保留消息（retained），断开后自动重连并重放</p>
+
+          {/* 测试连接 */}
+          <button
+            onClick={async () => {
+              if (!cfg.url) { setTest({ loading: false, ok: false, msg: '请先填写连接地址' }); return; }
+              setTest({ loading: true, ok: undefined, msg: undefined });
+              const res = await mqttHub.testConnection(cfg.url, cfg.topics ?? DEFAULT_MQTT_TOPICS);
+              setTest({ loading: false, ok: res.ok, msg: res.msg });
+            }}
+            disabled={test.loading}
+            className="w-full text-[11px] py-1.5 rounded border border-[rgba(0,212,255,0.25)] text-accent-cool hover:bg-accent-cool/5 transition-colors disabled:opacity-40"
+          >
+            {test.loading ? '测试中…' : '测试连接'}
+          </button>
+          {test.msg && (
+            <div className={`text-[11px] ${test.ok ? 'text-positive' : 'text-negative'}`}>{test.msg}</div>
           )}
         </>
       )}

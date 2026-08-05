@@ -271,6 +271,35 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.beginPath(); ctx.arc(gx - 18, gy + 6, 2, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
 
+  } else if (type === 'bus-map') {
+    // 公交实时地图：暗色底图 + 线路折线 + 站点 + 行驶亮点
+    ctx.fillStyle = 'rgba(20,24,32,0.85)';
+    roundRect(ctx, 12, 12, w - 24, h - 24, 6);
+    ctx.fill();
+    // 两条线路
+    const routes: Array<{ pts: [number, number][]; color: string }> = [
+      { pts: [[18, 48], [34, 34], [56, 38], [78, 30], [94, 42]], color: '#00D4FF' },
+      { pts: [[18, 60], [40, 66], [60, 56], [94, 58]], color: '#FF8C42' },
+    ];
+    for (const r of routes) {
+      ctx.strokeStyle = r.color; ctx.lineWidth = 1.6;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.moveTo(r.pts[0][0], r.pts[0][1]);
+      for (let i = 1; i < r.pts.length; i++) ctx.lineTo(r.pts[i][0], r.pts[i][1]);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      // 站点
+      r.pts.forEach(([x, y]) => {
+        ctx.fillStyle = '#9E9EA8';
+        ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    // 行驶亮点（发光）
+    ctx.fillStyle = '#FFD34D';
+    ctx.shadowColor = '#FFD34D'; ctx.shadowBlur = 5;
+    ctx.beginPath(); ctx.arc(56, 38, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+
   } else if (type === 'bar-line-chart') {
     const bars = [[20, 52], [38, 44], [56, 38], [74, 30]];
     bars.forEach(([x, top]) => {
@@ -903,6 +932,7 @@ const CATEGORY_LABELS: Record<WidgetCategory, string> = {
   chart: '图表',
   table: '表格',
   '3d': '3D 组件',
+  map: '地图',
   media: '媒体',
   decorator: '装饰',
   custom: '自定义',

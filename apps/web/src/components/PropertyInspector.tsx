@@ -3438,6 +3438,46 @@ export function PropertyInspector() {
           </>
         )}
 
+        {/* ═══ 公交实时地图专属配置 ═══ */}
+        {widget.type === 'bus-map' && (
+          <>
+            <CollapsibleFieldGroup label="显示" defaultOpen={true}>
+              {([
+                ['showLegend', '线路图例'],
+                ['showStats', '车辆状态统计'],
+                ['showStatusBanner', '服务状态横幅'],
+                ['showStationLabels', '站点名称标签'],
+                ['showBusLabels', '车辆编号标签'],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center justify-between">
+                  <span className="text-[11px] text-textSecondary/70">{label}</span>
+                  <input type="checkbox"
+                    checked={Boolean((widget.options as Record<string, unknown>)[key] ?? true)}
+                    onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), [key]: e.target.checked } })}
+                    className="rounded" />
+                </label>
+              ))}
+              <p className="text-[10px] text-textSecondary/40 mt-1">线路数据来自 MQTT 数据源，请在「数据源」中配置连接</p>
+            </CollapsibleFieldGroup>
+            <CollapsibleFieldGroup label="动画" defaultOpen={false}>
+              <label className="flex items-center justify-between mt-1">
+                <span className="text-[11px] text-textSecondary/70">行驶速度</span>
+                <input type="range" min={0.2} max={4} step={0.1} value={Number((widget.options as Record<string, unknown>).animationSpeed ?? 1)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), animationSpeed: Number(e.target.value) } })}
+                  className="w-24" />
+                <span className="text-[11px] text-textSecondary/50 w-8 text-right font-mono">{Number((widget.options as Record<string, unknown>).animationSpeed ?? 1).toFixed(1)}</span>
+              </label>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">车辆点大小</span>
+                <input type="range" min={3} max={12} value={Number((widget.options as Record<string, unknown>).busRadius ?? 6)}
+                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), busRadius: Number(e.target.value) } })}
+                  className="w-24" />
+                <span className="text-[11px] text-textSecondary/50 w-8 text-right font-mono">{Number((widget.options as Record<string, unknown>).busRadius ?? 6)}</span>
+              </label>
+            </CollapsibleFieldGroup>
+          </>
+        )}
+
         {/* ═══ 赛博地图专属配置 ═══ */}
         {widget.type === 'cyber-map' && (
           <>

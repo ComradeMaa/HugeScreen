@@ -351,6 +351,48 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'bus-map',
+      name: '公交实时地图',
+      description: '实时公交运行地图（MQTT 数据驱动，真实道路路径，车辆动态行驶）',
+      icon: 'Map',
+      category: 'map',
+      defaultSize: { colSpan: 6, rowSpan: 6 },
+      minSize: { colSpan: 3, rowSpan: 3 },
+      maxSize: { colSpan: 12, rowSpan: 12 },
+      component: lazy(() => import('./geo/BusMapWidget').then(m => ({ default: m.BusMapWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          showLegend: { type: 'boolean', title: '线路图例' },
+          showStats: { type: 'boolean', title: '车辆状态统计' },
+          showStatusBanner: { type: 'boolean', title: '服务状态横幅' },
+          showStationLabels: { type: 'boolean', title: '站点名称标签' },
+          showBusLabels: { type: 'boolean', title: '车辆编号标签' },
+          animationSpeed: { type: 'number', title: '动画速度', minimum: 0.2, maximum: 4 },
+          busRadius: { type: 'number', title: '车辆点大小', minimum: 3, maximum: 12 },
+          lineVisibility: { type: 'object', title: '线路显隐' },
+          lineColors: { type: 'object', title: '线路颜色' },
+          minZoom: { type: 'number', title: '最小缩放' },
+          maxZoom: { type: 'number', title: '最大缩放' },
+        },
+      },
+      // ★ 不放数据（MQTT 实时注入）：defaultConfig 仅外观选项，避免 options 遮蔽实时数据
+      defaultConfig: {
+        showLegend: true,
+        showStats: true,
+        showStatusBanner: true,
+        showStationLabels: false,
+        showBusLabels: false,
+        animationSpeed: 1,
+        busRadius: 6,
+        lineVisibility: {},
+        lineColors: {},
+        minZoom: 10,
+        maxZoom: 18,
+      },
+    },
+
+    {
       type: 'video-widget',
       name: '视频',
       description: '本地视频或直播流播放',

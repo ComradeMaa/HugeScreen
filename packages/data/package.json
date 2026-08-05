@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@hugescreen/core": "workspace:*",
-    "@hugescreen/shared": "workspace:*"
+    "@hugescreen/shared": "workspace:*",
+    "mqtt": "^5.15.2"
   }
 }

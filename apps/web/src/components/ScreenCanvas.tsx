@@ -108,6 +108,8 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
     "sankey-chart": ["nodes", "links"],
     "marquee-table": ["headers", "rows"],
     "attack-globe": ["sources", "targets", "attacks"],
+    // ★ bus-map：MQTT 实时数据不回写 options（~10 快照/秒会 thrash store；发布后 viewer 重连 retained 秒级回补）
+    "bus-map": [],
     "tree-chart": ["trees"],
     "treemap-chart": ["treemaps"],
     "sunburst-chart": ["sunbursts"],

@@ -37,7 +37,7 @@ export interface WidgetDefinition {
 
 class WidgetRegistry {
   private widgets = new Map<string, WidgetDefinition>();
-  private categoryOrder: WidgetCategory[] = ['stat', 'chart', 'table', '3d', 'media', 'decorator', 'custom'];
+  private categoryOrder: WidgetCategory[] = ['stat', 'chart', 'table', '3d', 'map', 'media', 'decorator', 'custom'];
 
   /** 注册一个组件 */
   register(def: WidgetDefinition): void {

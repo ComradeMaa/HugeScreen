@@ -102,8 +102,26 @@ export function mapData(
     case 'sankey-chart': return mapSankey(raw, mapping);
     case 'marquee-table': return mapMarqueeTable(raw, mapping);
     case 'attack-globe': return mapAttackGlobe(raw, mapping, timeWindow);
+    case 'bus-map': return mapBusMap(raw, mapping);
     default: return asRecord(raw);
   }
+}
+
+/** 公交实时地图：透传 MqttHub 快照（支持字段别名映射；无数据键返回 {}，让组件走演示数据） */
+function mapBusMap(raw: unknown, m: FieldMapping): Record<string, unknown> {
+  const r = asRecord(raw);
+  const out: Record<string, unknown> = {};
+  const lines = m.lines ? getByPath(raw, m.lines) : r.lines;
+  const buses = m.buses ? getByPath(raw, m.buses) : r.buses;
+  const online = m.online ? getByPath(raw, m.online) : r.online;
+  const connected = m.connected ? getByPath(raw, m.connected) : r.connected;
+  const updatedAt = m.updatedAt ? getByPath(raw, m.updatedAt) : r.updatedAt;
+  if (Array.isArray(lines)) out.lines = lines;
+  if (buses && typeof buses === 'object' && !Array.isArray(buses)) out.buses = buses as Record<string, unknown>;
+  if (typeof online === 'boolean') out.online = online;
+  if (typeof connected === 'boolean') out.connected = connected;
+  if (typeof updatedAt === 'number') out.updatedAt = updatedAt;
+  return out;
 }
 
 /** 饼图：自动识别数据数组 → categories:[{name,value}] */

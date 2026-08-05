@@ -744,6 +744,31 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'bus-map': {
+          // 公交实时地图：暗色底图 + 线路折线 + 站点 + 行驶亮点
+          ctx.fillStyle = 'rgba(20,24,32,0.85)';
+          ctx.fillRect(innerX, innerY, innerW, innerH);
+          const routes: Array<{ pts: [number, number][]; c: string }> = [
+            { pts: [[innerX + 6, innerY + innerH * 0.6], [innerX + innerW * 0.3, innerY + innerH * 0.35], [innerX + innerW * 0.55, innerY + innerH * 0.45], [innerX + innerW * 0.8, innerY + innerH * 0.3]], c: '#00D4FF' },
+            { pts: [[innerX + 6, innerY + innerH * 0.75], [innerX + innerW * 0.4, innerY + innerH * 0.8], [innerX + innerW * 0.7, innerY + innerH * 0.65]], c: '#FF8C42' },
+          ];
+          for (const r of routes) {
+            ctx.strokeStyle = r.c; ctx.globalAlpha = 0.8; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(r.pts[0][0], r.pts[0][1]);
+            for (let i = 1; i < r.pts.length; i++) ctx.lineTo(r.pts[i][0], r.pts[i][1]);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            for (const [x, y] of r.pts) {
+              ctx.fillStyle = '#9E9EA8';
+              ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+            }
+          }
+          ctx.fillStyle = '#FFD34D';
+          ctx.shadowColor = '#FFD34D'; ctx.shadowBlur = 5;
+          ctx.beginPath(); ctx.arc(innerX + innerW * 0.55, innerY + innerH * 0.45, 2.8, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = 0;
+          break;
+        }
         case 'border-frame':
         case 'screen-header':
         case 'header-title':
