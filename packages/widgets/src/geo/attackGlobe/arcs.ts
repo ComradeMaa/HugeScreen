@@ -44,15 +44,39 @@ export interface FlowSystem {
   speedOf: number[];
 }
 
-function buildArcGeometry(a: THREE.Vector3, b: THREE.Vector3): THREE.BufferGeometry | null {
-  const pts: number[] = [];
+/**
+ * 弧线带状几何（替代 LineSegments）：
+ * ★ WebGL linewidth 恒 1px，长距离弧半透明细线几乎不可见——
+ *   改为沿弧横向展开的三角带，宽度可按档位控制，配合 Additive 混合呈发光粗线。
+ * 每采样点：切向 T = P[i+1]−P[i−1]，横向法向 N = normalize(T × P[i])（P[i] 近似球面外法线），
+ * 左右顶点 = P[i] ± N·width/2。
+ */
+function buildArcGeometry(a: THREE.Vector3, b: THREE.Vector3, width: number): THREE.BufferGeometry | null {
+  const pts: THREE.Vector3[] = [];
   for (let i = 0; i <= ARC_SEGMENTS; i++) {
     const p = greatCirclePoint(a, b, i / ARC_SEGMENTS, GLOBE_R + 6);
     if (!p) return null;
-    pts.push(p.x, p.y, p.z);
+    pts.push(p);
+  }
+  const half = width / 2;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const prev = pts[Math.max(0, i - 1)];
+    const next = pts[Math.min(pts.length - 1, i + 1)];
+    const tan = new THREE.Vector3().subVectors(next, prev);
+    const normal = new THREE.Vector3().crossVectors(tan, pts[i]).normalize();
+    const l = pts[i].clone().addScaledVector(normal, half);
+    const r = pts[i].clone().addScaledVector(normal, -half);
+    positions.push(l.x, l.y, l.z, r.x, r.y, r.z);
+  }
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a2 = i * 2, b2 = a2 + 1, c = a2 + 2, d = a2 + 3;
+    indices.push(a2, c, b2, b2, c, d);
   }
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setIndex(indices);
   return g;
 }
 
@@ -68,12 +92,11 @@ export function buildFlowSystem(attacks: AggregatedAttack[]): FlowSystem | null 
   const speedOf: number[] = [];
 
   for (const atk of attacks) {
+    const { style } = atk;
     const a = geoToSphere(atk.source.lng, atk.source.lat, GLOBE_R).normalize();
     const b = geoToSphere(atk.target.lng, atk.target.lat, GLOBE_R).normalize();
-    const geometry = buildArcGeometry(a, b);
+    const geometry = buildArcGeometry(a, b, style.arcWidth);
     if (!geometry) continue;
-
-    const { style } = atk;
     const phases: number[] = [];
     // 粒子相位错开（彗尾效果：同弧 2 个相位差 0.03 的粒子，大头+小尾）
     for (let i = 0; i < style.particleCount; i++) {

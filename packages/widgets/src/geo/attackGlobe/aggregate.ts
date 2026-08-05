@@ -8,6 +8,8 @@ export interface AttackEvent { source: string; target: string; count: number; }
 export interface LevelStyle {
   color: string;
   arcOpacity: number;
+  /** 弧线宽度（场景单位，带状几何——WebGL 线恒 1px，带状才能加粗） */
+  arcWidth: number;
   particleCount: number;   // 每弧粒子数
   particleSpeed: number;   // 弧长比例/秒
   particleSize: number;    // 粒子屏幕尺寸
@@ -21,10 +23,10 @@ export interface LevelStyle {
  *   与暗蓝背景和电蓝轮廓均有明显区分。
  */
 export const LEVEL_STYLES: LevelStyle[] = [
-  { color: '#34d399', arcOpacity: 0.30, particleCount: 1, particleSpeed: 0.05, particleSize: 6, sourcePulseRate: 0.7 },
-  { color: '#FFD34D', arcOpacity: 0.45, particleCount: 2, particleSpeed: 0.07, particleSize: 8, sourcePulseRate: 1.1 },
-  { color: '#FF8C42', arcOpacity: 0.60, particleCount: 3, particleSpeed: 0.09, particleSize: 11, sourcePulseRate: 1.5 },
-  { color: '#f87171', arcOpacity: 0.75, particleCount: 5, particleSpeed: 0.12, particleSize: 15, sourcePulseRate: 2.0 },
+  { color: '#34d399', arcOpacity: 0.45, arcWidth: 3.5, particleCount: 1, particleSpeed: 0.05, particleSize: 6, sourcePulseRate: 0.7 },
+  { color: '#FFD34D', arcOpacity: 0.60, arcWidth: 5,   particleCount: 2, particleSpeed: 0.07, particleSize: 8, sourcePulseRate: 1.1 },
+  { color: '#FF8C42', arcOpacity: 0.75, arcWidth: 6.5, particleCount: 3, particleSpeed: 0.09, particleSize: 11, sourcePulseRate: 1.5 },
+  { color: '#f87171', arcOpacity: 0.90, arcWidth: 8,   particleCount: 5, particleSpeed: 0.12, particleSize: 15, sourcePulseRate: 2.0 },
 ];
 
 export const FIXED_THRESHOLDS = [5, 20, 100];

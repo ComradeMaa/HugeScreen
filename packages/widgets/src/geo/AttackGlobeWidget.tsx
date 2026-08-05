@@ -134,11 +134,16 @@ export function AttackGlobeWidget({
       new THREE.SphereGeometry(GLOBE_R - 10, 64, 32),
       new THREE.MeshBasicMaterial({ color: 0x0a0e14, side: THREE.BackSide }),
     ));
-    // 经纬网格
+    // 经纬网格（★ 提亮 + Additive 叠加微发光：0.08 太淡，长经线几乎不可见）
     if (showGrid) {
       globeGroup.add(new THREE.LineSegments(
         linesToGeometry(createGrids(GLOBE_R + 1)),
-        new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.08 }),
+        new THREE.LineBasicMaterial({
+          color: CYAN,
+          transparent: true,
+          opacity: 0.22,
+          blending: THREE.AdditiveBlending,
+        }),
       ));
     }
     // 赤道环
@@ -242,13 +247,17 @@ export function AttackGlobeWidget({
       const flow = buildFlowSystem(aggregated);
       if (flow) {
         s.flow = flow;
+        // 弧线 = 带状 Mesh（加粗 + Additive 发光，暗背景下更显眼）
         for (const arc of flow.arcs) {
-          s.attackGroup.add(new THREE.LineSegments(
+          s.attackGroup.add(new THREE.Mesh(
             arc.geometry,
-            new THREE.LineBasicMaterial({
+            new THREE.MeshBasicMaterial({
               color: new THREE.Color(arc.style.color),
               transparent: true,
               opacity: arc.style.arcOpacity,
+              side: THREE.DoubleSide,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
             }),
           ));
         }
