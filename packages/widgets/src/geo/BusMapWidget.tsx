@@ -45,9 +45,8 @@ function parseBJTime(s: string): number {
   return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 8, +m[5], +m[6]);
 }
 
-/** TbBus 图标默认朝东：向西行驶时水平镜像（保持正位、底盘在下，不做车头转向） */
-const FLIP_X = 'scaleX(-1)';
-const NO_FLIP = '';
+/** TbBus 图标默认朝东：向西行驶时水平镜像（保持正位、底盘在下，不做车头转向）。
+ *  车辆图标 transform = scale(zoom系数) [scaleX(-1)]，镜像与 zoom 缩放同层合成 */
 
 interface BusMapWidgetProps {
   // 数据（liveProps 注入）
@@ -145,6 +144,10 @@ export function BusMapWidget({
   const busDotsRef = useRef(new Map<string, { wrap: HTMLElement; rot: HTMLElement }>());
   const warnedStationsRef = useRef(new Set<string>());
   const isDemoRef = useRef(false);
+  /** 当前 zoom 缩放系数（站点/车辆图标随视野缩放，2^(zoom-13)，clamp [0.6, 2.5]） */
+  const zoomScaleRef = useRef(1);
+  /** 站点图标元素（zoomchange 时统一更新 transform scale） */
+  const stationElsRef = useRef(new Map<string, HTMLElement>());
   /** 段用时自学习缓存：`${lineId}:${fromIdx}:${toIdx}` → 实际行驶毫秒（数据源到站确认时回填） */
   const segDurRef = useRef<Map<string, number>>(loadSegDurs());
   /** 全局段用时中位数（未学习段的自适应默认） */
@@ -197,6 +200,18 @@ export function BusMapWidget({
       });
       mapRef.current = map;
       setAmapReady(true);
+      // 图标随视野缩放自适应：zoom +1 → 图标 ×2（保持"贴在地面"的物理大小观感），clamp [0.6, 2.5]
+      const applyZoomScale = () => {
+        let z = 13;
+        try { z = map.getZoom(); } catch { /* noop */ }
+        const s = Math.min(2.5, Math.max(0.6, Math.pow(2, z - 13)));
+        zoomScaleRef.current = s;
+        for (const el of stationElsRef.current.values()) {
+          el.style.transform = `scale(${s})`;
+        }
+      };
+      map.on('zoomchange', applyZoomScale);
+      applyZoomScale();
       const t0 = Date.now();
       const pollReady = () => {
         if (disposed) return;
@@ -259,7 +274,8 @@ export function BusMapWidget({
     const allLayers: any[] = [];
 
     // 站点标记：GiBusStop 图标（被引用站点去重；位置 = 站点坐标），名称标签可选
-    const STATION_ICON_SIZE = 14;
+    const STATION_ICON_SIZE = 18;
+    stationElsRef.current = new Map(); // 重跑时重置（旧元素已 setMap(null) 清理）
     const stationMarkers = new Map<string, any>();
     for (const line of activeLines) {
       if (lineVisibility && lineVisibility[String(line.id)] === false) continue;
@@ -271,6 +287,8 @@ export function BusMapWidget({
           `width:${STATION_ICON_SIZE}px;height:${STATION_ICON_SIZE}px;` +
           'filter:drop-shadow(0 0 2px rgba(0,0,0,0.8));';
         el.innerHTML = renderToStaticMarkup(<GiBusStop size={STATION_ICON_SIZE} color="#9E9EA8" />);
+        el.style.transform = `scale(${zoomScaleRef.current})`; // 立即应用当前 zoom 缩放
+        stationElsRef.current.set(s, el);
         const mk = new M.Marker({
           position: c,
           content: el,
@@ -415,8 +433,8 @@ export function BusMapWidget({
           msgSeq: [],
           rate: 0,
         });
-        // 停靠中车辆也要立即应用镜像（rAF 只在 moving 分支更新 transform）
-        dot.rot.style.transform = flipX ? FLIP_X : NO_FLIP;
+        // 停靠中车辆也要立即应用镜像 + zoom 缩放（rAF 只在 moving 分支更新 transform）
+        dot.rot.style.transform = `scale(${zoomScaleRef.current})${flipX ? ' scaleX(-1)' : ''}`;
         console.log(`[busMap] ${key} 车辆上线 ${pos.status} ${pos.current_station}→${pos.next_station} 剩${pos.remaining_stops}站 ts=${pos.timestamp}`);
       } else {
         // 已有车辆：站段变化检测（数据源确认到站/换段）
@@ -534,10 +552,10 @@ export function BusMapWidget({
     anim.rate = 0;
     anim.flipX = segmentWest(anim.cur, anim.next);
     anim.catchUp = false;
-    // 到站转停靠：立即应用新镜像 + 停靠脉冲 class（rAF 只在 moving 分支更新 transform）
+    // 到站转停靠：立即应用新镜像 + zoom 缩放 + 停靠脉冲 class（rAF 只在 moving 分支更新 transform）
     const els = busDotsRef.current.get(anim.key);
     if (els) {
-      els.rot.style.transform = anim.flipX ? FLIP_X : NO_FLIP;
+      els.rot.style.transform = `scale(${zoomScaleRef.current})${anim.flipX ? ' scaleX(-1)' : ''}`;
       els.wrap.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
     }
     // 极端跳站兜底：pending.cur 与当前位置距离过大（数据源跳站）→ 平滑滑入而非瞬移
@@ -589,7 +607,10 @@ export function BusMapWidget({
             const els = busDotsRef.current.get(key);
             if (curC && nextC) {
               m.setPosition(lerpPos(curC, nextC, demoProgress(key, nowMs)));
-              if (els) els.rot.style.transform = nextC[0] < curC[0] ? FLIP_X : NO_FLIP;
+              if (els) {
+                const sc = zoomScaleRef.current;
+                els.rot.style.transform = `scale(${sc})${nextC[0] < curC[0] ? ' scaleX(-1)' : ''}`;
+              }
             }
             if (els) els.wrap.className = pos.status === '停靠中' ? 'bm-dot bm-dwell' : 'bm-dot';
           }
@@ -603,9 +624,12 @@ export function BusMapWidget({
             const st = (performance.now() - s.t0) / (s.dur || 300);
             if (st >= 1) { snapRef.current.delete(key); continue; }
             m.setPosition(lerpPos(s.from, s.to, easeInOut(Math.min(1, st))));
-            // 滑入期间图标按滑动方向镜像
+            // 滑入期间图标按滑动方向镜像（叠加 zoom 缩放）
             const els = busDotsRef.current.get(key);
-            if (els) els.rot.style.transform = s.to[0] < s.from[0] ? FLIP_X : NO_FLIP;
+            if (els) {
+              const sc = zoomScaleRef.current;
+              els.rot.style.transform = `scale(${sc})${s.to[0] < s.from[0] ? ' scaleX(-1)' : ''}`;
+            }
           }
           for (const anim of busAnimsRef.current.values()) {
             const m = busMarkersRef.current.get(anim.key);
@@ -642,7 +666,10 @@ export function BusMapWidget({
               }
               m.setPosition(pos ?? curC);
               const els = busDotsRef.current.get(anim.key);
-              if (els) els.rot.style.transform = west ? FLIP_X : NO_FLIP;
+              if (els) {
+                const sc = zoomScaleRef.current;
+                els.rot.style.transform = `scale(${sc})${west ? ' scaleX(-1)' : ''}`;
+              }
             }
           }
         }
