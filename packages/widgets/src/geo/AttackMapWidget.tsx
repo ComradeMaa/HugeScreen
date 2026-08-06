@@ -129,6 +129,9 @@ export function AttackMapWidget({
     const camera = new THREE.PerspectiveCamera(35, w / h, 1, 800);
     const CAM_DIST = 50 / (2 * Math.tan(THREE.MathUtils.degToRad(35 / 2))); // ≈79.4
     camera.position.set(0, CAM_DIST, 0);
+    // ★ 垂直俯视必须改 up：默认 up=(0,1,0) 与视线平行 → lookAt 退化 → 画面斜歪。
+    //   up=(0,0,-1)：屏幕上方 = 世界 -z = 北（地图正立）
+    camera.up.set(0, 0, -1);
     camera.lookAt(0, 0, 0);
 
     const mapGroup = new THREE.Group();
@@ -359,7 +362,7 @@ export function AttackMapWidget({
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.minDistance = 50;
-      controls.maxDistance = 600;
+      controls.maxDistance = 150; // 最远时视野宽 = 平面宽 200（再远会看到平面边缘）
       controls.enableRotate = false;
       controls.enablePan = false;
       controls.update();
@@ -409,6 +412,13 @@ export function AttackMapWidget({
       last = now;
       elapsed += dt;
       if (controls) controls.update();
+      // ★ 相机 wrap：边界 B = 地图半宽 100 − 视野半宽（视野边缘恰贴平面边缘不越界），
+      //   纹理 offset 反向补偿 —— 平面边缘永不进入视野（否则露出边界 = 边框重影），首尾无缝循环
+      const viewHalfW = camera.position.y * Math.tan(THREE.MathUtils.degToRad(35 / 2)) * camera.aspect;
+      const B = Math.max(0, 100 - viewHalfW);
+      if (camera.position.x > B) camera.position.x -= 200;
+      if (camera.position.x < -B) camera.position.x += 200;
+      if (controls && controls.target.x !== camera.position.x) controls.target.x = camera.position.x;
       const camX = camera.position.x;
 
       // ★ 卷轴：纹理 offset 随相机反向滚动（RepeatWrapping 下无限循环）
