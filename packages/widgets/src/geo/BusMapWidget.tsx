@@ -819,7 +819,7 @@ function createBusMarker(
   M: any, map: any, key: string, color: string,
   radius: number, title: string,
 ): { m: any; dot: { wrap: HTMLElement; rot: HTMLElement } } {
-  const size = Math.max(14, Math.round(radius * 2.5)); // 图标高度 px（旧"半径"语义 ×2.5）
+  const size = Math.max(10, Math.round(radius * 2)); // 图标高度 px（×2，默认 6 → 12px，稳定小于站点 18px）
   const wrap = document.createElement('div');
   wrap.className = 'bm-dot'; // 外层：停靠脉冲（scale 动画）
   wrap.style.cssText =
