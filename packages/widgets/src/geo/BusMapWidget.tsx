@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { TbBus } from 'react-icons/tb';
+import { GiBusStop } from 'react-icons/gi';
 import type { DataSourceConfig } from '@hugescreen/shared';
 import type { BusLine, BusPosition } from '@hugescreen/data';
 import { loadAmap } from './busMap/loadAmap';
@@ -126,6 +127,8 @@ export function BusMapWidget({
   const mapRef = useRef<any>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const [amapReady, setAmapReady] = useState(false);
+  /** map 'complete' 事件（投影就绪）—— 在此之前创建 Marker 会 Pixel(NaN,NaN) 崩溃 */
+  const [mapComplete, setMapComplete] = useState(false);
   const [amapError, setAmapError] = useState<string | null>(null);
   const [stations, setStations] = useState<Map<string, [number, number]> | null>(null);
 
@@ -141,7 +144,6 @@ export function BusMapWidget({
   /** wrap = 脉冲动画层（bm-dot），rot = 图标旋转层（TbBus 沿行进方向旋转） */
   const busDotsRef = useRef(new Map<string, { wrap: HTMLElement; rot: HTMLElement }>());
   const warnedStationsRef = useRef(new Set<string>());
-  const hasFitRef = useRef(false);
   const isDemoRef = useRef(false);
   /** 段用时自学习缓存：`${lineId}:${fromIdx}:${toIdx}` → 实际行驶毫秒（数据源到站确认时回填） */
   const segDurRef = useRef<Map<string, number>>(loadSegDurs());
@@ -176,9 +178,13 @@ export function BusMapWidget({
   };
 
   // ═══ Effect 1：地图初始化（一次）═══
+  // 注意：Map 构造完成 ≠ 投影就绪 —— 投影就绪前调用 lngLatToContainer 会得到
+  // Pixel(NaN, NaN) 抛错（Marker setMap 依赖投影；CircleMarker 则静默失败不渲染）。
+  // complete 事件时机不可靠（可能提前触发），改用轮询 getZoom() 有效作为就绪信号。
   useEffect(() => {
     let disposed = false;
     let map: any = null;
+    let raf = 0;
     loadAmap().then((AMap) => {
       if (disposed || !containerRef.current) return;
       const M = AMap as any;
@@ -191,6 +197,23 @@ export function BusMapWidget({
       });
       mapRef.current = map;
       setAmapReady(true);
+      const t0 = Date.now();
+      const pollReady = () => {
+        if (disposed) return;
+        // 直接探测崩溃路径本身：lngLatToContainer 投影未就绪时返回/抛出 NaN Pixel。
+        // （getZoom 在 init 早期就返回配置值 13，不可作为就绪信号）
+        let ready = false;
+        try {
+          const px = map.lngLatToContainer([119.45, 32.2]);
+          ready = !!px && Number.isFinite(px.x) && Number.isFinite(px.y);
+        } catch { ready = false; }
+        if (ready || Date.now() - t0 > 15000) {
+          setMapComplete(true); // 投影就绪，放行 overlay 创建
+        } else {
+          raf = requestAnimationFrame(pollReady);
+        }
+      };
+      pollReady();
       const ro = new ResizeObserver(() => { try { map?.resize(); } catch { /* noop */ } });
       ro.observe(containerRef.current);
       roRef.current = ro;
@@ -199,6 +222,7 @@ export function BusMapWidget({
     });
     return () => {
       disposed = true;
+      cancelAnimationFrame(raf);
       roRef.current?.disconnect();
       if (map) { try { map.destroy(); } catch { /* noop */ } }
       mapRef.current = null;
@@ -227,28 +251,35 @@ export function BusMapWidget({
   // ═══ Effect 2：线路 / 站点静态几何（内容签名不变不重跑）═══
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !stations || activeLines.length === 0) return;
+    if (!map || !stations || activeLines.length === 0 || !mapComplete) return;
     const M = (window as any).AMap;
     if (!M) return;
 
     let disposed = false;
     const allLayers: any[] = [];
 
-    // 站点标记（被引用站点去重；位置 = 站点坐标）
+    // 站点标记：GiBusStop 图标（被引用站点去重；位置 = 站点坐标），名称标签可选
+    const STATION_ICON_SIZE = 14;
     const stationMarkers = new Map<string, any>();
     for (const line of activeLines) {
       if (lineVisibility && lineVisibility[String(line.id)] === false) continue;
       for (const s of line.stations) {
         const c = stations.get(s);
         if (!c || stationMarkers.has(s)) continue;
-        const cm = new M.CircleMarker(c, {
-          radius: 4,
-          strokeColor: '#E8E8EC', strokeWeight: 1,
-          fillColor: '#9E9EA8', fillOpacity: 0.9,
+        const el = document.createElement('div');
+        el.style.cssText =
+          `width:${STATION_ICON_SIZE}px;height:${STATION_ICON_SIZE}px;` +
+          'filter:drop-shadow(0 0 2px rgba(0,0,0,0.8));';
+        el.innerHTML = renderToStaticMarkup(<GiBusStop size={STATION_ICON_SIZE} color="#9E9EA8" />);
+        const mk = new M.Marker({
+          position: c,
+          content: el,
+          anchor: 'center',
+          zIndex: 90, // 低于车辆图标（120）
         });
-        cm.setMap(map);
-        stationMarkers.set(s, cm);
-        allLayers.push(cm);
+        mk.setMap(map);
+        stationMarkers.set(s, mk);
+        allLayers.push(mk);
         if (showStationLabels) {
           const t = new M.Text({
             text: s, position: c,
@@ -256,7 +287,7 @@ export function BusMapWidget({
               'font-size': '11px', color: '#9E9EA8',
               background: 'rgba(20,24,32,0.75)', border: 'none', padding: '1px 4px',
             },
-            offset: new M.Pixel(0, 14),
+            offset: new M.Pixel(0, STATION_ICON_SIZE + 4),
           });
           t.setMap(map);
           allLayers.push(t);
@@ -300,10 +331,6 @@ export function BusMapWidget({
                     anim.departTs = nowTs;
                   }
                 }
-                if (!hasFitRef.current && allLayers.length > 0) {
-                  map.setFitView(allLayers, false, [60, 60]);
-                  hasFitRef.current = true;
-                }
               }
             }
             return path;
@@ -316,23 +343,21 @@ export function BusMapWidget({
       }
     });
 
-    // 首次 fitView（用已就绪的站点/线路）
-    if (!hasFitRef.current && allLayers.length > 0) {
-      map.setFitView(allLayers, false, [60, 60]);
-      hasFitRef.current = true;
-    }
+    // 不使用 setFitView：高德 2.0 该版本调用后 map 投影损坏，
+    // 之后任何 Marker 的 setMap/setPosition 都会 Pixel(NaN,NaN) 崩溃（已手动复现）。
+    // 初始视角用地图默认（镇江 center + zoom 13）。
 
     return () => {
       disposed = true;
       for (const l of allLayers) { try { l.setMap(null); } catch { /* noop */ } }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amapReady, stations, linesSig, visSig, showStationLabels, lineColors]);
+  }, [amapReady, mapComplete, stations, linesSig, visSig, showStationLabels, lineColors]);
 
   // ═══ Effect 3a：车辆快照 → 动画状态机 + Marker 增删 ═══
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapComplete) return;
     const M = (window as any).AMap;
     if (!M) return;
 
@@ -469,7 +494,7 @@ export function BusMapWidget({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amapReady, buses, isDemo, activeLines, busRadius, showBusLabels, lineColors]);
+  }, [amapReady, mapComplete, buses, isDemo, activeLines, busRadius, showBusLabels, lineColors]);
 
   /** 到站学习：数据源时间戳差值回填该段用时（EMA 平滑消除单样本波动）+ 持久化 + 更新中位数 */
   const learnSegment = (anim: BusAnim, nowTs: number) => {
