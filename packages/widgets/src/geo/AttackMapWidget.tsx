@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-  MAP_W, MAP_H, PIN_Y, geoToPlane, loadCountries,
-  buildCountryTexture, buildLonLatPlane, buildCountryLines, buildMapFrame, linesToGeometry,
+  PIN_Y, geoToPlane, loadCountries,
+  buildCountryTexture, buildLonLatPlane, buildCountryLines, linesToGeometry,
   lookupCountry, type CountryFeature,
 } from './attackMap/geo';
 import {
@@ -34,11 +34,15 @@ interface SceneRef {
   /** 攻击层对象（弧/粒子），数据更新时重建 */
   attackGroup: THREE.Group;
   flow: FlowSystem | null;
+  /** 弧线组（每弧一个 Group，userData.midX = 端点中心；卷轴镜像 wrap 用） */
+  arcGroups: THREE.Group[];
   /** 攻击源冲击波环（Sprite，每源 2 个错半周期） */
   rings: THREE.Sprite[];
   countries: CountryFeature[];
   /** 源/目标 DOM pin（屏幕投影定位） */
   pinContainer: HTMLDivElement;
+  /** 地图纹理（卷轴滚动 offset 用） */
+  mapTexture: THREE.Texture | null;
 }
 
 const CYAN = 0x00d4ff;
@@ -120,29 +124,23 @@ export function AttackMapWidget({
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    // 参照 CyberMap：近距透视相机，世界 ~100 量级
+    // ★ 卷轴式平面地图：相机垂直俯视（y 轴正上方），距离 = 地图高 50 / 垂直视野
+    //   → 画面精确铺满组件上下边界；左键拖拽左右平移（首尾无缝循环），滚轮缩放。
     const camera = new THREE.PerspectiveCamera(35, w / h, 1, 800);
-    camera.position.set(0, 100, 113);
-    camera.lookAt(0, -15, 0);
+    const CAM_DIST = 50 / (2 * Math.tan(THREE.MathUtils.degToRad(35 / 2))); // ≈79.4
+    camera.position.set(0, CAM_DIST, 0);
+    camera.lookAt(0, 0, 0);
 
     const mapGroup = new THREE.Group();
     scene.add(mapGroup);
 
-    // 地面网格（CyberMap 同款 GridHelper；showGrid 选项）
-    if (showGrid) {
-      const gh = new THREE.GridHelper(130, 26, 0x00d4ff, 0x00d4ff);
-      (gh.material as THREE.Material).opacity = 0.12;
-      (gh.material as THREE.Material).transparent = true;
-      scene.add(gh);
-    }
-
-    // 单面纹理地图平面（y=0，厚度 0）+ 外框（加载后贴纹理/加边界线框）
+    // 单面纹理地图平面（y=0，厚度 0）；纹理 RepeatWrapping + offset 滚动实现无限卷轴
+    // （GridHelper 固定世界坐标会随滚动露馅 → 移除，背景为纯海洋深色）
     const mapMesh = new THREE.Mesh(
       buildLonLatPlane(),
       new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
     );
     mapGroup.add(mapMesh);
-    mapGroup.add(buildMapFrame(0.1));
 
     const attackGroup = new THREE.Group();
     mapGroup.add(attackGroup);
@@ -164,6 +162,8 @@ export function AttackMapWidget({
         const countries = await loadCountries();
         if (disposed) return;
         const texture = new THREE.CanvasTexture(buildCountryTexture(countries));
+        // ★ 卷轴滚动：RepeatWrapping + offset.x 随相机平移反向滚动（左右边缘内容连续 = 俄罗斯跨接）
+        texture.wrapS = THREE.RepeatWrapping;
         // ★ colorSpace：canvas 内容为 sRGB 数据，必须标注 SRGBColorSpace（否则按线性解读颜色错误）
         texture.colorSpace = THREE.SRGBColorSpace;
         // ★ 清晰度：CanvasTexture 默认 generateMipmaps=false（线性过滤，旋转/缩放发糊），
@@ -174,6 +174,7 @@ export function AttackMapWidget({
         texture.anisotropy = 8;
         (mapMesh.material as THREE.MeshBasicMaterial).map = texture;
         (mapMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        if (sceneRef.current) sceneRef.current.mapTexture = texture;
         // 国家边界线框（叠加在纹理上，地图轮廓清晰；只画线无 earcut 空洞问题）
         mapGroup.add(new THREE.LineSegments(
           linesToGeometry(buildCountryLines(countries)),
@@ -206,7 +207,7 @@ export function AttackMapWidget({
     });
     ro.observe(container);
 
-    sceneRef.current = { renderer, scene, camera, mapGroup, attackGroup, flow: null, rings: [], countries: [], pinContainer };
+    sceneRef.current = { renderer, scene, camera, mapGroup, attackGroup, flow: null, arcGroups: [], rings: [], countries: [], pinContainer, mapTexture: null };
     setSceneVersion((v) => v + 1);
     renderOnce();
 
@@ -243,6 +244,7 @@ export function AttackMapWidget({
     }
     for (const r of s.rings) (r.material as THREE.SpriteMaterial).dispose();
     s.rings = [];
+    s.arcGroups = [];
     s.pinContainer.replaceChildren();
 
     const aggregated = aggregateAttacks(sources, targets, attacks, aggregationMode);
@@ -252,8 +254,12 @@ export function AttackMapWidget({
       const flow = buildFlowSystem(aggregated);
       if (flow) {
         s.flow = flow;
+        // ★ 每弧一个 Group（静态弧 + 亮段同组）：卷轴滚动时 group.position.x 按
+        //   200 世界单位周期镜像 wrap（弧线跟随地图无限循环，亮段坐标随组平移）
         for (const arc of flow.arcs) {
-          s.attackGroup.add(new THREE.Mesh(
+          const g = new THREE.Group();
+          g.userData.midX = (arc.a.x + arc.b.x) / 2; // 端点中心（镜像基准）
+          g.add(new THREE.Mesh(
             arc.geometry,
             new THREE.MeshBasicMaterial({
               color: new THREE.Color(arc.style.color),
@@ -264,8 +270,13 @@ export function AttackMapWidget({
               depthWrite: false,
             }),
           ));
+          s.attackGroup.add(g);
+          s.arcGroups.push(g);
         }
-        for (const l of flow.lights) s.attackGroup.add(l.mesh);
+        for (const l of flow.lights) {
+          const g = s.arcGroups[l.arcIndex];
+          if (g) g.add(l.mesh);
+        }
       }
     }
 
@@ -319,7 +330,7 @@ export function AttackMapWidget({
         }));
         ring.position.copy(pos);
         ring.scale.set(0, 0, 1);
-        ring.userData = { freq, offset };
+        ring.userData = { freq, offset, lng: src.lng, lat: src.lat }; // lng/lat 供卷轴镜像
         ring.frustumCulled = false;
         s.attackGroup.add(ring);
         s.rings.push(ring);
@@ -337,20 +348,55 @@ export function AttackMapWidget({
     if (!s || !container) return;
 
     const { camera, renderer, scene } = s;
+    const MAP_PERIOD = 200; // 地图宽度（世界单位）= 卷轴镜像周期
+
+    // ★ 卷轴交互：左键拖拽 = 左右平移（相机 x 平移，纹理反向滚动 = 无缝循环）
+    //   OrbitControls 仅保留滚轮缩放（旋转/平移禁用）
     let controls: OrbitControls | null = null;
     if (interactive) {
       controls = new OrbitControls(camera, renderer.domElement);
-      controls.target.set(0, -15, 0);
+      controls.target.set(0, 0, 0);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
-      controls.minDistance = 30;
-      controls.maxDistance = 500;
-      controls.maxPolarAngle = Math.PI * 0.9;   // 限制俯仰，避免钻到地图下方
-      controls.minPolarAngle = 0.05;
+      controls.minDistance = 50;
+      controls.maxDistance = 600;
+      controls.enableRotate = false;
+      controls.enablePan = false;
       controls.update();
+      // 左键拖拽平移（世界 x 方向）
+      let dragging = false;
+      let lastX = 0;
+      const pxToWorld = () => {
+        // 垂直俯视：屏幕高 h px ↔ 视野高 2·dist·tan(fov/2)；dist = 相机 y
+        const ch = container.clientHeight || 300;
+        const dist = camera.position.y || 150;
+        return (2 * dist * Math.tan(THREE.MathUtils.degToRad(35 / 2))) / ch;
+      };
+      const onDown = (e: PointerEvent) => {
+        if (e.button !== 0) return; // 仅左键
+        dragging = true;
+        lastX = e.clientX;
+      };
+      const onMove = (e: PointerEvent) => {
+        if (!dragging) return;
+        const dx = e.clientX - lastX;
+        lastX = e.clientX;
+        camera.position.x -= dx * pxToWorld();
+        controls!.target.x = camera.position.x;
+      };
+      const onUp = () => { dragging = false; };
+      container.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      // cleanup 引用
+      (controls as unknown as { __cleanup: () => void }).__cleanup = () => {
+        container.removeEventListener('pointerdown', onDown);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
     }
 
-    // 渲染循环：阻尼 + 移动亮段 + 冲击波 + pin 投影 + tooltip 跟随
+    // 渲染循环：阻尼 + 移动亮段 + 冲击波 + 卷轴镜像 + pin 投影 + tooltip 跟随
     let disposed = false;
     let raf = 0;
     let last = performance.now();
@@ -363,23 +409,37 @@ export function AttackMapWidget({
       last = now;
       elapsed += dt;
       if (controls) controls.update();
+      const camX = camera.position.x;
+
+      // ★ 卷轴：纹理 offset 随相机反向滚动（RepeatWrapping 下无限循环）
+      if (s.mapTexture) s.mapTexture.offset.x = -(camX / MAP_PERIOD);
+
+      // 弧线组镜像：组平移使弧线端点中心保持在相机附近的周期副本内
+      for (const g of s.arcGroups) {
+        const midX = g.userData.midX as number;
+        g.position.x = Math.round((camX - midX) / MAP_PERIOD) * MAP_PERIOD;
+      }
+
       if (s.flow) updateLights(s.flow, dt);
-      // 攻击源冲击波：环从 0 扩散到 RING_MAX_RADIUS 并淡出，频率按强度档位（0.7~2.0 Hz）
+      // 攻击源冲击波：环从 0 扩散到 RING_MAX_RADIUS 并淡出，频率按强度档位（0.7~2.0 Hz）；
+      // 位置随卷轴镜像（源经度 → 相机附近副本）
       for (const ring of s.rings) {
-        const u = ring.userData as { freq: number; offset: number };
+        const u = ring.userData as { freq: number; offset: number; lng: number; lat: number };
         const p = (elapsed * u.freq + u.offset) % 1;
         const d = p * RING_MAX_RADIUS;
         ring.scale.set(d, d, 1);
         (ring.material as THREE.SpriteMaterial).opacity = (1 - p) * RING_PEAK_OPACITY;
+        const wx = u.lng * (100 / 360);
+        ring.position.x = wx + Math.round((camX - wx) / MAP_PERIOD) * MAP_PERIOD;
       }
-      // 源/目标 pin 屏幕投影（相机旋转/平移/缩放时实时更新）
+      // 源/目标 pin 屏幕投影（卷轴镜像：经度 → 相机附近副本）
       const cw = container.clientWidth || 400;
       const ch = container.clientHeight || 300;
       for (const el of s.pinContainer.children) {
         const p = (el as unknown as { __pinData: { lng: number; lat: number } }).__pinData;
         if (!p) continue;
-        const wp = geoToPlane(p.lng, p.lat);
-        wp.y = PIN_Y;
+        const wx = p.lng * (100 / 360);
+        const wp = new THREE.Vector3(wx + Math.round((camX - wx) / MAP_PERIOD) * MAP_PERIOD, PIN_Y, -p.lat * (100 / 360));
         const sp = worldToScreen(wp, camera, cw, ch);
         (el as HTMLElement).style.left = `${sp.x}px`;
         (el as HTMLElement).style.top = `${sp.y}px`;
@@ -390,8 +450,8 @@ export function AttackMapWidget({
         for (const el of s.pinContainer.children) {
           const p = (el as unknown as { __pinData: { name: string; lng: number; lat: number } }).__pinData;
           if (p && p.name === tooltip.dataset.followKey) {
-            const wp = geoToPlane(p.lng, p.lat);
-            wp.y = PIN_Y;
+            const wx = p.lng * (100 / 360);
+            const wp = new THREE.Vector3(wx + Math.round((camX - wx) / MAP_PERIOD) * MAP_PERIOD, PIN_Y, -p.lat * (100 / 360));
             const sp = worldToScreen(wp, camera, cw, ch);
             tooltip.style.left = `${sp.x}px`;
             tooltip.style.top = `${sp.y - 18}px`;
@@ -406,7 +466,10 @@ export function AttackMapWidget({
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
-      if (interactive) controls?.dispose();
+      if (interactive) {
+        controls?.dispose();
+        (controls as unknown as { __cleanup?: () => void })?.__cleanup?.();
+      }
       if (tooltipRef.current) tooltipRef.current.style.opacity = '0';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
