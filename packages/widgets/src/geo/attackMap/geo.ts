@@ -116,6 +116,9 @@ export function buildCountryTexture(features: CountryFeature[], width = 4096, he
   const py = (lat: number) => ((90 - lat) / 180) * height;
 
   // 环按 ±180 切开（跨 180 的环分成两段绘制）
+  // ★ 极点豁免：环经过极点（|lat|≥89°）时经度跳变是"极点汇聚"而非跨 ±180 ——
+  //   南极洲主环在极点处有 2000+ 处经度跳变，若切割会把后半环全部丢弃（南极洲只画右侧）；
+  //   极点附近不切，环保持完整（evenodd 填充南极洲横贯底部）
   const splitRings = (ring: number[][]): number[][][] => {
     const segments: number[][][] = [];
     let current: number[][] = [];
@@ -124,7 +127,8 @@ export function buildCountryTexture(features: CountryFeature[], width = 4096, he
       const [lon, lat] = ring[i];
       if (i > 0) {
         const prev = ring[i - 1][0] + shifted;
-        if (Math.abs(lon - prev) > 180) {
+        const nearPole = Math.abs(ring[i - 1][1]) >= 89 || Math.abs(lat) >= 89;
+        if (Math.abs(lon - prev) > 180 && !nearPole) {
           // 跨 180：当前段结束，新段从对侧开始
           if (current.length >= 2) segments.push(current);
           current = [];
@@ -225,7 +229,8 @@ export function buildCountryLines(features: CountryFeature[], y = 0.2): THREE.Ve
       const [lon, lat] = ring[i];
       if (i > 0) {
         const prev = ring[i - 1][0] + shifted;
-        if (Math.abs(lon - prev) > 180) {
+        const nearPole = Math.abs(ring[i - 1][1]) >= 89 || Math.abs(lat) >= 89;
+        if (Math.abs(lon - prev) > 180 && !nearPole) {
           if (current.length >= 2) segments.push(current);
           current = [];
           shifted = lon > prev ? -360 : 360;
