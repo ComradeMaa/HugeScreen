@@ -28,7 +28,14 @@ export function CompositeChartWidget({ composite, compositeKey, interactive = fa
   // Resolve config: prefer direct composite, then key lookup
   const resolved = composite ?? (compositeKey ? getCompositeConfig(compositeKey) : null);
   const slots = resolved?.slots ?? [];
-  const liveData = useCompositeData(resolved ? slots : []);
+  // ★ 实例唯一 id：多个实例（同模板/预览+画布）共用 slot.id，DataHub 订阅必须按实例隔离，
+  //   否则 subscribe 会先 unsubscribe 互相踢下线（interval=0 时后实例永远收不到数据）
+  const [instanceId] = useState(() => {
+    return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  });
+  const liveData = useCompositeData(instanceId, resolved ? slots : []);
 
   if (depth >= MAX_DEPTH) {
     return (

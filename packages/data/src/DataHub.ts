@@ -48,6 +48,8 @@ class DataFetcher {
   private _fetching = false;
   private _initPromise: Promise<void> | null = null; // 共享首次 fetch，防止并发请求
   private _initialFetchDone = false;                 // 首次 fetch 成功后不再重复
+  private _lastRaw: unknown = null;                  // 最近一次成功数据（新订阅者回放）
+  private _lastRawOk = false;                        // 是否已成功拉取过
 
   private body: unknown;
 
@@ -63,6 +65,13 @@ class DataFetcher {
   addSubscriber(entry: SubEntry): void {
     this.subs.set(entry.widgetId, entry);
     this.recalcPolling();
+    // ★ 新订阅者立即回放最近一次成功数据（同 URL 的后来者，如自定义组件第二个实例）：
+    //   initialFetch 只在 Fetcher 首次创建时执行，interval=0 时没有轮询兜底——
+    //   若不回放，后订阅的成员组件永远等不到数据（只有 interval>0 靠轮询才能收到）。
+    if (this._lastRawOk) {
+      console.log(`[DataHub] ${this.url} new subscriber → replay last raw (#${this._fetchCount})`);
+      this.dispatchTo(entry, this._lastRaw, true);
+    }
   }
 
   removeSubscriber(widgetId: string): boolean {
@@ -185,6 +194,8 @@ class DataFetcher {
     }
     const raw: unknown = await DataFetcher.safeResponseData(resp, this.url);
     console.log(`[DataHub] ✓ FETCH #${n} DONE  ${this.url} → dispatching to ${this.subs.size} subs`);
+    this._lastRaw = raw;
+    this._lastRawOk = true;
     this.dispatch(raw);
   }
 
@@ -285,6 +296,8 @@ class DataFetcher {
     if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
     this._activePollingInterval = 0;
     this._initialFetchDone = false;
+    this._lastRaw = null;
+    this._lastRawOk = false;
     this.subs.clear();
   }
 }
