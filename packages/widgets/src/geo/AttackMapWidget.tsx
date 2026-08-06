@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-  MAP_THICKNESS, geoToPlane, loadCountries, buildRegionGroup, buildMapFrame,
+  MAP_W, MAP_H, PIN_Y, geoToPlane, loadCountries,
+  buildCountryTexture, buildLonLatPlane, buildCountryLines, buildMapFrame, linesToGeometry,
   lookupCountry, type CountryFeature,
 } from './attackMap/geo';
 import {
@@ -135,9 +136,13 @@ export function AttackMapWidget({
       scene.add(gh);
     }
 
-    // 国家挤出 3D 地图（加载后替换占位）+ 地图外框
-    const frame = buildMapFrame(0.3);
-    mapGroup.add(frame);
+    // 单面纹理地图平面（y=0，厚度 0）+ 外框（加载后贴纹理/加边界线框）
+    const mapMesh = new THREE.Mesh(
+      buildLonLatPlane(),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
+    );
+    mapGroup.add(mapMesh);
+    mapGroup.add(buildMapFrame(0.1));
 
     const attackGroup = new THREE.Group();
     mapGroup.add(attackGroup);
@@ -153,12 +158,32 @@ export function AttackMapWidget({
       renderer.render(scene, camera);
     };
 
-    // 异步加载国家数据 → 构建挤出几何
+    // 异步加载国家数据 → 经纬度纹理贴平面 + 边界线框
     (async () => {
       try {
         const countries = await loadCountries();
         if (disposed) return;
-        mapGroup.add(buildRegionGroup(countries));
+        const texture = new THREE.CanvasTexture(buildCountryTexture(countries));
+        // ★ colorSpace：canvas 内容为 sRGB 数据，必须标注 SRGBColorSpace（否则按线性解读颜色错误）
+        texture.colorSpace = THREE.SRGBColorSpace;
+        // ★ 清晰度：CanvasTexture 默认 generateMipmaps=false（线性过滤，旋转/缩放发糊），
+        //   显式开启三线性 mipmap + 各向异性过滤（4096×2048 是 2 的幂，mipmap 合法）
+        texture.generateMipmaps = true;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.anisotropy = 8;
+        (mapMesh.material as THREE.MeshBasicMaterial).map = texture;
+        (mapMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        // 国家边界线框（叠加在纹理上，地图轮廓清晰；只画线无 earcut 空洞问题）
+        mapGroup.add(new THREE.LineSegments(
+          linesToGeometry(buildCountryLines(countries)),
+          new THREE.LineBasicMaterial({
+            color: 0x00d4ff,
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+          }),
+        ));
         if (sceneRef.current) sceneRef.current.countries = countries;
         setLoadState('ready');
         renderOnce();
@@ -281,7 +306,7 @@ export function AttackMapWidget({
       const src = sources[i];
       const level = sourceLevelByTotal(aggregated, src.id);
       const pos = geoToPlane(src.lng, src.lat);
-      pos.y = MAP_THICKNESS;
+      pos.y = PIN_Y;
       const freq = LEVEL_STYLES[level].sourcePulseRate;
       for (const offset of [0, 0.5]) {
         const ring = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -354,7 +379,7 @@ export function AttackMapWidget({
         const p = (el as unknown as { __pinData: { lng: number; lat: number } }).__pinData;
         if (!p) continue;
         const wp = geoToPlane(p.lng, p.lat);
-        wp.y = MAP_THICKNESS;
+        wp.y = PIN_Y;
         const sp = worldToScreen(wp, camera, cw, ch);
         (el as HTMLElement).style.left = `${sp.x}px`;
         (el as HTMLElement).style.top = `${sp.y}px`;
@@ -366,7 +391,7 @@ export function AttackMapWidget({
           const p = (el as unknown as { __pinData: { name: string; lng: number; lat: number } }).__pinData;
           if (p && p.name === tooltip.dataset.followKey) {
             const wp = geoToPlane(p.lng, p.lat);
-            wp.y = MAP_THICKNESS;
+            wp.y = PIN_Y;
             const sp = worldToScreen(wp, camera, cw, ch);
             tooltip.style.left = `${sp.x}px`;
             tooltip.style.top = `${sp.y - 18}px`;

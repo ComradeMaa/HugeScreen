@@ -18,8 +18,8 @@ const ARC_SEGMENTS = 64;
 const LIGHT_SEGS = 24;
 /** 亮段长度（弧长比例） */
 const LIGHT_LEN = 0.25;
-/** 弧线高度（世界 ~100 量级；高于地图挤出厚度 2，浮空效果） */
-const ARC_Y = 2.5;
+/** 弧线高度（世界 ~100 量级；略高于单面地图，浮空效果） */
+const ARC_Y = 1.5;
 /** 弧线宽度缩放（档位样式 arcWidth 按球版 R=1000 设计，世界 100 量级 → ×0.1） */
 const ARC_WIDTH_SCALE = 0.1;
 
