@@ -102,6 +102,7 @@ export function mapData(
     case 'sankey-chart': return mapSankey(raw, mapping);
     case 'marquee-table': return mapMarqueeTable(raw, mapping);
     case 'attack-globe': return mapAttackGlobe(raw, mapping, timeWindow);
+    case 'attack-map': return mapAttackGlobe(raw, mapping, timeWindow);
     case 'bus-map': return mapBusMap(raw, mapping);
     default: return asRecord(raw);
   }

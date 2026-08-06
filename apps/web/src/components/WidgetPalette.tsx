@@ -271,6 +271,24 @@ function createWidgetThumbnail(type: string, w: number, h: number): HTMLElement 
     ctx.beginPath(); ctx.arc(gx - 18, gy + 6, 2, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
 
+  } else if (type === 'attack-map') {
+    // 网络攻击平面地图：矩形轮廓 + 经纬网格 + 攻击弧线 + 源/目标点
+    ctx.strokeStyle = 'rgba(0,212,255,0.5)'; ctx.lineWidth = 1;
+    ctx.strokeRect(cx - 26, cy - 13, 52, 26);
+    ctx.globalAlpha = 0.25; ctx.lineWidth = 0.6;
+    ctx.beginPath(); ctx.moveTo(cx - 26, cy - 5); ctx.lineTo(cx + 26, cy - 5); ctx.stroke();
+    ctx.moveTo(cx - 26, cy + 5); ctx.lineTo(cx + 26, cy + 5); ctx.stroke();
+    ctx.moveTo(cx - 9, cy - 13); ctx.lineTo(cx - 9, cy + 13); ctx.stroke();
+    ctx.moveTo(cx + 9, cy - 13); ctx.lineTo(cx + 9, cy + 13); ctx.stroke();
+    ctx.globalAlpha = 0.75; ctx.strokeStyle = '#FF8C42'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(cx + 22, cy - 10);
+    ctx.quadraticCurveTo(cx, cy - 18, cx - 22, cy + 8); ctx.stroke();
+    ctx.fillStyle = '#FF8C42';
+    ctx.beginPath(); ctx.arc(cx + 22, cy - 10, 2.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00D4FF';
+    ctx.beginPath(); ctx.arc(cx - 22, cy + 8, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
   } else if (type === 'bus-map') {
     // 公交实时地图：暗色底图 + 线路折线 + 站点 + 行驶亮点
     ctx.fillStyle = 'rgba(20,24,32,0.85)';

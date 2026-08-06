@@ -744,6 +744,26 @@ export function MainScreen() {
           ctx.globalAlpha = 1;
           break;
         }
+        case 'attack-map': {
+          // 网络攻击平面地图：矩形轮廓 + 经纬网格 + 攻击弧线 + 源/目标点
+          const mw = innerW - 4, mh = innerH - 4, mx = innerX + 2, my = innerY + 2;
+          ctx.strokeStyle = color; ctx.globalAlpha = 0.5; ctx.lineWidth = 1;
+          ctx.strokeRect(mx, my, mw, mh);
+          ctx.globalAlpha = 0.25; ctx.lineWidth = 0.6;
+          ctx.beginPath(); ctx.moveTo(mx, my + mh / 3); ctx.lineTo(mx + mw, my + mh / 3); ctx.stroke();
+          ctx.moveTo(mx, my + (mh * 2) / 3); ctx.lineTo(mx + mw, my + (mh * 2) / 3); ctx.stroke();
+          ctx.moveTo(mx + mw / 3, my); ctx.lineTo(mx + mw / 3, my + mh); ctx.stroke();
+          ctx.moveTo(mx + (mw * 2) / 3, my); ctx.lineTo(mx + (mw * 2) / 3, my + mh); ctx.stroke();
+          ctx.globalAlpha = 0.75; ctx.strokeStyle = '#FF8C42'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(mx + mw * 0.85, my + mh * 0.2);
+          ctx.quadraticCurveTo(mx + mw * 0.5, my - mh * 0.25, mx + mw * 0.15, my + mh * 0.75); ctx.stroke();
+          ctx.fillStyle = '#FF8C42';
+          ctx.beginPath(); ctx.arc(mx + mw * 0.85, my + mh * 0.2, 2.8, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(mx + mw * 0.15, my + mh * 0.75, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          break;
+        }
         case 'bus-map': {
           // 公交实时地图：暗色底图 + 线路折线 + 站点 + 行驶亮点
           ctx.fillStyle = 'rgba(20,24,32,0.85)';

@@ -601,15 +601,17 @@ function SlotChartEditors({
         </>
       )}
 
-      {/* ═══ 网络攻击地球 — 与主编辑器一致 ═══ */}
-      {chartType === 'attack-globe' && (
+      {/* ═══ 网络攻击地球 / 网络攻击平面地图 — 与主编辑器一致 ═══ */}
+      {(chartType === 'attack-globe' || chartType === 'attack-map') && (
         <>
-          <CollapsibleFieldGroup label="地球" defaultOpen={true}>
-            <label className="flex items-center justify-between">
-              <span className="text-[11px] text-textSecondary/70">自动旋转</span>
-              <input type="checkbox" checked={opts.autoRotate !== false}
-                onChange={(e) => onUpdate({ autoRotate: e.target.checked })} className="rounded" />
-            </label>
+          <CollapsibleFieldGroup label={chartType === 'attack-globe' ? '地球' : '地图'} defaultOpen={true}>
+            {chartType === 'attack-globe' && (
+              <label className="flex items-center justify-between">
+                <span className="text-[11px] text-textSecondary/70">自动旋转</span>
+                <input type="checkbox" checked={opts.autoRotate !== false}
+                  onChange={(e) => onUpdate({ autoRotate: e.target.checked })} className="rounded" />
+              </label>
+            )}
             <label className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-textSecondary/70">显示网格</span>
               <input type="checkbox" checked={!!(opts.showGrid ?? true)}
@@ -3356,8 +3358,8 @@ export function PropertyInspector() {
           </CollapsibleFieldGroup>
         )}
 
-        {/* ═══ 网络攻击地球专属配置 ═══ */}
-        {widget.type === 'attack-globe' && (
+        {/* ═══ 网络攻击地球 / 网络攻击平面地图专属配置 ═══ */}
+        {(widget.type === 'attack-globe' || widget.type === 'attack-map') && (
           <>
             <CollapsibleFieldGroup label="数据" defaultOpen={true}>
               <AttackGlobeDataEditor
@@ -3417,13 +3419,15 @@ export function PropertyInspector() {
                 );
               })()}
             </CollapsibleFieldGroup>
-            <CollapsibleFieldGroup label="地球配置" defaultOpen={false}>
-              <label className="flex items-center justify-between">
-                <span className="text-[11px] text-textSecondary/70">自动旋转</span>
-                <input type="checkbox" checked={((widget.options as Record<string, unknown>).autoRotate as boolean) ?? true}
-                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), autoRotate: e.target.checked } })}
-                  className="rounded" />
-              </label>
+            <CollapsibleFieldGroup label={widget.type === 'attack-globe' ? '地球配置' : '地图配置'} defaultOpen={false}>
+              {widget.type === 'attack-globe' && (
+                <label className="flex items-center justify-between">
+                  <span className="text-[11px] text-textSecondary/70">自动旋转</span>
+                  <input type="checkbox" checked={((widget.options as Record<string, unknown>).autoRotate as boolean) ?? true}
+                    onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), autoRotate: e.target.checked } })}
+                    className="rounded" />
+                </label>
+              )}
               <LabelSelectRow label="聚合模式" value={String((widget.options as Record<string, unknown>).aggregationMode ?? 'auto')}
                 options={['auto', 'fixed']}
                 labels={['自动分档（分位数）', '固定阈值 5/20/100']}

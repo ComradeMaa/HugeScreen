@@ -351,6 +351,48 @@ export function registerBuiltinWidgets(): void {
     },
 
     {
+      type: 'attack-map',
+      name: '网络攻击平面地图',
+      description: '平面世界地图攻击态势（等距圆柱投影），弧线粒子流向展示',
+      icon: 'Map',
+      category: '3d',
+      defaultSize: { colSpan: 8, rowSpan: 6 },   // 2:1 地图 → 宽扁默认尺寸
+      minSize: { colSpan: 3, rowSpan: 3 },
+      maxSize: { colSpan: 12, rowSpan: 12 },
+      component: lazy(() => import('./geo/AttackMapWidget').then(m => ({ default: m.AttackMapWidget }))),
+      configSchema: {
+        type: 'object',
+        properties: {
+          showGrid: { type: 'boolean', title: '显示网格' },
+          aggregationMode: { type: 'string', title: '聚合模式', enum: ['auto', 'fixed'] },
+          sources: { type: 'array', title: '攻击源' },
+          targets: { type: 'array', title: '被攻击地点' },
+          attacks: { type: 'array', title: '攻击事件' },
+        },
+      },
+      defaultConfig: {
+        showGrid: true,
+        aggregationMode: 'auto',
+        sources: [
+          { id: 's1', name: '莫斯科', lat: 55.75, lng: 37.62 },
+          { id: 's2', name: '圣保罗', lat: -23.55, lng: -46.63 },
+          { id: 's3', name: '首尔', lat: 37.57, lng: 126.98 },
+        ],
+        targets: [
+          { id: 't1', name: '上海', lat: 31.23, lng: 121.47 },
+          { id: 't2', name: '北京', lat: 39.9, lng: 116.4 },
+          { id: 't3', name: '深圳', lat: 22.54, lng: 114.06 },
+        ],
+        attacks: [
+          { source: 's1', target: 't1', count: 320 },
+          { source: 's1', target: 't2', count: 45 },
+          { source: 's2', target: 't3', count: 12 },
+          { source: 's3', target: 't2', count: 3 },
+        ],
+      },
+    },
+
+    {
       type: 'bus-map',
       name: '公交实时地图',
       description: '实时公交运行地图（MQTT 数据驱动，真实道路路径，车辆动态行驶）',
