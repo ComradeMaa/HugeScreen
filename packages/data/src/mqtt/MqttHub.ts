@@ -42,6 +42,7 @@ class MqttConnection {
   private lines: BusLine[] = [];
   private buses = new Map<string, BusPosition>();
   private online = false;
+  private onlineKnown = false; // 是否已收到过 bus/status（防初始误报离线）
   private connected = false;
 
   private _emitTimer: ReturnType<typeof setTimeout> | null = null;
@@ -141,6 +142,7 @@ class MqttConnection {
 
     if (topic === 'bus/status') {
       this.online = text.trim() === 'online';
+      this.onlineKnown = true;
       this.scheduleEmit();
       return;
     }
@@ -173,6 +175,7 @@ class MqttConnection {
       lines: this.lines,
       buses: Object.fromEntries(this.buses),
       online: this.online,
+      onlineKnown: this.onlineKnown,
       connected: this.connected,
       updatedAt: Date.now(),
     };

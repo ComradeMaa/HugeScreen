@@ -45,6 +45,8 @@ interface BusMapWidgetProps {
   lines?: BusLine[];
   buses?: Record<string, BusPosition>;
   online?: boolean;
+  /** 是否已收到过 bus/status（false = 连接成功但状态未到达，不误报离线） */
+  onlineKnown?: boolean;
   connected?: boolean;
   updatedAt?: number;
   // 选项
@@ -97,7 +99,7 @@ interface BusAnim {
 }
 
 export function BusMapWidget({
-  lines, buses, online = true, connected = true, updatedAt,
+  lines, buses, online = true, onlineKnown = true, connected = true, updatedAt,
   showLegend = true, showStats = true, showStatusBanner = true,
   showStationLabels = false, showBusLabels = false,
   showDebugPanel = false,
@@ -567,8 +569,11 @@ export function BusMapWidget({
   const stopped = busList.filter((b) => b.status === '停靠中').length;
   const updatedStr = updatedAt ? new Date(updatedAt).toLocaleTimeString('zh-CN', { hour12: false }) : '—';
 
+  // 横幅三态：断线 → 中断；已收到状态且离线 → 数据源离线；连接中但状态未到达 → 不显示（避免误报）
   const bannerText = amapError ?? (connected === false ? '连接中断，正在重连…' : '数据源离线');
-  const showBanner = showStatusBanner && (!!amapError || connected === false || (connected && online === false));
+  const showBanner = showStatusBanner && (
+    !!amapError || connected === false || (connected && onlineKnown && online === false)
+  );
 
   const containerId = `busmap-${widgetId ?? 'root'}`;
 
@@ -622,7 +627,7 @@ export function BusMapWidget({
             <span className="ml-2" style={{ color: '#FFD34D' }}>行驶 {moving}</span>
             <span className="ml-2" style={{ color: '#FF8C42' }}>停靠 {stopped}</span>
           </div>
-          <div>连接：{connected ? (online ? '正常' : '数据源离线') : '中断'} · 更新 {updatedStr}</div>
+          <div>连接：{connected ? (onlineKnown ? (online ? '正常' : '数据源离线') : '连接中…') : '中断'} · 更新 {updatedStr}</div>
         </div>
       )}
 
@@ -633,7 +638,7 @@ export function BusMapWidget({
           style={{ color: '#9E9EA8', background: 'rgba(20,24,32,0.88)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '6px 8px', maxWidth: 340, maxHeight: '70%', overflowY: 'auto' }}
         >
           <div style={{ color: '#E8E8EC', marginBottom: 2 }}>
-            连接:{connected ? (online ? '正常' : '数据源离线') : '中断'} · 车辆 {busList.length} · 线路 {activeLines.length}
+            连接:{connected ? (onlineKnown ? (online ? '正常' : '数据源离线') : '连接中…') : '中断'} · 车辆 {busList.length} · 线路 {activeLines.length}
           </div>
           {Object.entries(buses ?? {}).sort().map(([key, p]) => {
             const a = busAnimsRef.current.get(key);

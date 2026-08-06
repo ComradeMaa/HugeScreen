@@ -114,11 +114,13 @@ function mapBusMap(raw: unknown, m: FieldMapping): Record<string, unknown> {
   const lines = m.lines ? getByPath(raw, m.lines) : r.lines;
   const buses = m.buses ? getByPath(raw, m.buses) : r.buses;
   const online = m.online ? getByPath(raw, m.online) : r.online;
+  const onlineKnown = m.onlineKnown ? getByPath(raw, m.onlineKnown) : r.onlineKnown;
   const connected = m.connected ? getByPath(raw, m.connected) : r.connected;
   const updatedAt = m.updatedAt ? getByPath(raw, m.updatedAt) : r.updatedAt;
   if (Array.isArray(lines)) out.lines = lines;
   if (buses && typeof buses === 'object' && !Array.isArray(buses)) out.buses = buses as Record<string, unknown>;
   if (typeof online === 'boolean') out.online = online;
+  if (typeof onlineKnown === 'boolean') out.onlineKnown = onlineKnown;
   if (typeof connected === 'boolean') out.connected = connected;
   if (typeof updatedAt === 'number') out.updatedAt = updatedAt;
   return out;

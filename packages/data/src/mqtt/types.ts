@@ -25,6 +25,8 @@ export interface BusSnapshot {
   /** key = `${line_id}/${bus}`，覆盖更新即去重 */
   buses: Record<string, BusPosition>;
   online: boolean;     // bus/status retained 'online' | 'offline'
+  /** 是否已收到过 bus/status 消息（false = 连接成功但状态未到达，避免误报离线） */
+  onlineKnown: boolean;
   connected: boolean;  // mqtt.js 传输层连接状态
   updatedAt: number;
 }
