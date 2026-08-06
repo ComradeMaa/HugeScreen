@@ -294,6 +294,9 @@ export function AttackMapWidget({
         new THREE.CircleGeometry(MARKER_RADIUS, 32),
         new THREE.MeshBasicMaterial({ color: SOURCE_COLOR, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
       );
+      // ★ CircleGeometry 默认在 XY 平面（法线 +z）→ 垂直俯视看到侧面细线；
+      //   旋转到 XZ 平面（法线 +y）与地图平行，俯视显示正圆
+      mesh.rotation.x = -Math.PI / 2;
       mesh.position.copy(pos);
       mesh.userData = {
         kind: 'source', name: src.name, lat: src.lat, lng: src.lng,
@@ -311,6 +314,7 @@ export function AttackMapWidget({
         new THREE.CircleGeometry(MARKER_RADIUS, 32),
         new THREE.MeshBasicMaterial({ color: TARGET_COLOR, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
       );
+      mesh.rotation.x = -Math.PI / 2; // 平放 XZ 平面（法线 +y），俯视正圆
       mesh.position.copy(pos);
       mesh.userData = {
         kind: 'target', name: tgt.name, lat: tgt.lat, lng: tgt.lng,
