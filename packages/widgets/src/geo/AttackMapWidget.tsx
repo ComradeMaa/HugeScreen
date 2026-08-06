@@ -412,8 +412,11 @@ export function AttackMapWidget({
       if (!tooltip) return;
       if (!mesh) { tooltip.style.opacity = '0'; return; }
       const u = mesh.userData as { kind: string; name: string; lat: number; lng: number };
+      // ★ 显示名以经纬度反查的国家为准（城市名不随坐标更新，会出现"埃塞俄比亚的莫斯科"式矛盾）；
+      //   反查不到国家（如海上）才退回城市名
       const country = lookupCountry(s.countries, u.lat, u.lng);
-      tooltip.textContent = `${u.kind === 'source' ? '攻击源' : '被攻击地点'} ${u.name}${country ? `（${country.nameZh || country.name}）` : ''}`;
+      const displayName = country ? (country.nameZh || country.name) : u.name;
+      tooltip.textContent = `${u.kind === 'source' ? '攻击源' : '被攻击地点'} ${displayName}`;
       tooltip.style.opacity = '1';
     };
     const onPointerMove = (e: PointerEvent) => {
