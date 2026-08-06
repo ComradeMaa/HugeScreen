@@ -31,6 +31,8 @@ interface SceneRef {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   mapGroup: THREE.Group;
+  /** 卷轴滚动组：平面/线框/弧线全部随 position.x 无限滚动（wrap ±200 整周期无缝） */
+  scrollGroup: THREE.Group;
   /** 攻击层对象（弧/粒子），数据更新时重建 */
   attackGroup: THREE.Group;
   flow: FlowSystem | null;
@@ -136,17 +138,25 @@ export function AttackMapWidget({
 
     const mapGroup = new THREE.Group();
     scene.add(mapGroup);
+    // ★ 卷轴滚动组：平面/线框/攻击层全部随 position.x 无限滚动。
+    //   平面 3 副本（±200 周期偏移）→ 任意滚动位置视野内总有几何；
+    //   scroll wrap 跳整周期 200 = 内容视觉无缝（地图宽度 = 200 = 周期）
+    const scrollGroup = new THREE.Group();
+    mapGroup.add(scrollGroup);
 
-    // 单面纹理地图平面（y=0，厚度 0）；纹理 RepeatWrapping + offset 滚动实现无限卷轴
-    // （GridHelper 固定世界坐标会随滚动露馅 → 移除，背景为纯海洋深色）
+    // 单面纹理地图平面（y=0，厚度 0）×3 副本
     const mapMesh = new THREE.Mesh(
       buildLonLatPlane(),
       new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
     );
-    mapGroup.add(mapMesh);
+    for (const dx of [-200, 0, 200]) {
+      const copy = mapMesh.clone();
+      copy.position.x = dx;
+      scrollGroup.add(copy);
+    }
 
     const attackGroup = new THREE.Group();
-    mapGroup.add(attackGroup);
+    scrollGroup.add(attackGroup);
 
     // 源/目标 DOM pin 层（覆盖在地图上，屏幕投影定位）
     const pinContainer = document.createElement('div');
@@ -175,19 +185,21 @@ export function AttackMapWidget({
         texture.minFilter = THREE.LinearMipmapLinearFilter;
         texture.magFilter = THREE.LinearFilter;
         texture.anisotropy = 8;
+        // 3 副本共享材质 → 贴一次全部生效
         (mapMesh.material as THREE.MeshBasicMaterial).map = texture;
         (mapMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
-        if (sceneRef.current) sceneRef.current.mapTexture = texture;
-        // 国家边界线框（叠加在纹理上，地图轮廓清晰；只画线无 earcut 空洞问题）
-        mapGroup.add(new THREE.LineSegments(
-          linesToGeometry(buildCountryLines(countries)),
-          new THREE.LineBasicMaterial({
-            color: 0x00d4ff,
-            transparent: true,
-            opacity: 0.5,
-            blending: THREE.AdditiveBlending,
-          }),
-        ));
+        // 国家边界线框（叠加在纹理上，地图轮廓清晰；只画线无 earcut 空洞问题）×3 副本
+        const frameMat = new THREE.LineBasicMaterial({
+          color: 0x00d4ff,
+          transparent: true,
+          opacity: 0.5,
+          blending: THREE.AdditiveBlending,
+        });
+        for (const dx of [-200, 0, 200]) {
+          const frame = new THREE.LineSegments(linesToGeometry(buildCountryLines(countries)), frameMat);
+          frame.position.x = dx;
+          scrollGroup.add(frame);
+        }
         if (sceneRef.current) sceneRef.current.countries = countries;
         setLoadState('ready');
         renderOnce();
@@ -210,7 +222,7 @@ export function AttackMapWidget({
     });
     ro.observe(container);
 
-    sceneRef.current = { renderer, scene, camera, mapGroup, attackGroup, flow: null, arcGroups: [], rings: [], countries: [], pinContainer, mapTexture: null };
+    sceneRef.current = { renderer, scene, camera, mapGroup, scrollGroup, attackGroup, flow: null, arcGroups: [], rings: [], countries: [], pinContainer, mapTexture: null };
     setSceneVersion((v) => v + 1);
     renderOnce();
 
@@ -350,10 +362,10 @@ export function AttackMapWidget({
     const container = containerRef.current;
     if (!s || !container) return;
 
-    const { camera, renderer, scene } = s;
+    const { camera, renderer, scene, scrollGroup } = s;
     const MAP_PERIOD = 200; // 地图宽度（世界单位）= 卷轴镜像周期
 
-    // ★ 卷轴交互：左键拖拽 = 左右平移（相机 x 平移，纹理反向滚动 = 无缝循环）
+    // ★ 卷轴交互：左键拖拽 = 左右平移（scrollGroup 无限滚动，几何 3 副本始终覆盖视野）
     //   OrbitControls 仅保留滚轮缩放（旋转/平移禁用）
     let controls: OrbitControls | null = null;
     if (interactive) {
@@ -384,8 +396,7 @@ export function AttackMapWidget({
         if (!dragging) return;
         const dx = e.clientX - lastX;
         lastX = e.clientX;
-        camera.position.x -= dx * pxToWorld();
-        controls!.target.x = camera.position.x;
+        scrollGroup.position.x -= dx * pxToWorld();
       };
       const onUp = () => { dragging = false; };
       container.addEventListener('pointerdown', onDown);
@@ -404,8 +415,6 @@ export function AttackMapWidget({
     let raf = 0;
     let last = performance.now();
     let elapsed = 0;
-    /** 已 wrap 的次数：纹理 offset 只在相机 wrap 跳变时补偿整周期（连续移动不补偿） */
-    let wrapCount = 0;
     const loop = () => {
       if (disposed) return;
       raf = requestAnimationFrame(loop);
@@ -414,28 +423,21 @@ export function AttackMapWidget({
       last = now;
       elapsed += dt;
       if (controls) controls.update();
-      // ★ 相机 wrap：边界 B = 地图半宽 100 − 视野半宽（视野边缘恰贴平面边缘不越界）。
-      //   相机跳回 ±200 时纹理 offset 补偿一个整周期（repeat 下视觉无缝）——
-      //   连续拖拽不补偿 → 地图内容跟随相机滚动（拖动地图的直觉）
-      const viewHalfW = camera.position.y * Math.tan(THREE.MathUtils.degToRad(35 / 2)) * camera.aspect;
-      const B = Math.max(0, 100 - viewHalfW);
-      if (camera.position.x > B) { camera.position.x -= 200; wrapCount -= 1; }
-      if (camera.position.x < -B) { camera.position.x += 200; wrapCount += 1; }
-      if (controls && controls.target.x !== camera.position.x) controls.target.x = camera.position.x;
-      const camX = camera.position.x;
+      // ★ 卷轴：scrollGroup 无限滚动，wrap ±100（跳整周期 200 = 内容视觉无缝）
+      const scroll = scrollGroup.position.x;
+      if (scroll > 100) scrollGroup.position.x -= MAP_PERIOD;
+      if (scroll < -100) scrollGroup.position.x += MAP_PERIOD;
+      const sc = scrollGroup.position.x;
 
-      // ★ 卷轴：纹理 offset = −wrapCount（只补偿 wrap 跳变，连续移动内容跟随相机）
-      if (s.mapTexture && s.mapTexture.offset.x !== -wrapCount) s.mapTexture.offset.x = -wrapCount;
-
-      // 弧线组镜像：组平移使弧线端点中心保持在相机附近的周期副本内
+      // 弧线组镜像：内容世界 = 弧线坐标 + scroll；组内偏移保持"视野附近副本"
       for (const g of s.arcGroups) {
         const midX = g.userData.midX as number;
-        g.position.x = Math.round((camX - midX) / MAP_PERIOD) * MAP_PERIOD;
+        g.position.x = Math.round(-(midX + sc) / MAP_PERIOD) * MAP_PERIOD;
       }
 
       if (s.flow) updateLights(s.flow, dt);
       // 攻击源冲击波：环从 0 扩散到 RING_MAX_RADIUS 并淡出，频率按强度档位（0.7~2.0 Hz）；
-      // 位置随卷轴镜像（源经度 → 相机附近副本）
+      // 位置 = 源坐标 + scroll 的视野附近副本
       for (const ring of s.rings) {
         const u = ring.userData as { freq: number; offset: number; lng: number; lat: number };
         const p = (elapsed * u.freq + u.offset) % 1;
@@ -443,16 +445,17 @@ export function AttackMapWidget({
         ring.scale.set(d, d, 1);
         (ring.material as THREE.SpriteMaterial).opacity = (1 - p) * RING_PEAK_OPACITY;
         const wx = u.lng * (100 / 360);
-        ring.position.x = wx + Math.round((camX - wx) / MAP_PERIOD) * MAP_PERIOD;
+        ring.position.x = wx + Math.round(-(wx + sc) / MAP_PERIOD) * MAP_PERIOD;
       }
-      // 源/目标 pin 屏幕投影（卷轴镜像：经度 → 相机附近副本）
+      // 源/目标 pin 屏幕投影（内容世界 = 经度坐标 + scroll 的视野附近副本）
       const cw = container.clientWidth || 400;
       const ch = container.clientHeight || 300;
       for (const el of s.pinContainer.children) {
         const p = (el as unknown as { __pinData: { lng: number; lat: number } }).__pinData;
         if (!p) continue;
         const wx = p.lng * (100 / 360);
-        const wp = new THREE.Vector3(wx + Math.round((camX - wx) / MAP_PERIOD) * MAP_PERIOD, PIN_Y, -p.lat * (100 / 360));
+        const sx = wx + sc + Math.round(-(wx + sc) / MAP_PERIOD) * MAP_PERIOD;
+        const wp = new THREE.Vector3(sx, PIN_Y, -p.lat * (100 / 360));
         const sp = worldToScreen(wp, camera, cw, ch);
         (el as HTMLElement).style.left = `${sp.x}px`;
         (el as HTMLElement).style.top = `${sp.y}px`;
@@ -464,7 +467,8 @@ export function AttackMapWidget({
           const p = (el as unknown as { __pinData: { name: string; lng: number; lat: number } }).__pinData;
           if (p && p.name === tooltip.dataset.followKey) {
             const wx = p.lng * (100 / 360);
-            const wp = new THREE.Vector3(wx + Math.round((camX - wx) / MAP_PERIOD) * MAP_PERIOD, PIN_Y, -p.lat * (100 / 360));
+            const sx = wx + sc + Math.round(-(wx + sc) / MAP_PERIOD) * MAP_PERIOD;
+            const wp = new THREE.Vector3(sx, PIN_Y, -p.lat * (100 / 360));
             const sp = worldToScreen(wp, camera, cw, ch);
             tooltip.style.left = `${sp.x}px`;
             tooltip.style.top = `${sp.y - 18}px`;
