@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-  PIN_Y, geoToPlane, loadCountries,
+  geoToPlane, loadCountries,
   buildCountryTexture, buildLonLatPlane, buildCountryLines, linesToGeometry,
   lookupCountry, type CountryFeature,
 } from './attackMap/geo';
@@ -12,7 +12,6 @@ import {
 } from './attackGlobe/aggregate';
 import { buildFlowSystem, updateLights, type FlowSystem } from './attackMap/arcs';
 import { worldToScreen } from './projection';
-import { PIN_ICON_PATHS } from './types';
 
 interface AttackMapWidgetProps {
   sources?: AttackSource[];
@@ -40,9 +39,9 @@ interface SceneRef {
   arcGroups: THREE.Group[];
   /** 攻击源冲击波环（Sprite，每源 2 个错半周期） */
   rings: THREE.Sprite[];
+  /** 源/目标标记（2D 圆盘贴平面，raycast tooltip 用） */
+  markers: THREE.Mesh[];
   countries: CountryFeature[];
-  /** 源/目标 DOM pin（屏幕投影定位） */
-  pinContainer: HTMLDivElement;
   /** 地图纹理（卷轴滚动 offset 用） */
   mapTexture: THREE.Texture | null;
 }
@@ -52,22 +51,17 @@ const CYAN = 0x00d4ff;
 const SOURCE_COLOR = '#ff1f1f';
 /** 被攻击地点标记色（绿色系 #34d399） */
 const TARGET_COLOR = '#34d399';
-/** 冲击波扩散最大半径（世界 ~100 量级，地图宽 200 的 4%） */
+/** 冲击波扩散最大半径（世界 ~100 量级，地图宽 100 的 8%） */
 const RING_MAX_RADIUS = 8;
 /** 冲击波环淡出峰值透明度 */
 const RING_PEAK_OPACITY = 0.6;
-/** pin 图标尺寸 px */
-const PIN_SIZE = 22;
-
-/** 目标 pin 呼吸 keyframes（模块级注入一次，与球版 0.8 Hz 幅度 1.2 一致） */
-let breathStyleInjected = false;
-function ensureBreathStyle(): void {
-  if (breathStyleInjected) return;
-  breathStyleInjected = true;
-  const st = document.createElement('style');
-  st.textContent = `@keyframes amPinBreath { 0%,100% { transform: translate(-50%,-100%) scale(1); } 50% { transform: translate(-50%,-100%) scale(1.2); } }`;
-  document.head.appendChild(st);
-}
+/** 源/目标 2D 圆盘半径（世界 ~100 量级） */
+const MARKER_RADIUS = 2;
+/** 标记贴地高度（几乎贴平面，无高度差） */
+const MARKER_Y = 0.01;
+/** 目标标记缓慢呼吸：幅度 1 ± 0.3，频率 0.8 Hz（统一节奏，不按强度） */
+const TARGET_BREATH_AMPLITUDE = 0.3;
+const TARGET_BREATH_RATE = 0.8;
 
 /** 冲击波环纹理（模块级缓存，白色径向渐变环，SpriteMaterial.color 染色） */
 let ringTexture: THREE.Texture | null = null;
@@ -158,11 +152,6 @@ export function AttackMapWidget({
     const attackGroup = new THREE.Group();
     scrollGroup.add(attackGroup);
 
-    // 源/目标 DOM pin 层（覆盖在地图上，屏幕投影定位）
-    const pinContainer = document.createElement('div');
-    pinContainer.className = 'pointer-events-none absolute inset-0 overflow-hidden';
-    container.appendChild(pinContainer);
-
     let disposed = false;
     const renderOnce = () => {
       if (disposed) return;
@@ -222,7 +211,7 @@ export function AttackMapWidget({
     });
     ro.observe(container);
 
-    sceneRef.current = { renderer, scene, camera, mapGroup, scrollGroup, attackGroup, flow: null, arcGroups: [], rings: [], countries: [], pinContainer, mapTexture: null };
+    sceneRef.current = { renderer, scene, camera, mapGroup, scrollGroup, attackGroup, flow: null, arcGroups: [], rings: [], markers: [], countries: [], mapTexture: null };
     setSceneVersion((v) => v + 1);
     renderOnce();
 
@@ -240,7 +229,6 @@ export function AttackMapWidget({
       });
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
-      pinContainer.remove();
       sceneRef.current = null;
     };
   }, [showGrid]);
@@ -260,7 +248,7 @@ export function AttackMapWidget({
     for (const r of s.rings) (r.material as THREE.SpriteMaterial).dispose();
     s.rings = [];
     s.arcGroups = [];
-    s.pinContainer.replaceChildren();
+    s.markers = [];
 
     const aggregated = aggregateAttacks(sources, targets, attacks, aggregationMode);
 
@@ -295,44 +283,49 @@ export function AttackMapWidget({
       }
     }
 
-    // 源/目标 DOM pin（参照 CyberMap 地图钉：图标 + 发光 + 屏幕投影定位）
-    // ★ 位置在 3D 世界（geoToPlane + 地图顶面），每帧由渲染循环投影到屏幕
-    const makePin = (name: string, lng: number, lat: number, color: string, isTarget: boolean) => {
-      const el = document.createElement('div');
-      el.style.cssText =
-        'position:absolute;transform:translate(-50%,-100%);pointer-events:auto;cursor:pointer;' +
-        `filter:drop-shadow(0 0 4px ${color});`;
-      if (isTarget) {
-        ensureBreathStyle();
-        el.style.animation = 'amPinBreath 1.25s ease-in-out infinite';
-      }
-      el.innerHTML = `<svg width="${PIN_SIZE}" height="${PIN_SIZE}" viewBox="0 0 24 24" fill="${color}" style="display:block"><path d="${PIN_ICON_PATHS.pulse}"/></svg>`;
-      // 悬停 tooltip：名称 + 国家（followKey 供渲染循环跟随投影）
-      const tooltip = tooltipRef.current;
-      el.addEventListener('mouseenter', () => {
-        if (!tooltip) return;
-        const country = lookupCountry(s.countries, lat, lng);
-        tooltip.textContent = `${isTarget ? '被攻击地点' : '攻击源'} ${name}${country ? `（${country.nameZh || country.name}）` : ''}`;
-        tooltip.dataset.followKey = name;
-        tooltip.style.opacity = '1';
-      });
-      el.addEventListener('mouseleave', () => {
-        if (!tooltip) return;
-        tooltip.style.opacity = '0';
-        delete tooltip.dataset.followKey;
-      });
-      s.pinContainer.appendChild(el);
-      (el as unknown as { __pinData: { name: string; lng: number; lat: number } }).__pinData = { name, lng, lat };
-    };
-    for (const src of sources) makePin(src.name, src.lng, src.lat, SOURCE_COLOR, false);
-    for (const tgt of targets) makePin(tgt.name, tgt.lng, tgt.lat, TARGET_COLOR, true);
-
-    // 攻击源冲击波环（3D Sprite，每源 2 个错半周期）
+    // 源/目标标记：2D 圆盘贴平面（CircleGeometry，y=0.01 无高度差，随卷轴滚动）
+    // ★ 悬停 tooltip 用 raycast（标记是 3D 对象，raycaster 自动处理 scrollGroup 变换）
     for (let i = 0; i < sources.length; i++) {
       const src = sources[i];
       const level = sourceLevelByTotal(aggregated, src.id);
       const pos = geoToPlane(src.lng, src.lat);
-      pos.y = PIN_Y;
+      pos.y = MARKER_Y;
+      const mesh = new THREE.Mesh(
+        new THREE.CircleGeometry(MARKER_RADIUS, 32),
+        new THREE.MeshBasicMaterial({ color: SOURCE_COLOR, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+      );
+      mesh.position.copy(pos);
+      mesh.userData = {
+        kind: 'source', name: src.name, lat: src.lat, lng: src.lng,
+        pulseRate: LEVEL_STYLES[level].sourcePulseRate,
+        phase: i * 1.3,  // 多源错相，避免同步
+      };
+      s.attackGroup.add(mesh);
+      s.markers.push(mesh);
+    }
+    for (let i = 0; i < targets.length; i++) {
+      const tgt = targets[i];
+      const pos = geoToPlane(tgt.lng, tgt.lat);
+      pos.y = MARKER_Y;
+      const mesh = new THREE.Mesh(
+        new THREE.CircleGeometry(MARKER_RADIUS, 32),
+        new THREE.MeshBasicMaterial({ color: TARGET_COLOR, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+      );
+      mesh.position.copy(pos);
+      mesh.userData = {
+        kind: 'target', name: tgt.name, lat: tgt.lat, lng: tgt.lng,
+        phase: i * 1.1,  // 多目标错相呼吸
+      };
+      s.attackGroup.add(mesh);
+      s.markers.push(mesh);
+    }
+
+    // 攻击源冲击波环（Sprite，贴地扩散，每源 2 个错半周期）
+    for (let i = 0; i < sources.length; i++) {
+      const src = sources[i];
+      const level = sourceLevelByTotal(aggregated, src.id);
+      const pos = geoToPlane(src.lng, src.lat);
+      pos.y = MARKER_Y;
       const freq = LEVEL_STYLES[level].sourcePulseRate;
       for (const offset of [0, 0.5]) {
         const ring = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -410,7 +403,39 @@ export function AttackMapWidget({
       };
     }
 
-    // 渲染循环：阻尼 + 移动亮段 + 冲击波 + 卷轴镜像 + pin 投影 + tooltip 跟随
+    // 标记悬停 tooltip（raycast 2D 圆盘标记；直接操作 DOM，不经 React state；仅浏览模式）
+    const pointer = new THREE.Vector2();
+    const raycaster = new THREE.Raycaster();
+    let hoveredMarker: THREE.Mesh | null = null;
+    const tooltip = tooltipRef.current;
+    const updateTooltip = (mesh: THREE.Mesh | null) => {
+      if (!tooltip) return;
+      if (!mesh) { tooltip.style.opacity = '0'; return; }
+      const u = mesh.userData as { kind: string; name: string; lat: number; lng: number };
+      const country = lookupCountry(s.countries, u.lat, u.lng);
+      tooltip.textContent = `${u.kind === 'source' ? '攻击源' : '被攻击地点'} ${u.name}${country ? `（${country.nameZh || country.name}）` : ''}`;
+      tooltip.style.opacity = '1';
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(s.markers, false);
+      const hit = (hits[0]?.object as THREE.Mesh | undefined) ?? null;
+      if (hit !== hoveredMarker) {
+        hoveredMarker = hit;
+        updateTooltip(hit);
+      }
+    };
+    const onLeave = () => { updateTooltip(null); };
+    if (interactive) {
+      container.addEventListener('pointermove', onPointerMove);
+      container.addEventListener('pointerleave', onLeave);
+    }
+
+    // 渲染循环：阻尼 + 移动亮段 + 冲击波 + 卷轴镜像 + 标记/tooltip 跟随
     let disposed = false;
     let raf = 0;
     let last = performance.now();
@@ -450,34 +475,24 @@ export function AttackMapWidget({
         const wx = u.lng * (100 / 360);
         ring.position.x = wx + Math.round(-(wx + sc) / MAP_PERIOD) * MAP_PERIOD;
       }
-      // 源/目标 pin 屏幕投影（内容世界 = 经度坐标 + scroll 的视野附近副本）
-      const cw = container.clientWidth || 400;
-      const ch = container.clientHeight || 300;
-      for (const el of s.pinContainer.children) {
-        const p = (el as unknown as { __pinData: { lng: number; lat: number } }).__pinData;
-        if (!p) continue;
-        const wx = p.lng * (100 / 360);
-        const sx = wx + sc + Math.round(-(wx + sc) / MAP_PERIOD) * MAP_PERIOD;
-        const wp = new THREE.Vector3(sx, PIN_Y, -p.lat * (100 / 360));
-        const sp = worldToScreen(wp, camera, cw, ch);
-        (el as HTMLElement).style.left = `${sp.x}px`;
-        (el as HTMLElement).style.top = `${sp.y}px`;
-      }
-      // tooltip 跟随（pin 悬停后保持跟随源位置）
-      const tooltip = tooltipRef.current;
-      if (tooltip && tooltip.style.opacity !== '0' && tooltip.dataset.followKey) {
-        for (const el of s.pinContainer.children) {
-          const p = (el as unknown as { __pinData: { name: string; lng: number; lat: number } }).__pinData;
-          if (p && p.name === tooltip.dataset.followKey) {
-            const wx = p.lng * (100 / 360);
-            const sx = wx + sc + Math.round(-(wx + sc) / MAP_PERIOD) * MAP_PERIOD;
-            const wp = new THREE.Vector3(sx, PIN_Y, -p.lat * (100 / 360));
-            const sp = worldToScreen(wp, camera, cw, ch);
-            tooltip.style.left = `${sp.x}px`;
-            tooltip.style.top = `${sp.y - 18}px`;
-            break;
-          }
+      // 源/目标标记：2D 圆盘镜像（组内偏移 → 视野附近副本）+ 目标呼吸
+      for (const m of s.markers) {
+        const u = m.userData as { kind: string; lng: number; lat: number; phase: number };
+        const wx = u.lng * (100 / 360);
+        m.position.x = wx + Math.round(-(wx + sc) / MAP_PERIOD) * MAP_PERIOD;
+        if (u.kind === 'target') {
+          // 目标标记缓慢呼吸：缩放 1 ± 0.3，统一 0.8 Hz（与源的冲击波区分）
+          const breath = 1 + TARGET_BREATH_AMPLITUDE * (0.5 + 0.5 * Math.sin(2 * Math.PI * TARGET_BREATH_RATE * elapsed + u.phase));
+          m.scale.setScalar(breath);
         }
+      }
+      // tooltip 跟随（raycast 悬停的标记，随卷轴滚动实时更新屏幕位置）
+      const tooltip = tooltipRef.current;
+      if (tooltip && tooltip.style.opacity !== '0' && hoveredMarker) {
+        const wp = hoveredMarker.getWorldPosition(new THREE.Vector3());
+        const sp = worldToScreen(wp, camera, container.clientWidth || 400, container.clientHeight || 300);
+        tooltip.style.left = `${sp.x}px`;
+        tooltip.style.top = `${sp.y - 18}px`;
       }
       renderer.render(scene, camera);
     };
@@ -489,6 +504,8 @@ export function AttackMapWidget({
       if (interactive) {
         controls?.dispose();
         (controls as unknown as { __cleanup?: () => void })?.__cleanup?.();
+        container.removeEventListener('pointermove', onPointerMove);
+        container.removeEventListener('pointerleave', onLeave);
       }
       if (tooltipRef.current) tooltipRef.current.style.opacity = '0';
     };
