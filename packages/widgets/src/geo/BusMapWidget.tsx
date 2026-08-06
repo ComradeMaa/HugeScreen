@@ -209,6 +209,12 @@ export function BusMapWidget({
         for (const el of stationElsRef.current.values()) {
           el.style.transform = `scale(${s})`;
         }
+        // 车辆图标统一更新（rAF 只在 moving 分支更新，停靠中车辆必须在此同步，
+        // 否则缩放后移动车新 scale、停靠车旧 scale，图标大小参差）
+        for (const els of busDotsRef.current.values()) {
+          const flip = els.rot.style.transform.includes('scaleX(-1)');
+          els.rot.style.transform = `scale(${s})${flip ? ' scaleX(-1)' : ''}`;
+        }
       };
       map.on('zoomchange', applyZoomScale);
       applyZoomScale();
