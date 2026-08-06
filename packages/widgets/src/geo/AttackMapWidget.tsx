@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-  MAP_W, MAP_H, geoToPlane, loadCountries, buildCountryTexture, buildCountryLines, buildLonLatPlane, createPlaneGrids, linesToGeometry,
+  MAP_THICKNESS, geoToPlane, loadCountries, buildRegionGroup, buildMapFrame,
   lookupCountry, type CountryFeature,
 } from './attackMap/geo';
 import {
@@ -11,6 +11,7 @@ import {
 } from './attackGlobe/aggregate';
 import { buildFlowSystem, updateLights, type FlowSystem } from './attackMap/arcs';
 import { worldToScreen } from './projection';
+import { PIN_ICON_PATHS } from './types';
 
 interface AttackMapWidgetProps {
   sources?: AttackSource[];
@@ -29,31 +30,37 @@ interface SceneRef {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   mapGroup: THREE.Group;
-  /** 攻击层对象（弧/粒子/标记），数据更新时重建 */
+  /** 攻击层对象（弧/粒子），数据更新时重建 */
   attackGroup: THREE.Group;
   flow: FlowSystem | null;
-  markers: THREE.Mesh[];
   /** 攻击源冲击波环（Sprite，每源 2 个错半周期） */
   rings: THREE.Sprite[];
   countries: CountryFeature[];
+  /** 源/目标 DOM pin（屏幕投影定位） */
+  pinContainer: HTMLDivElement;
 }
 
 const CYAN = 0x00d4ff;
-/** 源/目标标记统一半径（世界地图 ~100 量级，强度差异用冲击波频率体现） */
-const MARKER_RADIUS = 3;
-/** 攻击源标记（纯警告红 #FF1F1F，与攻击线高档同色系） */
-const SOURCE_COLOR = 0xff1f1f;
-/** 被攻击地点标记（绿色系 #34d399） */
-const TARGET_COLOR = 0x34d399;
-/** 冲击波扩散最大半径（场景单位，地图宽 200 的 5%） */
-const RING_MAX_RADIUS = 10;
+/** 攻击源标记色（纯警告红 #FF1F1F，与攻击线高档同色系） */
+const SOURCE_COLOR = '#ff1f1f';
+/** 被攻击地点标记色（绿色系 #34d399） */
+const TARGET_COLOR = '#34d399';
+/** 冲击波扩散最大半径（世界 ~100 量级，地图宽 200 的 4%） */
+const RING_MAX_RADIUS = 8;
 /** 冲击波环淡出峰值透明度 */
 const RING_PEAK_OPACITY = 0.6;
-/** 目标标记缓慢呼吸：幅度 1 ± 0.3，频率 0.8 Hz（统一节奏，不按强度） */
-const TARGET_BREATH_AMPLITUDE = 0.3;
-const TARGET_BREATH_RATE = 0.8;
-/** 标记离地高度（高于边界线框 0.5，防 z-fighting） */
-const MARKER_Y = 1.2;
+/** pin 图标尺寸 px */
+const PIN_SIZE = 22;
+
+/** 目标 pin 呼吸 keyframes（模块级注入一次，与球版 0.8 Hz 幅度 1.2 一致） */
+let breathStyleInjected = false;
+function ensureBreathStyle(): void {
+  if (breathStyleInjected) return;
+  breathStyleInjected = true;
+  const st = document.createElement('style');
+  st.textContent = `@keyframes amPinBreath { 0%,100% { transform: translate(-50%,-100%) scale(1); } 50% { transform: translate(-50%,-100%) scale(1.2); } }`;
+  document.head.appendChild(st);
+}
 
 /** 冲击波环纹理（模块级缓存，白色径向渐变环，SpriteMaterial.color 染色） */
 let ringTexture: THREE.Texture | null = null;
@@ -79,10 +86,9 @@ function getRingTexture(): THREE.Texture {
 }
 
 /**
- * AttackMapWidget — 网络攻击平面世界地图（attack-globe 的等距圆柱投影平面版）。
- * 平面国家多边形（填充+边界线）+ 平面贝塞尔攻击弧线 + 移动亮段（强度 4 档分档）。
- * 浏览模式：可拖拽平移/缩放（无旋转、无自动旋转）+ 粒子流动 + 标记悬停提示。
- * 编辑模式：静态单帧（多实例不空转 CPU）。
+ * AttackMapWidget — 网络攻击平面世界地图（攻击地球的平面版，渲染/交互参照 CyberMap）：
+ * 国家 Shape 挤出 3D 地图（可拖拽旋转/缩放/平移）+ 平面贝塞尔攻击弧线 + 移动亮段
+ * + 源/目标 DOM 钉标记（攻击源红色脉冲、目标绿色呼吸）+ 悬停 tooltip 国家名反查。
  */
 export function AttackMapWidget({
   sources = [],
@@ -113,7 +119,7 @@ export function AttackMapWidget({
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    // 参照 CyberMap 的场景参数：近距透视 + 归一化 ~100 量级世界
+    // 参照 CyberMap：近距透视相机，世界 ~100 量级
     const camera = new THREE.PerspectiveCamera(35, w / h, 1, 800);
     camera.position.set(0, 100, 113);
     camera.lookAt(0, -15, 0);
@@ -121,31 +127,25 @@ export function AttackMapWidget({
     const mapGroup = new THREE.Group();
     scene.add(mapGroup);
 
-    // ★ 世界地图纹理平面（替代海洋球+三角剖分面片+边界线）：
-    //   canvas 2D evenodd 填充原生处理自交/孔洞——三角剖分的空洞问题彻底消除
-    //   DoubleSide：自定义网格 winding 不保证朝外，双面渲染兜底
-    //   y=-0.5：纹理平面略低于弧线/线框（z-fighting 分层）
-    const mapMesh = new THREE.Mesh(
-      buildLonLatPlane(MAP_W, MAP_H),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
-    );
-    mapMesh.position.y = -0.5;
-    mapGroup.add(mapMesh);
-    // 平面经纬网格（直线，y=1 抬离地面；★ Additive 叠加微发光）
+    // 地面网格（CyberMap 同款 GridHelper；showGrid 选项）
     if (showGrid) {
-      mapGroup.add(new THREE.LineSegments(
-        linesToGeometry(createPlaneGrids()),
-        new THREE.LineBasicMaterial({
-          color: CYAN,
-          transparent: true,
-          opacity: 0.22,
-          blending: THREE.AdditiveBlending,
-        }),
-      ));
+      const gh = new THREE.GridHelper(130, 26, 0x00d4ff, 0x00d4ff);
+      (gh.material as THREE.Material).opacity = 0.12;
+      (gh.material as THREE.Material).transparent = true;
+      scene.add(gh);
     }
+
+    // 国家挤出 3D 地图（加载后替换占位）+ 地图外框
+    const frame = buildMapFrame(0.3);
+    mapGroup.add(frame);
 
     const attackGroup = new THREE.Group();
     mapGroup.add(attackGroup);
+
+    // 源/目标 DOM pin 层（覆盖在地图上，屏幕投影定位）
+    const pinContainer = document.createElement('div');
+    pinContainer.className = 'pointer-events-none absolute inset-0 overflow-hidden';
+    container.appendChild(pinContainer);
 
     let disposed = false;
     const renderOnce = () => {
@@ -153,32 +153,12 @@ export function AttackMapWidget({
       renderer.render(scene, camera);
     };
 
-    // 异步加载国家数据 → 生成经纬度纹理贴平面
+    // 异步加载国家数据 → 构建挤出几何
     (async () => {
       try {
         const countries = await loadCountries();
         if (disposed) return;
-        const texture = new THREE.CanvasTexture(buildCountryTexture(countries));
-        // ★ colorSpace：canvas 内容为 sRGB 数据，必须标注 SRGBColorSpace（否则按线性解读颜色错误）
-        texture.colorSpace = THREE.SRGBColorSpace;
-        // ★ 清晰度：CanvasTexture 默认 generateMipmaps=false（线性过滤，旋转/缩放发糊），
-        //   显式开启三线性 mipmap + 各向异性过滤（4096×2048 是 2 的幂，mipmap 合法）
-        texture.generateMipmaps = true;
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.anisotropy = 8;
-        (mapMesh.material as THREE.MeshBasicMaterial).map = texture;
-        (mapMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
-        // 国家边界线框（叠加在纹理上，地图轮廓清晰；只画线无 earcut 空洞问题）
-        mapGroup.add(new THREE.LineSegments(
-          linesToGeometry(buildCountryLines(countries)),
-          new THREE.LineBasicMaterial({
-            color: CYAN,
-            transparent: true,
-            opacity: 0.6,
-            blending: THREE.AdditiveBlending,
-          }),
-        ));
+        mapGroup.add(buildRegionGroup(countries));
         if (sceneRef.current) sceneRef.current.countries = countries;
         setLoadState('ready');
         renderOnce();
@@ -201,7 +181,7 @@ export function AttackMapWidget({
     });
     ro.observe(container);
 
-    sceneRef.current = { renderer, scene, camera, mapGroup, attackGroup, flow: null, markers: [], rings: [], countries: [] };
+    sceneRef.current = { renderer, scene, camera, mapGroup, attackGroup, flow: null, rings: [], countries: [], pinContainer };
     setSceneVersion((v) => v + 1);
     renderOnce();
 
@@ -219,11 +199,12 @@ export function AttackMapWidget({
       });
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
+      pinContainer.remove();
       sceneRef.current = null;
     };
   }, [showGrid]);
 
-  // ═══ 攻击层：聚合 → 弧线/粒子/标记（场景就绪或数据变化时重建） ═══
+  // ═══ 攻击层：聚合 → 弧线/亮段/冲击波 + 源/目标 DOM pin（场景就绪或数据变化时重建） ═══
   useEffect(() => {
     const s = sceneRef.current;
     if (!s) return;
@@ -237,7 +218,7 @@ export function AttackMapWidget({
     }
     for (const r of s.rings) (r.material as THREE.SpriteMaterial).dispose();
     s.rings = [];
-    s.markers = [];
+    s.pinContainer.replaceChildren();
 
     const aggregated = aggregateAttacks(sources, targets, attacks, aggregationMode);
 
@@ -263,31 +244,49 @@ export function AttackMapWidget({
       }
     }
 
-    // 源标记（红色系，脉冲频率按该源总攻击档位）+ 目标标记（绿色系，大小相同）
+    // 源/目标 DOM pin（参照 CyberMap 地图钉：图标 + 发光 + 屏幕投影定位）
+    // ★ 位置在 3D 世界（geoToPlane + 地图顶面），每帧由渲染循环投影到屏幕
+    const makePin = (name: string, lng: number, lat: number, color: string, isTarget: boolean) => {
+      const el = document.createElement('div');
+      el.style.cssText =
+        'position:absolute;transform:translate(-50%,-100%);pointer-events:auto;cursor:pointer;' +
+        `filter:drop-shadow(0 0 4px ${color});`;
+      if (isTarget) {
+        ensureBreathStyle();
+        el.style.animation = 'amPinBreath 1.25s ease-in-out infinite';
+      }
+      el.innerHTML = `<svg width="${PIN_SIZE}" height="${PIN_SIZE}" viewBox="0 0 24 24" fill="${color}" style="display:block"><path d="${PIN_ICON_PATHS.pulse}"/></svg>`;
+      // 悬停 tooltip：名称 + 国家（followKey 供渲染循环跟随投影）
+      const tooltip = tooltipRef.current;
+      el.addEventListener('mouseenter', () => {
+        if (!tooltip) return;
+        const country = lookupCountry(s.countries, lat, lng);
+        tooltip.textContent = `${isTarget ? '被攻击地点' : '攻击源'} ${name}${country ? `（${country.nameZh || country.name}）` : ''}`;
+        tooltip.dataset.followKey = name;
+        tooltip.style.opacity = '1';
+      });
+      el.addEventListener('mouseleave', () => {
+        if (!tooltip) return;
+        tooltip.style.opacity = '0';
+        delete tooltip.dataset.followKey;
+      });
+      s.pinContainer.appendChild(el);
+      (el as unknown as { __pinData: { name: string; lng: number; lat: number } }).__pinData = { name, lng, lat };
+    };
+    for (const src of sources) makePin(src.name, src.lng, src.lat, SOURCE_COLOR, false);
+    for (const tgt of targets) makePin(tgt.name, tgt.lng, tgt.lat, TARGET_COLOR, true);
+
+    // 攻击源冲击波环（3D Sprite，每源 2 个错半周期）
     for (let i = 0; i < sources.length; i++) {
       const src = sources[i];
       const level = sourceLevelByTotal(aggregated, src.id);
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(MARKER_RADIUS, 16, 16),
-        new THREE.MeshBasicMaterial({ color: SOURCE_COLOR }),
-      );
       const pos = geoToPlane(src.lng, src.lat);
-      pos.y = MARKER_Y;
-      mesh.position.copy(pos);
-      mesh.userData = {
-        kind: 'source', name: src.name, lat: src.lat, lng: src.lng,
-        pulseRate: LEVEL_STYLES[level].sourcePulseRate,
-        phase: i * 1.3,  // 多源错相，避免同步
-      };
-      s.attackGroup.add(mesh);
-      s.markers.push(mesh);
-
-      // 冲击波环：每源 2 个 Sprite 错半周期（一个淡出时另一个已在扩散，衔接无感）
+      pos.y = MAP_THICKNESS;
       const freq = LEVEL_STYLES[level].sourcePulseRate;
       for (const offset of [0, 0.5]) {
         const ring = new THREE.Sprite(new THREE.SpriteMaterial({
           map: getRingTexture(),
-          color: SOURCE_COLOR,
+          color: 0xff1f1f,
           transparent: true,
           opacity: 0,
           depthWrite: false,
@@ -301,28 +300,12 @@ export function AttackMapWidget({
         s.rings.push(ring);
       }
     }
-    for (let i = 0; i < targets.length; i++) {
-      const tgt = targets[i];
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(MARKER_RADIUS, 16, 16),
-        new THREE.MeshBasicMaterial({ color: TARGET_COLOR }),
-      );
-      const pos = geoToPlane(tgt.lng, tgt.lat);
-      pos.y = MARKER_Y;
-      mesh.position.copy(pos);
-      mesh.userData = {
-        kind: 'target', name: tgt.name, lat: tgt.lat, lng: tgt.lng,
-        phase: i * 1.1,  // 多目标错相呼吸
-      };
-      s.attackGroup.add(mesh);
-      s.markers.push(mesh);
-    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sceneVersion, sources, targets, attacks, aggregationMode]);
 
-  // ═══ 渲染循环：编辑/浏览模式都动画（数据流光/冲击波/呼吸是组件本体效果） ═══
-  // OrbitControls 拖拽 + 标记悬停 tooltip 仅浏览模式创建（编辑模式不抢占 dnd-kit 拖拽）
+  // ═══ 渲染循环：编辑/浏览模式都动画（数据流光/冲击波是组件本体效果） ═══
+  // OrbitControls 交互（可旋转/平移/缩放，CyberMap 同款）+ pin 屏幕投影 + tooltip 跟随
   useEffect(() => {
     const s = sceneRef.current;
     const container = containerRef.current;
@@ -332,59 +315,17 @@ export function AttackMapWidget({
     let controls: OrbitControls | null = null;
     if (interactive) {
       controls = new OrbitControls(camera, renderer.domElement);
-      controls.target.set(0, -15, 0);   // 与 CyberMap 一致（lookAt 目标）
+      controls.target.set(0, -15, 0);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.minDistance = 30;
       controls.maxDistance = 500;
-      controls.enableRotate = false;  // 平面地图只平移+缩放，无旋转
-      controls.enablePan = true;
+      controls.maxPolarAngle = Math.PI * 0.9;   // 限制俯仰，避免钻到地图下方
+      controls.minPolarAngle = 0.05;
       controls.update();
     }
 
-    // 标记悬停 tooltip（直接操作 DOM，不经 React state；仅浏览模式）
-    const pointer = new THREE.Vector2();
-    const raycaster = new THREE.Raycaster();
-    let hoveredMarker: THREE.Mesh | null = null;
-    const tooltip = tooltipRef.current;
-    const updateTooltip = (mesh: THREE.Mesh | null) => {
-      if (!tooltip) return;
-      if (!mesh) { tooltip.style.opacity = '0'; return; }
-      const u = mesh.userData as { kind: string; name: string; lat: number; lng: number };
-      const country = lookupCountry(s.countries, u.lat, u.lng);
-      const label = u.kind === 'source'
-        ? `攻击源 ${u.name}${country ? `（${country.nameZh || country.name}）` : ''}`
-        : `被攻击地点 ${u.name}${country ? `（${country.nameZh || country.name}）` : ''}`;
-      tooltip.textContent = label;
-      tooltip.style.opacity = '1';
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = container.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(s.markers, false);
-      const hit = (hits[0]?.object as THREE.Mesh | undefined) ?? null;
-      if (hit !== hoveredMarker) {
-        hoveredMarker = hit;
-        updateTooltip(hit);
-        if (hit && tooltip) {
-          // tooltip 跟随标记的屏幕投影
-          const wp = hit.position.clone();
-          const sp = worldToScreen(wp, camera, container.clientWidth, container.clientHeight);
-          tooltip.style.left = `${sp.x}px`;
-          tooltip.style.top = `${sp.y - 18}px`;
-        }
-      }
-    };
-    const onLeave = () => { updateTooltip(null); };
-    if (interactive) {
-      container.addEventListener('pointermove', onPointerMove);
-      container.addEventListener('pointerleave', onLeave);
-    }
-
-    // 渲染循环：阻尼 + 移动亮段 + 冲击波 + 呼吸（平面版无自动旋转）
+    // 渲染循环：阻尼 + 移动亮段 + 冲击波 + pin 投影 + tooltip 跟随
     let disposed = false;
     let raf = 0;
     let last = performance.now();
@@ -406,18 +347,32 @@ export function AttackMapWidget({
         ring.scale.set(d, d, 1);
         (ring.material as THREE.SpriteMaterial).opacity = (1 - p) * RING_PEAK_OPACITY;
       }
-      // 被攻击目标缓慢呼吸：缩放 1 ± 0.3，统一 0.8 Hz（与源的冲击波区分）
-      for (const m of s.markers) {
-        if (m.userData.kind !== 'target') continue;
-        const u = m.userData as { phase: number };
-        const breath = 1 + TARGET_BREATH_AMPLITUDE * (0.5 + 0.5 * Math.sin(2 * Math.PI * TARGET_BREATH_RATE * elapsed + u.phase));
-        m.scale.setScalar(breath);
+      // 源/目标 pin 屏幕投影（相机旋转/平移/缩放时实时更新）
+      const cw = container.clientWidth || 400;
+      const ch = container.clientHeight || 300;
+      for (const el of s.pinContainer.children) {
+        const p = (el as unknown as { __pinData: { lng: number; lat: number } }).__pinData;
+        if (!p) continue;
+        const wp = geoToPlane(p.lng, p.lat);
+        wp.y = MAP_THICKNESS;
+        const sp = worldToScreen(wp, camera, cw, ch);
+        (el as HTMLElement).style.left = `${sp.x}px`;
+        (el as HTMLElement).style.top = `${sp.y}px`;
       }
-      // tooltip 每帧跟随标记屏幕投影（平移/缩放时位置实时更新）
-      if (hoveredMarker && tooltip) {
-        const sp = worldToScreen(hoveredMarker.position.clone(), camera, container.clientWidth, container.clientHeight);
-        tooltip.style.left = `${sp.x}px`;
-        tooltip.style.top = `${sp.y - 18}px`;
+      // tooltip 跟随（pin 悬停后保持跟随源位置）
+      const tooltip = tooltipRef.current;
+      if (tooltip && tooltip.style.opacity !== '0' && tooltip.dataset.followKey) {
+        for (const el of s.pinContainer.children) {
+          const p = (el as unknown as { __pinData: { name: string; lng: number; lat: number } }).__pinData;
+          if (p && p.name === tooltip.dataset.followKey) {
+            const wp = geoToPlane(p.lng, p.lat);
+            wp.y = MAP_THICKNESS;
+            const sp = worldToScreen(wp, camera, cw, ch);
+            tooltip.style.left = `${sp.x}px`;
+            tooltip.style.top = `${sp.y - 18}px`;
+            break;
+          }
+        }
       }
       renderer.render(scene, camera);
     };
@@ -426,12 +381,8 @@ export function AttackMapWidget({
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
-      if (interactive) {
-        container.removeEventListener('pointermove', onPointerMove);
-        container.removeEventListener('pointerleave', onLeave);
-        controls?.dispose();
-      }
-      if (tooltip) tooltip.style.opacity = '0';
+      if (interactive) controls?.dispose();
+      if (tooltipRef.current) tooltipRef.current.style.opacity = '0';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interactive, sceneVersion]);

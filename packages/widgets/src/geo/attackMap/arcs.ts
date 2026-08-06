@@ -18,6 +18,10 @@ const ARC_SEGMENTS = 64;
 const LIGHT_SEGS = 24;
 /** 亮段长度（弧长比例） */
 const LIGHT_LEN = 0.25;
+/** 弧线高度（世界 ~100 量级；高于地图挤出厚度 2，浮空效果） */
+const ARC_Y = 2.5;
+/** 弧线宽度缩放（档位样式 arcWidth 按球版 R=1000 设计，世界 100 量级 → ×0.1） */
+const ARC_WIDTH_SCALE = 0.1;
 
 /** 平面竖直方向（弧线在 XZ 平面，法线统一取 y 轴） */
 const UP = new THREE.Vector3(0, 1, 0);
@@ -56,12 +60,12 @@ export interface LightSegment {
   t: number;
 }
 
-/** 平面二次贝塞尔插值（弦中点垂直偏移 0.25|AB|，保持"弧线越过中线"的弯曲观感） */
+/** 平面二次贝塞尔插值（弦中点垂直偏移 0.25|AB|，保持"弧线越过中线"的弯曲观感；y=ARC_Y 浮空） */
 export function planeArcPoint(arc: ArcParams, t: number): THREE.Vector3 {
   const u = 1 - t;
   return new THREE.Vector3(
     u * u * arc.a.x + 2 * u * t * arc.ctrl.x + t * t * arc.b.x,
-    0,
+    ARC_Y,
     u * u * arc.a.z + 2 * u * t * arc.ctrl.z + t * t * arc.b.z,
   );
 }
@@ -72,7 +76,7 @@ function buildArcGeometry(arc: ArcParams, width: number): THREE.BufferGeometry |
   for (let i = 0; i <= ARC_SEGMENTS; i++) {
     pts.push(planeArcPoint(arc, i / ARC_SEGMENTS));
   }
-  const half = width / 2;
+  const half = (width * ARC_WIDTH_SCALE) / 2;
   const positions: number[] = [];
   const indices: number[] = [];
   for (let i = 0; i < pts.length; i++) {
@@ -120,7 +124,7 @@ function writeLight(arc: ArcParams, t: number, positions: Float32Array, colors: 
     colors.fill(0);
     return;
   }
-  const halfW = arc.style.arcWidth / 2;
+  const halfW = (arc.style.arcWidth * ARC_WIDTH_SCALE) / 2;
   // ★ 颜色必须保持纯正警告色：亮度乘法在 sRGB 域做（色相比例不变），
   //   再线性解码存储——若在线性域乘法，sRGB 输出编码会把暗通道 gamma 抬升
   //   （红线的 g/b 通道被抬起 → 亮段变粉红）
