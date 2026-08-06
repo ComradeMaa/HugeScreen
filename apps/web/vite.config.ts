@@ -40,6 +40,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/overpass/, ''),
       },
+      // 高德驾车规划代理（走本地 API 服务器 → Web 服务 key）
+      '/amap': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
   build: {

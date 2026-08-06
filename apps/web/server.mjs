@@ -166,6 +166,38 @@ app.use('/overpass', createProxyMiddleware({
   pathRewrite: { '^/overpass': '' },
 }));
 
+// ─── 高德驾车路线规划（Web 服务 API 代理）───
+// 前端路径规划的服务器兜底通道：浏览器直连高德 JS API 在线服务可能限流/网络波动，
+// 服务器在中国机房直连 Web 服务 API 更稳定。POST { origin: [lng,lat], dest: [lng,lat] } → { ok, coords }
+const AMAP_WEB_KEY = 'e6fd3820534c7276d74172b4decf32c2';
+app.post('/amap/direction', async (req, res) => {
+  try {
+    const { origin, dest } = req.body || {};
+    if (!origin || !dest || !Array.isArray(origin) || !Array.isArray(dest)) {
+      return res.status(400).json({ error: 'origin/dest 必须为 [lng,lat] 数组' });
+    }
+    const url = `https://restapi.amap.com/v3/direction/driving?key=${AMAP_WEB_KEY}` +
+      `&origin=${origin[0]},${origin[1]}&destination=${dest[0]},${dest[1]}&extensions=base&strategy=0`;
+    const resp = await fetch(url);
+    const j = await resp.json();
+    if (j.status !== '1' || !j.route?.paths?.length) {
+      console.warn(`[amap] driving fail: ${j.status} ${j.info}`);
+      return res.status(502).json({ error: `高德规划失败 ${j.status} ${j.info}` });
+    }
+    const coords = [];
+    for (const step of j.route.paths[0].steps ?? []) {
+      for (const seg of (step.polyline || '').split(';')) {
+        const [a, b] = seg.split(',').map(Number);
+        if (Number.isFinite(a) && Number.isFinite(b)) coords.push([a, b]);
+      }
+    }
+    if (coords.length < 2) return res.status(502).json({ error: '高德规划结果为空' });
+    res.json({ ok: true, coords });
+  } catch (e) {
+    res.status(502).json({ error: String((e && e.message) || e) });
+  }
+});
+
 // ─── API 路由 ───
 app.use('/api/auth', authRouter);
 app.use('/api/templates', templatesRouter);
