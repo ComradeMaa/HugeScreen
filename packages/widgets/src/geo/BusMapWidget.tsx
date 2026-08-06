@@ -28,8 +28,17 @@ import { easeInOut, pathPos, lerpPos } from './busMap/animate';
  * - 未学习段用「全局已学段用时中位数」自适应数据源节奏（模拟器 ~2-5s/段，真实公交可能 30-90s）
  * - 行驶中插值 t = (now - departTs) / 段用时 —— 与数据源真实节奏一致
  */
-const DEFAULT_SEG_MS = 10000; // 无任何学习历史时的兜底段用时
+const DEFAULT_SEG_MS = 5000; // 无任何学习历史时的兜底段用时（测试数据源节奏 ~2-5s/段）
 const SEGDUR_KEY = 'bm-segdur';
+/** 到站追赶时长：数据确认到站但动画未到时，0.4s 内沿轨道冲到站（绝不瞬移） */
+const CATCHUP_SECONDS = 0.4;
+
+/** 解析 "YYYY-MM-DD HH:mm:ss"（东八区北京时间）→ epoch ms */
+function parseBJTime(s: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(s);
+  if (!m) return NaN;
+  return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 8, +m[5], +m[6]);
+}
 
 interface BusMapWidgetProps {
   // 数据（liveProps 注入）
@@ -68,10 +77,22 @@ interface BusAnim {
   curIdx: number;   // line.stations 下标
   nextIdx: number;
   phase: 'moving' | 'dwell';
-  /** 段内进度 0..1（由绝对时间与段用时推导，数据驱动） */
+  /** 段内进度 0..1（由数据源消息时间戳锚定 + 消息间线性外推） */
   t: number;
-  /** 本段出发时刻（收到出发消息的本地时间，epoch ms） */
+  /** 本段出发时刻（数据源消息时间戳解析，东八区 epoch ms） */
   departTs: number;
+  /** 最近一条同段消息：本地接收时刻 + 该消息锚定的 t（rAF 消息间线性外推） */
+  lastMsgAt: number;
+  lastMsgT: number;
+  /** 到站追赶：数据确认到站但动画未到时置 true，rAF 沿轨道快速冲到站后应用 pending */
+  catchUp: boolean;
+  /** 追赶完成后应用的数据状态（含数据源时间戳） */
+  pending: {
+    cur: string; next: string;
+    curIdx: number; nextIdx: number;
+    status: '行驶中' | '停靠中';
+    ts: number;
+  } | null;
   color: string;
 }
 
@@ -317,6 +338,7 @@ export function BusMapWidget({
       const nextIdx = line.stations.indexOf(pos.next_station);
       if (curIdx < 0) warnOnce(pos.current_station);
       if (nextIdx < 0) warnOnce(pos.next_station);
+      const msgTs = parseBJTime(pos.timestamp);
 
       const anim = busAnimsRef.current.get(key);
       if (!anim) {
@@ -333,67 +355,61 @@ export function BusMapWidget({
           curIdx, nextIdx, // 站不在线路时保持 -1（rAF 有 >=0 检查走直线兜底）
           phase: pos.status === '停靠中' ? 'dwell' : 'moving',
           t: pos.status === '停靠中' ? 1 : 0,
-          departTs: pos.status === '停靠中' ? 0 : Date.now(), // 出发时刻 = 收到消息的本地时间
+          departTs: pos.status === '停靠中' ? 0 : (Number.isFinite(msgTs) ? msgTs : Date.now()),
+          lastMsgAt: Date.now(),
+          lastMsgT: 0,
+          catchUp: false,
+          pending: null,
           color,
         });
         console.log(`[busMap] ${key} 车辆上线 ${pos.status} ${pos.current_station}→${pos.next_station} 剩${pos.remaining_stops}站 ts=${pos.timestamp}`);
       } else {
         // 已有车辆：站段变化检测（数据源确认到站/换段）
-        const snapToStation = (m: any, name: string, key: string) => {
-          // ★ 数据源已确认车辆位置 → 画面对齐该站坐标。
-          //   滑入时长按距离自适应：近处 200ms 平滑，远处（模拟器跳站/掉头）可见滑行而非闪现
-          const c = stationsRef.current?.get(name);
-          if (!m || !c) return;
-          let from: [number, number];
-          try {
-            const pos = m.getPosition();
-            from = [pos.lng, pos.lat];
-          } catch {
-            from = c;
-          }
-          if (Math.abs(from[0] - c[0]) < 1e-7 && Math.abs(from[1] - c[1]) < 1e-7) return; // 已在站
-          const distM = Math.hypot(from[0] - c[0], from[1] - c[1]) * 111320 * 0.847;
-          const durMs = Math.min(1500, Math.max(200, distM / 2.5)); // ~2.5km → 1s，≤200m → 0.2s
-          snapRef.current.set(key, { from, to: c, t0: performance.now(), dur: durMs });
-        };
-        if (anim.cur !== pos.current_station || anim.next !== pos.next_station) {
-          // 到站学习：本段真实用时回填缓存（仅限此前确实在行驶中）
-          const nowTs = Date.now();
-          learnSegment(anim, nowTs);
-          const prevCur = anim.cur;
-          const prevNext = anim.next;
-          const prevCurIdx = anim.curIdx;
-          const prevNextIdx = anim.nextIdx;
-          anim.cur = pos.current_station;
-          anim.next = pos.next_station;
-          anim.curIdx = curIdx;
-          anim.nextIdx = nextIdx;
-          anim.phase = pos.status === '停靠中' ? 'dwell' : 'moving';
-          anim.t = pos.status === '停靠中' ? 1 : 0;
-          anim.departTs = pos.status === '停靠中' ? 0 : nowTs;
-          snapToStation(busMarkersRef.current.get(key), pos.current_station, key);
-          // 事件日志：到站 + 掉头/跳站识别（测试车辆站点间运行情况）
-          const turning = prevCurIdx >= 0 && prevNextIdx >= 0 && curIdx >= 0 && nextIdx >= 0
-            && ((prevCurIdx < prevNextIdx) !== (curIdx < nextIdx)); // 行驶方向翻转 = 掉头
-          const jump = prevNext !== prevCur && pos.current_station !== prevNext; // 越过 next 直接到更远站
-          console.log(
-            `[busMap] ${key} 到站 ${prevCur}→${pos.current_station}` +
-            (jump ? ` ★跳站(应到${prevNext})` : '') +
-            (turning ? ' ★掉头' : '') +
-            ` ${pos.status} 下一站${pos.next_station} 剩${pos.remaining_stops}站 ts=${pos.timestamp}`,
-          );
+        if (anim.catchUp) {
+          // 追赶中：pending 覆盖为最新消息（追赶完成后应用）
+          anim.pending = {
+            cur: pos.current_station, next: pos.next_station,
+            curIdx, nextIdx, status: pos.status,
+            ts: Number.isFinite(msgTs) ? msgTs : Date.now(),
+          };
+        } else if (anim.cur !== pos.current_station || anim.next !== pos.next_station) {
+          // ★ 到站/换段：数据已确认 → 标记追赶（不瞬移、不改状态）。
+          //   rAF 沿旧段轨道 0.4s 内把 t 冲到 1（位置 = 旧 next = 新 cur 站），
+          //   追赶完成后应用 pending 并更新状态 —— 任何时刻位置连续，绝不闪现
+          anim.catchUp = true;
+          anim.pending = {
+            cur: pos.current_station, next: pos.next_station,
+            curIdx, nextIdx, status: pos.status,
+            ts: Number.isFinite(msgTs) ? msgTs : Date.now(),
+          };
         } else if (pos.status === '停靠中' && anim.phase === 'moving') {
-          anim.phase = 'dwell'; // 到站（状态确认）
-          anim.t = 1;
-          learnSegment(anim, Date.now());
-          anim.departTs = 0;
-          snapToStation(busMarkersRef.current.get(key), pos.current_station, key);
-          console.log(`[busMap] ${key} 到站(停靠确认) ${pos.current_station} ts=${pos.timestamp}`);
+          // 停靠确认：追赶至站后转 dwell
+          anim.catchUp = true;
+          anim.pending = {
+            cur: pos.current_station, next: pos.next_station,
+            curIdx, nextIdx, status: '停靠中',
+            ts: Number.isFinite(msgTs) ? msgTs : Date.now(),
+          };
         } else if (pos.status === '行驶中' && anim.phase === 'dwell') {
-          anim.phase = 'moving'; // 出发
+          // 出发：从当前站开始（数据源时间戳锚定出发时刻）
+          anim.phase = 'moving';
           anim.t = 0;
-          anim.departTs = Date.now();
+          anim.departTs = Number.isFinite(msgTs) ? msgTs : Date.now();
+          anim.lastMsgAt = Date.now();
+          anim.lastMsgT = 0;
           console.log(`[busMap] ${key} 出发 ${pos.current_station}→${pos.next_station} ts=${pos.timestamp}`);
+        } else if (anim.phase === 'moving') {
+          // 同段行驶中消息：用数据源时间戳锚定 t（消除接收延迟误差）
+          if (Number.isFinite(msgTs) && anim.departTs > 0) {
+            const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
+            const dur = segDurRef.current.get(segKey) ?? (medianDurRef.current ?? DEFAULT_SEG_MS);
+            const t = (msgTs - anim.departTs) / dur;
+            if (t >= 0) {
+              anim.t = Math.min(1, t);
+              anim.lastMsgT = anim.t;
+              anim.lastMsgAt = Date.now();
+            }
+          }
         }
         const dot = busDotsRef.current.get(key);
         if (dot) dot.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
@@ -412,10 +428,10 @@ export function BusMapWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amapReady, buses, isDemo, activeLines, busRadius, showBusLabels, lineColors]);
 
-  /** 到站学习：用真实耗时回填该段用时缓存（阈值 1.5s~10min 过滤异常值）+ 持久化 + 更新中位数 */
-  const learnSegment = (anim: BusAnim, now: number) => {
+  /** 到站学习：用数据源时间戳差值回填该段用时缓存（无接收延迟误差）+ 持久化 + 更新中位数 */
+  const learnSegment = (anim: BusAnim, nowTs: number) => {
     if (anim.departTs <= 0) return;
-    const dur = now - anim.departTs;
+    const dur = nowTs - anim.departTs;
     if (dur > 1500 && dur < 10 * 60 * 1000) {
       const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
       segDurRef.current.set(segKey, dur);
@@ -425,10 +441,61 @@ export function BusMapWidget({
     }
   };
 
+  /** 追赶完成：应用 pending 数据状态。位置已在旧段终点（= 新 cur 站），零跳变 */
+  const finishCatchUp = (anim: BusAnim) => {
+    const p = anim.pending;
+    if (!p) { anim.catchUp = false; return; }
+    learnSegment(anim, p.ts);
+    const prevCur = anim.cur;
+    const prevNext = anim.next;
+    const prevCurIdx = anim.curIdx;
+    const prevNextIdx = anim.nextIdx;
+    anim.cur = p.cur;
+    anim.next = p.next;
+    anim.curIdx = p.curIdx;
+    anim.nextIdx = p.nextIdx;
+    anim.phase = p.status === '停靠中' ? 'dwell' : 'moving';
+    anim.t = p.status === '停靠中' ? 1 : 0;
+    anim.departTs = p.status === '停靠中' ? 0 : p.ts;
+    anim.lastMsgAt = Date.now();
+    anim.lastMsgT = anim.t;
+    anim.catchUp = false;
+    // 极端跳站兜底：pending.cur 与当前位置距离过大（数据源跳站）→ 平滑滑入而非瞬移
+    const m = busMarkersRef.current.get(anim.key);
+    if (m) {
+      const c = stationsRef.current?.get(p.cur);
+      if (c) {
+        let from: [number, number];
+        try { const pos = m.getPosition(); from = [pos.lng, pos.lat]; } catch { from = c; }
+        const distM = Math.hypot(from[0] - c[0], from[1] - c[1]) * 111320 * 0.847;
+        if (distM > 200) {
+          const durMs = Math.min(1500, Math.max(300, distM / 2.5));
+          snapRef.current.set(anim.key, { from, to: c, t0: performance.now(), dur: durMs });
+        }
+      }
+    }
+    const dot = busDotsRef.current.get(anim.key);
+    if (dot) dot.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
+    // 事件日志：到站 + 掉头/跳站识别
+    const turning = prevCurIdx >= 0 && prevNextIdx >= 0 && p.curIdx >= 0 && p.nextIdx >= 0
+      && ((prevCurIdx < prevNextIdx) !== (p.curIdx < p.nextIdx));
+    const jump = prevNext !== prevCur && p.cur !== prevNext;
+    console.log(
+      `[busMap] ${anim.key} 到站 ${prevCur}→${p.cur}` +
+      (jump ? ` ★跳站(应到${prevNext})` : '') +
+      (turning ? ' ★掉头' : '') +
+      ` ${p.status} 下一站${p.next}`,
+    );
+  };
+
   // ═══ Effect 3b：rAF 动画循环（一次启动，无条件运行）═══
   useEffect(() => {
     let raf = 0;
+    let lastT = performance.now();
     const tick = () => {
+      const nowMs = performance.now();
+      const dt = Math.min(0.1, (nowMs - lastT) / 1000); // 帧间隔（clamp 防跳帧）
+      lastT = nowMs;
       const map = mapRef.current;
 
       if (map && stationsRef.current) {
@@ -448,13 +515,13 @@ export function BusMapWidget({
             if (dot) dot.className = pos.status === '停靠中' ? 'bm-dot bm-dwell' : 'bm-dot';
           }
         } else {
-          // 实时：段进度 t 由绝对时间推导（数据驱动节奏）+ 沿真实道路路径插值
+          // 实时：数据源时间戳锚定 + 消息间线性外推 + 到站追赶（沿轨道，绝不瞬移）
           const now = Date.now();
-          // 到站平滑滑入（时长按距离自适应，终点 = 数据权威位置）
+          // 极端跳站滑入（finishCatchUp 中距离 >200m 时触发，常规到站不走这里）
           for (const [key, s] of snapRef.current) {
             const m = busMarkersRef.current.get(key);
             if (!m) { snapRef.current.delete(key); continue; }
-            const st = (performance.now() - s.t0) / (s.dur || 200);
+            const st = (performance.now() - s.t0) / (s.dur || 300);
             if (st >= 1) { snapRef.current.delete(key); continue; }
             m.setPosition(lerpPos(s.from, s.to, easeInOut(Math.min(1, st))));
           }
@@ -463,19 +530,26 @@ export function BusMapWidget({
             if (!m) continue;
             const curC = stationsRef.current.get(anim.cur);
             const nextC = stationsRef.current.get(anim.next);
-            if (anim.phase === 'moving' && curC && nextC) {
-              // t = 已行驶时间 / 段用时（自学习缓存 → 全局中位数 → 默认值）—— 永远按数据源真实节奏
+            if (anim.catchUp) {
+              // ★ 到站追赶：0.4s 内沿旧段轨道把 t 冲到 1（高速沿轨道移动，不闪现）
+              anim.t += dt / CATCHUP_SECONDS;
+              if (anim.t >= 1) {
+                anim.t = 1;
+                finishCatchUp(anim);
+              }
+            } else if (anim.phase === 'moving' && curC && nextC && anim.departTs > 0) {
+              // 消息间线性外推：以上一条消息锚定的 t 为基准，按段用时推进
               const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
               const dur = segDurRef.current.get(segKey) ?? (medianDurRef.current ?? DEFAULT_SEG_MS);
-              const t = Math.min(1, Math.max(0, (now - anim.departTs) / dur));
-              anim.t = t;
-              const eased = easeInOut(t);
+              anim.t = Math.min(1, anim.lastMsgT + (now - anim.lastMsgAt) / dur);
+            }
+            if (anim.phase === 'moving' && curC && nextC) {
+              const eased = easeInOut(anim.t);
               const path = linePathsRef.current.get(anim.lineId);
               let pos: [number, number] | null = null;
               if (path && path.coords.length >= 2 && anim.curIdx >= 0 && anim.nextIdx >= 0) {
                 pos = pathPos(path.coords, path.stopIndexes, anim.curIdx, anim.nextIdx, eased);
               }
-              // ★ 路径未就绪（逐段规划进行中）时停在当前站等待，不沿直线飘（直线会偏离道路 → “乱飘”）
               m.setPosition(pos ?? curC);
             }
           }
