@@ -373,10 +373,9 @@ export function AttackMapWidget({
       controls.target.set(0, 0, 0);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
-      controls.minDistance = 50;
-      controls.maxDistance = 150; // 最远时视野宽 = 平面宽 200（再远会看到平面边缘）
       controls.enableRotate = false;
       controls.enablePan = false;
+      controls.enableZoom = false; // 卷轴模式禁用滚轮缩放（相机固定视角）
       controls.update();
       // 左键拖拽平移（世界 x 方向）
       let dragging = false;
