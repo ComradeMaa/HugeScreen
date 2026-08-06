@@ -149,7 +149,7 @@ export function AttackMapWidget({
       buildLonLatPlane(),
       new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
     );
-    for (const dx of [-200, 0, 200]) {
+    for (const dx of [-100, 0, 100]) {
       const copy = mapMesh.clone();
       copy.position.x = dx;
       scrollGroup.add(copy);
@@ -195,7 +195,7 @@ export function AttackMapWidget({
           opacity: 0.5,
           blending: THREE.AdditiveBlending,
         });
-        for (const dx of [-200, 0, 200]) {
+        for (const dx of [-100, 0, 100]) {
           const frame = new THREE.LineSegments(linesToGeometry(buildCountryLines(countries)), frameMat);
           frame.position.x = dx;
           scrollGroup.add(frame);
@@ -363,7 +363,7 @@ export function AttackMapWidget({
     if (!s || !container) return;
 
     const { camera, renderer, scene, scrollGroup } = s;
-    const MAP_PERIOD = 200; // 地图宽度（世界单位）= 卷轴镜像周期
+    const MAP_PERIOD = 100; // 地图宽度（世界单位）= 卷轴镜像周期（geoToPlane：lon ±180 → x ±50）
 
     // ★ 卷轴交互：左键拖拽 = 左右平移（scrollGroup 无限滚动，几何 3 副本始终覆盖视野）
     //   OrbitControls 仅保留滚轮缩放（旋转/平移禁用）
@@ -396,7 +396,8 @@ export function AttackMapWidget({
         if (!dragging) return;
         const dx = e.clientX - lastX;
         lastX = e.clientX;
-        scrollGroup.position.x -= dx * pxToWorld();
+        // 内容跟随鼠标拖动方向：拖右 → 内容右移（scrollGroup.position.x 增加）
+        scrollGroup.position.x += dx * pxToWorld();
       };
       const onUp = () => { dragging = false; };
       container.addEventListener('pointerdown', onDown);
@@ -423,10 +424,13 @@ export function AttackMapWidget({
       last = now;
       elapsed += dt;
       if (controls) controls.update();
-      // ★ 卷轴：scrollGroup 无限滚动，wrap ±100（跳整周期 200 = 内容视觉无缝）
+      // ★ 卷轴：scrollGroup 无限滚动；wrap 边界 = 地图半宽 100 − 视野半宽
+      //   （视野边缘恰贴最近副本边缘，不越界；跳整周期 200 = 内容视觉无缝）
+      const viewHalfW = camera.position.y * Math.tan(THREE.MathUtils.degToRad(35 / 2)) * camera.aspect;
+      const B = Math.max(0, 50 - viewHalfW); // 地图半宽 50
       const scroll = scrollGroup.position.x;
-      if (scroll > 100) scrollGroup.position.x -= MAP_PERIOD;
-      if (scroll < -100) scrollGroup.position.x += MAP_PERIOD;
+      if (scroll > B) scrollGroup.position.x -= MAP_PERIOD;
+      if (scroll < -B) scrollGroup.position.x += MAP_PERIOD;
       const sc = scrollGroup.position.x;
 
       // 弧线组镜像：内容世界 = 弧线坐标 + scroll；组内偏移保持"视野附近副本"
