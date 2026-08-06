@@ -56,7 +56,7 @@ const RING_MAX_RADIUS = 8;
 /** 冲击波环淡出峰值透明度 */
 const RING_PEAK_OPACITY = 0.6;
 /** 源/目标 2D 圆盘半径（世界 ~100 量级） */
-const MARKER_RADIUS = 1;
+const MARKER_RADIUS = 0.6;
 /** 标记贴地高度（几乎贴平面，无高度差） */
 const MARKER_Y = 0.01;
 /** 目标标记缓慢呼吸：幅度 1 ± 0.3，频率 0.8 Hz（统一节奏，不按强度） */
