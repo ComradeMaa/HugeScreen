@@ -368,6 +368,7 @@ export function registerBuiltinWidgets(): void {
           showStatusBanner: { type: 'boolean', title: '服务状态横幅' },
           showStationLabels: { type: 'boolean', title: '站点名称标签' },
           showBusLabels: { type: 'boolean', title: '车辆编号标签' },
+          showDebugPanel: { type: 'boolean', title: '数据调试面板' },
           busRadius: { type: 'number', title: '车辆点大小', minimum: 3, maximum: 12 },
           lineVisibility: { type: 'object', title: '线路显隐' },
           lineColors: { type: 'object', title: '线路颜色' },
@@ -382,6 +383,7 @@ export function registerBuiltinWidgets(): void {
         showStatusBanner: true,
         showStationLabels: false,
         showBusLabels: false,
+        showDebugPanel: true, // 测试阶段默认开启，便于验证数据接收与车辆运行
         busRadius: 6,
         lineVisibility: {},
         lineColors: {},

@@ -3448,6 +3448,7 @@ export function PropertyInspector() {
                 ['showStatusBanner', '服务状态横幅'],
                 ['showStationLabels', '站点名称标签'],
                 ['showBusLabels', '车辆编号标签'],
+                ['showDebugPanel', '数据调试面板'],
               ] as const).map(([key, label]) => (
                 <label key={key} className="flex items-center justify-between">
                   <span className="text-[11px] text-textSecondary/70">{label}</span>

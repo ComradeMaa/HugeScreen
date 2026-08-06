@@ -21,8 +21,8 @@ export function loadAmap(): Promise<unknown> {
 
   amapPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    // Driving 是 JS API 插件，需在 script URL 中显式加载
-    s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_KEY)}&plugin=AMap.Driving`;
+    // 线路路径已静态化（bus_routes.json），无需 Driving 插件
+    s.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(AMAP_KEY)}`;
     s.async = true;
     s.onload = () => {
       if (w.AMap) resolve(w.AMap);

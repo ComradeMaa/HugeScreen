@@ -46,6 +46,10 @@ class MqttConnection {
 
   private _emitTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // 周期统计（每 10s 汇总数据接收情况，供数据链路测试）
+  private _statMsgs = 0;
+  private _statTimer: ReturnType<typeof setInterval> | null = null;
+
   constructor(url: string, topics: string[]) {
     this.url = url;
     this.topics = topics;
@@ -107,11 +111,18 @@ class MqttConnection {
     client.on('message', (topic, payload) => {
       this.handleMessage(topic, payload);
     });
+
+    // 周期统计：数据接收情况（消息率/车辆数/线路数/连接状态）
+    this._statTimer = setInterval(() => {
+      console.log(`[MqttHub] 统计: 10s 内消息 ${this._statMsgs} 条 (${(this._statMsgs / 10).toFixed(1)}/s) · 车辆 ${this.buses.size} · 线路 ${this.lines.length} · online=${this.online} connected=${this.connected}`);
+      this._statMsgs = 0;
+    }, 10000);
   }
 
   // ─── 消息路由 ───
 
   private handleMessage(topic: string, payload: Buffer): void {
+    this._statMsgs++;
     const text = payload.toString('utf8');
     if (topic === 'bus/meta/lines') {
       try {
@@ -165,7 +176,6 @@ class MqttConnection {
       connected: this.connected,
       updatedAt: Date.now(),
     };
-    console.log(`[MqttHub] emit ${this.channelKey} lines=${snapshot.lines.length} buses=${Object.keys(snapshot.buses).length} online=${snapshot.online} connected=${snapshot.connected}`);
     eventBus.emit(`data:updated:${this.channelKey}`, snapshot);
   }
 

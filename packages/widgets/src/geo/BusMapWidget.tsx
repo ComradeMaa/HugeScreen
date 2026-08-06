@@ -44,6 +44,8 @@ interface BusMapWidgetProps {
   showStatusBanner?: boolean;
   showStationLabels?: boolean;
   showBusLabels?: boolean;
+  /** 数据调试面板：车辆状态/动画/站名匹配（测试数据接收与车辆运行情况） */
+  showDebugPanel?: boolean;
   busRadius?: number;
   lineVisibility?: Record<string, boolean>;
   lineColors?: Record<string, string>;
@@ -77,6 +79,7 @@ export function BusMapWidget({
   lines, buses, online = true, connected = true, updatedAt,
   showLegend = true, showStats = true, showStatusBanner = true,
   showStationLabels = false, showBusLabels = false,
+  showDebugPanel = false,
   busRadius = 6,
   lineVisibility, lineColors, minZoom = 10, maxZoom = 18,
   interactive = false, dataSource, widgetId,
@@ -95,7 +98,7 @@ export function BusMapWidget({
   const stationsRef = useRef<Map<string, [number, number]> | null>(null);
   stationsRef.current = stations;
   const linePathsRef = useRef(new Map<number, LinePath>());
-  const routePromisesRef = useRef(new Map<number, Promise<LinePath>>());
+  const routePromisesRef = useRef(new Map<number, Promise<LinePath | null>>());
   const busAnimsRef = useRef(new Map<string, BusAnim>());
   const busMarkersRef = useRef(new Map<string, any>());
   const busDotsRef = useRef(new Map<string, HTMLElement>());
@@ -218,16 +221,19 @@ export function BusMapWidget({
 
     const drawPolyline = (path: LinePath, color: string) => {
       if (disposed || !map) return;
-      if (!path.coords || path.coords.length < 2) return;
-      const poly = new M.Polyline({
-        path: path.coords,
-        strokeColor: color, strokeWeight: 4, strokeOpacity: 0.85,
-      });
-      poly.setMap(map);
-      allLayers.push(poly);
+      // 每段一条 Polyline（失败段不在 segments 中 → 无直线）
+      for (const seg of path.segments) {
+        if (!seg || seg.length < 2) continue;
+        const poly = new M.Polyline({
+          path: seg,
+          strokeColor: color, strokeWeight: 4, strokeOpacity: 0.85,
+        });
+        poly.setMap(map);
+        allLayers.push(poly);
+      }
     };
 
-    // 每线路路径：缓存 → Driving 规划（完成后追加真实路径）→ 直线降级
+    // 每线路路径：静态路径表（每段一条 Polyline；未收录线路不画，车辆停站）
     activeLines.forEach((line, i) => {
       if (lineVisibility && lineVisibility[String(line.id)] === false) return;
       const color = lineColor(i, lineColors, line.id);
@@ -235,30 +241,31 @@ export function BusMapWidget({
       if (existing && existing.coords.length >= 2) {
         drawPolyline(existing, color);
       } else if (!routePromisesRef.current.has(line.id)) {
-        const p = getLinePath(line, stations)
+        const p = getLinePath(line)
           .then((path) => {
-            linePathsRef.current.set(line.id, path);
-            if (!disposed) {
-              drawPolyline(path, color);
-              // ★ 路径就绪：该线行驶中车辆从当前站重新出发（t=0），
-              //   避免从“停在站上等待”的位置直接跳到路径中段造成闪回
-              const nowTs = Date.now();
-              for (const anim of busAnimsRef.current.values()) {
-                if (anim.lineId === line.id && anim.phase === 'moving') {
-                  anim.t = 0;
-                  anim.departTs = nowTs;
+            if (path) {
+              linePathsRef.current.set(line.id, path);
+              if (!disposed) {
+                drawPolyline(path, color);
+                // 路径就绪：该线行驶中车辆从当前站重新出发（t=0）
+                const nowTs = Date.now();
+                for (const anim of busAnimsRef.current.values()) {
+                  if (anim.lineId === line.id && anim.phase === 'moving') {
+                    anim.t = 0;
+                    anim.departTs = nowTs;
+                  }
                 }
-              }
-              if (!hasFitRef.current && allLayers.length > 0) {
-                map.setFitView(allLayers, false, [60, 60]);
-                hasFitRef.current = true;
+                if (!hasFitRef.current && allLayers.length > 0) {
+                  map.setFitView(allLayers, false, [60, 60]);
+                  hasFitRef.current = true;
+                }
               }
             }
             return path;
           })
           .catch((err) => {
             console.warn('[busMap] route error:', line.id, err);
-            return { coords: [], stopIndexes: [] } as LinePath;
+            return null;
           });
         routePromisesRef.current.set(line.id, p);
       }
@@ -329,6 +336,7 @@ export function BusMapWidget({
           departTs: pos.status === '停靠中' ? 0 : Date.now(), // 出发时刻 = 收到消息的本地时间
           color,
         });
+        console.log(`[busMap] ${key} 车辆上线 ${pos.status} ${pos.current_station}→${pos.next_station} 剩${pos.remaining_stops}站 ts=${pos.timestamp}`);
       } else {
         // 已有车辆：站段变化检测（数据源确认到站/换段）
         const snapToStation = (m: any, name: string, key: string) => {
@@ -350,25 +358,42 @@ export function BusMapWidget({
         };
         if (anim.cur !== pos.current_station || anim.next !== pos.next_station) {
           // 到站学习：本段真实用时回填缓存（仅限此前确实在行驶中）
-          learnSegment(anim, Date.now());
+          const nowTs = Date.now();
+          learnSegment(anim, nowTs);
+          const prevCur = anim.cur;
+          const prevNext = anim.next;
+          const prevCurIdx = anim.curIdx;
+          const prevNextIdx = anim.nextIdx;
           anim.cur = pos.current_station;
           anim.next = pos.next_station;
           anim.curIdx = curIdx;
           anim.nextIdx = nextIdx;
           anim.phase = pos.status === '停靠中' ? 'dwell' : 'moving';
           anim.t = pos.status === '停靠中' ? 1 : 0;
-          anim.departTs = pos.status === '停靠中' ? 0 : Date.now();
+          anim.departTs = pos.status === '停靠中' ? 0 : nowTs;
           snapToStation(busMarkersRef.current.get(key), pos.current_station, key);
+          // 事件日志：到站 + 掉头/跳站识别（测试车辆站点间运行情况）
+          const turning = prevCurIdx >= 0 && prevNextIdx >= 0 && curIdx >= 0 && nextIdx >= 0
+            && ((prevCurIdx < prevNextIdx) !== (curIdx < nextIdx)); // 行驶方向翻转 = 掉头
+          const jump = prevNext !== prevCur && pos.current_station !== prevNext; // 越过 next 直接到更远站
+          console.log(
+            `[busMap] ${key} 到站 ${prevCur}→${pos.current_station}` +
+            (jump ? ` ★跳站(应到${prevNext})` : '') +
+            (turning ? ' ★掉头' : '') +
+            ` ${pos.status} 下一站${pos.next_station} 剩${pos.remaining_stops}站 ts=${pos.timestamp}`,
+          );
         } else if (pos.status === '停靠中' && anim.phase === 'moving') {
           anim.phase = 'dwell'; // 到站（状态确认）
           anim.t = 1;
           learnSegment(anim, Date.now());
           anim.departTs = 0;
           snapToStation(busMarkersRef.current.get(key), pos.current_station, key);
+          console.log(`[busMap] ${key} 到站(停靠确认) ${pos.current_station} ts=${pos.timestamp}`);
         } else if (pos.status === '行驶中' && anim.phase === 'dwell') {
           anim.phase = 'moving'; // 出发
           anim.t = 0;
           anim.departTs = Date.now();
+          console.log(`[busMap] ${key} 出发 ${pos.current_station}→${pos.next_station} ts=${pos.timestamp}`);
         }
         const dot = busDotsRef.current.get(key);
         if (dot) dot.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
@@ -524,6 +549,36 @@ export function BusMapWidget({
             <span className="ml-2" style={{ color: '#FF8C42' }}>停靠 {stopped}</span>
           </div>
           <div>连接：{connected ? (online ? '正常' : '数据源离线') : '中断'} · 更新 {updatedStr}</div>
+        </div>
+      )}
+
+      {/* 数据调试面板：车辆状态 + 动画 + 站名匹配（测试数据接收/处理） */}
+      {showDebugPanel && (
+        <div
+          className="absolute right-2 top-2 z-[1000] text-[10px] leading-4 font-mono"
+          style={{ color: '#9E9EA8', background: 'rgba(20,24,32,0.88)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '6px 8px', maxWidth: 340, maxHeight: '70%', overflowY: 'auto' }}
+        >
+          <div style={{ color: '#E8E8EC', marginBottom: 2 }}>
+            连接:{connected ? (online ? '正常' : '数据源离线') : '中断'} · 车辆 {busList.length} · 线路 {activeLines.length}
+          </div>
+          {Object.entries(buses ?? {}).sort().map(([key, p]) => {
+            const a = busAnimsRef.current.get(key);
+            const curKnown = !!stationsRef.current?.get(p.current_station);
+            const nextKnown = !!stationsRef.current?.get(p.next_station);
+            const mark = !curKnown || !nextKnown ? ' ★站名缺' : '';
+            return (
+              <div key={key} style={{ color: '#9E9EA8' }}>
+                <span style={{ color: '#00D4FF' }}>{p.line}</span> {p.bus}
+                : {p.current_station}→{p.next_station}
+                <span style={{ color: p.status === '行驶中' ? '#FFD34D' : '#FF8C42' }}> [{p.status}]</span>
+                剩{p.remaining_stops} · 动:{a?.phase ?? '-'}/{a ? a.t.toFixed(2) : '-'}
+                {mark}
+              </div>
+            );
+          })}
+          <div style={{ color: '#9E9EA8', marginTop: 2 }}>
+            未知站:{warnedStationsRef.current.size > 0 ? [...warnedStationsRef.current].join('、') : '无'} · 更新:{updatedStr}
+          </div>
         </div>
       )}
 
