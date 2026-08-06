@@ -16,7 +16,8 @@ export interface LinePath {
   stopIndexes: number[];
 }
 
-const CACHE_PREFIX = 'bm-path:';
+// ★ 版本化缓存键：规划算法变更时 bump（v1→v2 逐段规划），作废浏览器里的旧坏路径
+const CACHE_PREFIX = 'bm-path-v2:';
 /** 同线路并发规划去重（多实例/多 effect 共享） */
 const pending = new Map<string, Promise<LinePath>>();
 

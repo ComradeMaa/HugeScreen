@@ -107,7 +107,7 @@ export function BusMapWidget({
   /** 全局段用时中位数（未学习段的自适应默认） */
   const medianDurRef = useRef<number | null>(computeMedian(segDurRef.current));
   /** 到站对齐的平滑滑入动画（避免节奏估计偏差造成瞬移跳变） */
-  const snapRef = useRef(new Map<string, { from: [number, number]; to: [number, number]; t0: number }>());
+  const snapRef = useRef(new Map<string, { from: [number, number]; to: [number, number]; t0: number; dur: number }>());
 
   // ── 数据源：实时线路 vs 演示数据 ──
   const liveHasLines = !!lines && lines.length > 0;
@@ -240,6 +240,15 @@ export function BusMapWidget({
             linePathsRef.current.set(line.id, path);
             if (!disposed) {
               drawPolyline(path, color);
+              // ★ 路径就绪：该线行驶中车辆从当前站重新出发（t=0），
+              //   避免从“停在站上等待”的位置直接跳到路径中段造成闪回
+              const nowTs = Date.now();
+              for (const anim of busAnimsRef.current.values()) {
+                if (anim.lineId === line.id && anim.phase === 'moving') {
+                  anim.t = 0;
+                  anim.departTs = nowTs;
+                }
+              }
               if (!hasFitRef.current && allLayers.length > 0) {
                 map.setFitView(allLayers, false, [60, 60]);
                 hasFitRef.current = true;
@@ -324,7 +333,7 @@ export function BusMapWidget({
         // 已有车辆：站段变化检测（数据源确认到站/换段）
         const snapToStation = (m: any, name: string, key: string) => {
           // ★ 数据源已确认车辆位置 → 画面对齐该站坐标。
-          //   节奏估计与数据有偏差时直接瞬移会“跳”，改 200ms 平滑滑入（终点 = 数据权威位置）
+          //   滑入时长按距离自适应：近处 200ms 平滑，远处（模拟器跳站/掉头）可见滑行而非闪现
           const c = stationsRef.current?.get(name);
           if (!m || !c) return;
           let from: [number, number];
@@ -335,7 +344,9 @@ export function BusMapWidget({
             from = c;
           }
           if (Math.abs(from[0] - c[0]) < 1e-7 && Math.abs(from[1] - c[1]) < 1e-7) return; // 已在站
-          snapRef.current.set(key, { from, to: c, t0: performance.now() });
+          const distM = Math.hypot(from[0] - c[0], from[1] - c[1]) * 111320 * 0.847;
+          const durMs = Math.min(1500, Math.max(200, distM / 2.5)); // ~2.5km → 1s，≤200m → 0.2s
+          snapRef.current.set(key, { from, to: c, t0: performance.now(), dur: durMs });
         };
         if (anim.cur !== pos.current_station || anim.next !== pos.next_station) {
           // 到站学习：本段真实用时回填缓存（仅限此前确实在行驶中）
@@ -414,11 +425,11 @@ export function BusMapWidget({
         } else {
           // 实时：段进度 t 由绝对时间推导（数据驱动节奏）+ 沿真实道路路径插值
           const now = Date.now();
-          // 到站平滑滑入（200ms，终点 = 数据权威位置）
+          // 到站平滑滑入（时长按距离自适应，终点 = 数据权威位置）
           for (const [key, s] of snapRef.current) {
             const m = busMarkersRef.current.get(key);
             if (!m) { snapRef.current.delete(key); continue; }
-            const st = (performance.now() - s.t0) / 200;
+            const st = (performance.now() - s.t0) / (s.dur || 200);
             if (st >= 1) { snapRef.current.delete(key); continue; }
             m.setPosition(lerpPos(s.from, s.to, easeInOut(Math.min(1, st))));
           }
@@ -439,7 +450,8 @@ export function BusMapWidget({
               if (path && path.coords.length >= 2 && anim.curIdx >= 0 && anim.nextIdx >= 0) {
                 pos = pathPos(path.coords, path.stopIndexes, anim.curIdx, anim.nextIdx, eased);
               }
-              m.setPosition(pos ?? lerpPos(curC, nextC, eased));
+              // ★ 路径未就绪（逐段规划进行中）时停在当前站等待，不沿直线飘（直线会偏离道路 → “乱飘”）
+              m.setPosition(pos ?? curC);
             }
           }
         }
