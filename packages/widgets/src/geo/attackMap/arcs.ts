@@ -12,16 +12,18 @@ import type { AggregatedAttack, LevelStyle } from '../attackGlobe/aggregate';
  *   亮段 sRGB/过曝视觉代码一字不动。
  */
 
-/** 静态弧线采样点数 */
-const ARC_SEGMENTS = 64;
+/** 静态弧线采样点数（加密消除折线感） */
+const ARC_SEGMENTS = 128;
 /** 移动亮段采样段数 */
-const LIGHT_SEGS = 24;
+const LIGHT_SEGS = 32;
 /** 亮段长度（弧长比例） */
 const LIGHT_LEN = 0.25;
 /** 弧线高度（世界 ~100 量级；略高于单面地图，浮空效果） */
 const ARC_Y = 1.5;
-/** 弧线宽度缩放（档位样式 arcWidth 按球版 R=1000 设计，世界 100 量级 → ×0.1） */
-const ARC_WIDTH_SCALE = 0.1;
+/** 弧线宽度缩放（档位样式 arcWidth 按球版 R=1000 设计，世界 100 量级 → ×0.05） */
+const ARC_WIDTH_SCALE = 0.05;
+/** 贝塞尔控制点偏移系数（0.25 → 0.35 更明显的弧线弯曲） */
+const CTRL_OFFSET = 0.35;
 
 /** 平面竖直方向（弧线在 XZ 平面，法线统一取 y 轴） */
 const UP = new THREE.Vector3(0, 1, 0);
@@ -78,6 +80,7 @@ function buildArcGeometry(arc: ArcParams, width: number): THREE.BufferGeometry |
   }
   const half = (width * ARC_WIDTH_SCALE) / 2;
   const positions: number[] = [];
+  const colors: number[] = [];
   const indices: number[] = [];
   for (let i = 0; i < pts.length; i++) {
     const prev = pts[Math.max(0, i - 1)];
@@ -88,6 +91,10 @@ function buildArcGeometry(arc: ArcParams, width: number): THREE.BufferGeometry |
     const l = pts[i].clone().addScaledVector(normal, half);
     const r = pts[i].clone().addScaledVector(normal, -half);
     positions.push(l.x, l.y, l.z, r.x, r.y, r.z);
+    // ★ 端点淡出：正弦渐变（两端透明 → 中间实色），Additive 混合下黑=透明，
+    //   消除带状弧线的"矩形"平头生硬感
+    const fade = Math.pow(Math.sin(Math.PI * (i / (pts.length - 1))), 0.7);
+    for (let k = 0; k < 2; k++) colors.push(fade, fade, fade);
   }
   for (let i = 0; i < pts.length - 1; i++) {
     const a2 = i * 2, b2 = a2 + 1, c = a2 + 2, d = a2 + 3;
@@ -95,6 +102,7 @@ function buildArcGeometry(arc: ArcParams, width: number): THREE.BufferGeometry |
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   g.setIndex(indices);
   return g;
 }
@@ -181,7 +189,7 @@ export function buildFlowSystem(attacks: AggregatedAttack[]): FlowSystem | null 
     const dir = b.clone().sub(a).normalize();
     const perp = new THREE.Vector3(-dir.z, 0, dir.x);
     const sign = mid.lengthSq() < 1e-6 ? 1 : Math.sign(mid.dot(perp)) || 1;
-    const ctrl = mid.clone().addScaledVector(perp, sign * 0.25 * a.distanceTo(b));
+    const ctrl = mid.clone().addScaledVector(perp, sign * CTRL_OFFSET * a.distanceTo(b));
     const params: ArcParams = { style, sourceName: atk.source.name, targetName: atk.target.name, a, b, ctrl };
     const geometry = buildArcGeometry(params, style.arcWidth);
     if (!geometry) continue;

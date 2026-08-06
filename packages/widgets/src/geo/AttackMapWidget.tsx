@@ -266,6 +266,7 @@ export function AttackMapWidget({
             arc.geometry,
             new THREE.MeshBasicMaterial({
               color: new THREE.Color(arc.style.color),
+              vertexColors: true, // 端点淡出渐变
               transparent: true,
               opacity: arc.style.arcOpacity,
               side: THREE.DoubleSide,
