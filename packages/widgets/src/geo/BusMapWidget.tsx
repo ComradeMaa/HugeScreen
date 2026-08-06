@@ -289,11 +289,17 @@ export function BusMapWidget({
         el.innerHTML = renderToStaticMarkup(<GiBusStop size={STATION_ICON_SIZE} color="#9E9EA8" />);
         el.style.transform = `scale(${zoomScaleRef.current})`; // 立即应用当前 zoom 缩放
         stationElsRef.current.set(s, el);
+        // 悬停信息：站名 + 途经线路（与车辆 marker 一样用原生 title）
+        const viaLines = activeLines
+          .filter((l) => l.stations.includes(s))
+          .map((l) => l.name)
+          .join('、');
         const mk = new M.Marker({
           position: c,
           content: el,
           anchor: 'center',
           zIndex: 90, // 低于车辆图标（120）
+          title: viaLines ? `${s}（${viaLines}）` : s,
         });
         mk.setMap(map);
         stationMarkers.set(s, mk);
