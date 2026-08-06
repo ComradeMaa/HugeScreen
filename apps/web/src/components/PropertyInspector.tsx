@@ -3462,7 +3462,7 @@ export function PropertyInspector() {
             </CollapsibleFieldGroup>
             <CollapsibleFieldGroup label="动画" defaultOpen={false}>
               <label className="flex items-center justify-between mt-1">
-                <span className="text-[11px] text-textSecondary/70">车辆点大小</span>
+                <span className="text-[11px] text-textSecondary/70">车辆图标大小</span>
                 <input type="range" min={3} max={12} value={Number((widget.options as Record<string, unknown>).busRadius ?? 6)}
                   onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), busRadius: Number(e.target.value) } })}
                   className="w-24" />

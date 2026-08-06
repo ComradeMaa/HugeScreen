@@ -6,11 +6,13 @@
  *
  * 地图：高德 JS API 2.0（暗色样式，GCJ-02）。
  * 线路：AMap.Driving 途经点规划真实道路路径（localStorage 缓存 + 直线降级）。
- * 车辆：HTML 圆点 Marker，行驶中沿真实道路路径弧长插值，停靠中脉冲。
+ * 车辆：TbBus 图标 Marker（保持正位底盘在下，仅向西镜像），行驶中沿真实道路路径弧长插值，停靠中脉冲。
  * 无位置字段 → 位置以站点名为粒度，车辆运动由 current/next 站之间的状态机驱动。
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { TbBus } from 'react-icons/tb';
 import type { DataSourceConfig } from '@hugescreen/shared';
 import type { BusLine, BusPosition } from '@hugescreen/data';
 import { loadAmap } from './busMap/loadAmap';
@@ -26,12 +28,14 @@ import { easeInOut, pathPos, lerpPos } from './busMap/animate';
  * - 数据源确认到站（current_station 变化或状态变停靠中）时，用真实耗时回填该段用时（按线路+段缓存，自学习）
  * - 学习值持久化到 localStorage：刷新页面后立即可用（否则每段第一趟永远用默认值 → 到站对齐跳变）
  * - 未学习段用「全局已学段用时中位数」自适应数据源节奏（模拟器 ~2-5s/段，真实公交可能 30-90s）
- * - 行驶中插值 t = (now - departTs) / 段用时 —— 与数据源真实节奏一致
+ * - 行驶中插值：段内速率自适应 —— 相邻同段消息算瞬时速率 rate = Δt/Δts（EMA 平滑），
+ *   消息间外推 t = lastMsgT + Δ本地时间 × rate，跟随数据源真实节奏，吸收 dur 估计偏差
+ * - 到站追赶：指数逼近 t=1（剩余越多速率越快），沿轨道滑入，绝不瞬移/冲刺
  */
 const DEFAULT_SEG_MS = 5000; // 无任何学习历史时的兜底段用时（测试数据源节奏 ~2-5s/段）
 const SEGDUR_KEY = 'bm-segdur';
-/** 到站追赶时长：数据确认到站但动画未到时，0.4s 内沿轨道冲到站（绝不瞬移） */
-const CATCHUP_SECONDS = 0.4;
+/** 到站追赶增益：指数逼近 t=1，时间常数 1/GAIN 秒，剩余越多速率越快（沿轨道滑入，绝不瞬移/冲刺） */
+const CATCHUP_GAIN = 4;
 
 /** 解析 "YYYY-MM-DD HH:mm:ss"（东八区北京时间）→ epoch ms */
 function parseBJTime(s: string): number {
@@ -39,6 +43,10 @@ function parseBJTime(s: string): number {
   if (!m) return NaN;
   return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 8, +m[5], +m[6]);
 }
+
+/** TbBus 图标默认朝东：向西行驶时水平镜像（保持正位、底盘在下，不做车头转向） */
+const FLIP_X = 'scaleX(-1)';
+const NO_FLIP = '';
 
 interface BusMapWidgetProps {
   // 数据（liveProps 注入）
@@ -96,6 +104,12 @@ interface BusAnim {
     ts: number;
   } | null;
   color: string;
+  /** 是否向西行驶（TbBus 默认朝东：向西镜像，保持正位底盘在下） */
+  flipX: boolean;
+  /** 同段消息序列（数据源时钟），用于段内速率估计：rate = Δt / Δts */
+  msgSeq: { ts: number; t: number }[];
+  /** 段内推进速率（t/秒，数据源时钟样本 EMA 平滑）；0 = 无样本，用 1/dur 兜底 */
+  rate: number;
 }
 
 export function BusMapWidget({
@@ -124,7 +138,8 @@ export function BusMapWidget({
   const routePromisesRef = useRef(new Map<number, Promise<LinePath | null>>());
   const busAnimsRef = useRef(new Map<string, BusAnim>());
   const busMarkersRef = useRef(new Map<string, any>());
-  const busDotsRef = useRef(new Map<string, HTMLElement>());
+  /** wrap = 脉冲动画层（bm-dot），rot = 图标旋转层（TbBus 沿行进方向旋转） */
+  const busDotsRef = useRef(new Map<string, { wrap: HTMLElement; rot: HTMLElement }>());
   const warnedStationsRef = useRef(new Set<string>());
   const hasFitRef = useRef(false);
   const isDemoRef = useRef(false);
@@ -151,6 +166,13 @@ export function BusMapWidget({
       warnedStationsRef.current.add(name);
       console.warn('[busMap] unknown station:', name);
     }
+  };
+
+  /** 段行进方向是否向西（站坐标经度差；正位图标朝东，向西镜像） */
+  const segmentWest = (cur: string, next: string): boolean => {
+    const curC = stationsRef.current?.get(cur);
+    const nextC = stationsRef.current?.get(next);
+    return !!curC && !!nextC && nextC[0] < curC[0];
   };
 
   // ═══ Effect 1：地图初始化（一次）═══
@@ -346,6 +368,7 @@ export function BusMapWidget({
       if (!anim) {
         // 新车辆：立即对齐到数据确认的当前站（retained 重放时尤其重要，避免从 (0,0) 起跳）
         const color = lineColor(activeLines.indexOf(line), lineColors, line.id);
+        const flipX = segmentWest(pos.current_station, pos.next_station);
         const { m, dot } = createBusMarker(M, map, key, color, busRadius, showBusLabels ? `${line.name} ${pos.bus}` : key);
         const c0 = stationsRef.current?.get(pos.current_station);
         if (m && c0) m.setPosition(c0);
@@ -363,7 +386,12 @@ export function BusMapWidget({
           catchUp: false,
           pending: null,
           color,
+          flipX,
+          msgSeq: [],
+          rate: 0,
         });
+        // 停靠中车辆也要立即应用镜像（rAF 只在 moving 分支更新 transform）
+        dot.rot.style.transform = flipX ? FLIP_X : NO_FLIP;
         console.log(`[busMap] ${key} 车辆上线 ${pos.status} ${pos.current_station}→${pos.next_station} 剩${pos.remaining_stops}站 ts=${pos.timestamp}`);
       } else {
         // 已有车辆：站段变化检测（数据源确认到站/换段）
@@ -393,28 +421,41 @@ export function BusMapWidget({
             ts: Number.isFinite(msgTs) ? msgTs : Date.now(),
           };
         } else if (pos.status === '行驶中' && anim.phase === 'dwell') {
-          // 出发：从当前站开始（数据源时间戳锚定出发时刻）
+          // 出发：从当前站开始（数据源时间戳锚定出发时刻），新段重置速率样本
           anim.phase = 'moving';
           anim.t = 0;
           anim.departTs = Number.isFinite(msgTs) ? msgTs : Date.now();
           anim.lastMsgAt = Date.now();
           anim.lastMsgT = 0;
+          anim.msgSeq = [];
+          anim.rate = 0;
           console.log(`[busMap] ${key} 出发 ${pos.current_station}→${pos.next_station} ts=${pos.timestamp}`);
         } else if (anim.phase === 'moving') {
-          // 同段行驶中消息：用数据源时间戳锚定 t（消除接收延迟误差）
+          // 同段行驶中消息：数据源时间戳锚定 t + 段内速率估计（跟随真实节奏，吸收 dur 估计偏差）
           if (Number.isFinite(msgTs) && anim.departTs > 0) {
             const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
             const dur = segDurRef.current.get(segKey) ?? (medianDurRef.current ?? DEFAULT_SEG_MS);
             const t = (msgTs - anim.departTs) / dur;
             if (t >= 0) {
+              const seq = anim.msgSeq;
+              const prev = seq[seq.length - 1];
+              if (prev && msgTs > prev.ts && t > prev.t) {
+                // 相邻同段消息的瞬时速率（数据源时钟），EMA 平滑 —— 段内推进随样本自适应
+                const instRate = (t - prev.t) / ((msgTs - prev.ts) / 1000);
+                if (instRate > 0 && Number.isFinite(instRate)) {
+                  anim.rate = anim.rate > 0 ? anim.rate * 0.6 + instRate * 0.4 : instRate;
+                }
+              }
+              seq.push({ ts: msgTs, t });
+              if (seq.length > 8) seq.shift();
               anim.t = Math.min(1, t);
               anim.lastMsgT = anim.t;
               anim.lastMsgAt = Date.now();
             }
           }
         }
-        const dot = busDotsRef.current.get(key);
-        if (dot) dot.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
+        const els = busDotsRef.current.get(key);
+        if (els) els.wrap.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
       }
     }
 
@@ -430,16 +471,19 @@ export function BusMapWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amapReady, buses, isDemo, activeLines, busRadius, showBusLabels, lineColors]);
 
-  /** 到站学习：用数据源时间戳差值回填该段用时缓存（无接收延迟误差）+ 持久化 + 更新中位数 */
+  /** 到站学习：数据源时间戳差值回填该段用时（EMA 平滑消除单样本波动）+ 持久化 + 更新中位数 */
   const learnSegment = (anim: BusAnim, nowTs: number) => {
     if (anim.departTs <= 0) return;
     const dur = nowTs - anim.departTs;
     if (dur > 1500 && dur < 10 * 60 * 1000) {
       const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
-      segDurRef.current.set(segKey, dur);
+      const prev = segDurRef.current.get(segKey);
+      // 首次直接采用，之后 0.6/0.4 EMA 混合 —— 单次样本波动不造成速率跳变
+      const ema = prev != null ? prev * 0.6 + dur * 0.4 : dur;
+      segDurRef.current.set(segKey, ema);
       medianDurRef.current = computeMedian(segDurRef.current);
       try { localStorage.setItem(SEGDUR_KEY, JSON.stringify([...segDurRef.current.entries()])); } catch { /* 忽略 */ }
-      console.log(`[busMap] segment learned ${segKey} = ${(dur / 1000).toFixed(1)}s (median=${((medianDurRef.current ?? 0) / 1000).toFixed(1)}s)`);
+      console.log(`[busMap] segment learned ${segKey} = ${(dur / 1000).toFixed(1)}s → ema ${(ema / 1000).toFixed(1)}s (median=${((medianDurRef.current ?? 0) / 1000).toFixed(1)}s)`);
     }
   };
 
@@ -461,7 +505,16 @@ export function BusMapWidget({
     anim.departTs = p.status === '停靠中' ? 0 : p.ts;
     anim.lastMsgAt = Date.now();
     anim.lastMsgT = anim.t;
+    anim.msgSeq = []; // 新段重新积累速率样本
+    anim.rate = 0;
+    anim.flipX = segmentWest(anim.cur, anim.next);
     anim.catchUp = false;
+    // 到站转停靠：立即应用新镜像 + 停靠脉冲 class（rAF 只在 moving 分支更新 transform）
+    const els = busDotsRef.current.get(anim.key);
+    if (els) {
+      els.rot.style.transform = anim.flipX ? FLIP_X : NO_FLIP;
+      els.wrap.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
+    }
     // 极端跳站兜底：pending.cur 与当前位置距离过大（数据源跳站）→ 平滑滑入而非瞬移
     const m = busMarkersRef.current.get(anim.key);
     if (m) {
@@ -476,8 +529,6 @@ export function BusMapWidget({
         }
       }
     }
-    const dot = busDotsRef.current.get(anim.key);
-    if (dot) dot.className = anim.phase === 'dwell' ? 'bm-dot bm-dwell' : 'bm-dot';
     // 事件日志：到站 + 掉头/跳站识别
     const turning = prevCurIdx >= 0 && prevNextIdx >= 0 && p.curIdx >= 0 && p.nextIdx >= 0
       && ((prevCurIdx < prevNextIdx) !== (p.curIdx < p.nextIdx));
@@ -510,11 +561,12 @@ export function BusMapWidget({
             if (!m) continue;
             const curC = stationsRef.current.get(pos.current_station);
             const nextC = stationsRef.current.get(pos.next_station);
+            const els = busDotsRef.current.get(key);
             if (curC && nextC) {
               m.setPosition(lerpPos(curC, nextC, demoProgress(key, nowMs)));
+              if (els) els.rot.style.transform = nextC[0] < curC[0] ? FLIP_X : NO_FLIP;
             }
-            const dot = busDotsRef.current.get(key);
-            if (dot) dot.className = pos.status === '停靠中' ? 'bm-dot bm-dwell' : 'bm-dot';
+            if (els) els.wrap.className = pos.status === '停靠中' ? 'bm-dot bm-dwell' : 'bm-dot';
           }
         } else {
           // 实时：数据源时间戳锚定 + 消息间线性外推 + 到站追赶（沿轨道，绝不瞬移）
@@ -526,6 +578,9 @@ export function BusMapWidget({
             const st = (performance.now() - s.t0) / (s.dur || 300);
             if (st >= 1) { snapRef.current.delete(key); continue; }
             m.setPosition(lerpPos(s.from, s.to, easeInOut(Math.min(1, st))));
+            // 滑入期间图标按滑动方向镜像
+            const els = busDotsRef.current.get(key);
+            if (els) els.rot.style.transform = s.to[0] < s.from[0] ? FLIP_X : NO_FLIP;
           }
           for (const anim of busAnimsRef.current.values()) {
             const m = busMarkersRef.current.get(anim.key);
@@ -533,26 +588,36 @@ export function BusMapWidget({
             const curC = stationsRef.current.get(anim.cur);
             const nextC = stationsRef.current.get(anim.next);
             if (anim.catchUp) {
-              // ★ 到站追赶：0.4s 内沿旧段轨道把 t 冲到 1（高速沿轨道移动，不闪现）
-              anim.t += dt / CATCHUP_SECONDS;
-              if (anim.t >= 1) {
+              // ★ 到站追赶：沿旧段轨道指数逼近 t=1（剩余越多速率越快，任何时刻位置连续、无冲刺感）
+              anim.t += dt * (1 - anim.t) * CATCHUP_GAIN;
+              if (1 - anim.t < 0.003) {
                 anim.t = 1;
                 finishCatchUp(anim);
               }
             } else if (anim.phase === 'moving' && curC && nextC && anim.departTs > 0) {
-              // 消息间线性外推：以上一条消息锚定的 t 为基准，按段用时推进
-              const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
-              const dur = segDurRef.current.get(segKey) ?? (medianDurRef.current ?? DEFAULT_SEG_MS);
-              anim.t = Math.min(1, anim.lastMsgT + (now - anim.lastMsgAt) / dur);
+              // 消息间外推：优先用段内速率（数据源样本自适应），无样本时用段用时兜底
+              let rate = anim.rate;
+              if (rate <= 0) {
+                const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
+                const dur = segDurRef.current.get(segKey) ?? (medianDurRef.current ?? DEFAULT_SEG_MS);
+                rate = 1000 / dur;
+              }
+              anim.t = Math.min(1, anim.lastMsgT + ((now - anim.lastMsgAt) / 1000) * rate);
             }
             if (anim.phase === 'moving' && curC && nextC) {
               const eased = easeInOut(anim.t);
               const path = linePathsRef.current.get(anim.lineId);
               let pos: [number, number] | null = null;
+              let west = anim.flipX;
               if (path && path.coords.length >= 2 && anim.curIdx >= 0 && anim.nextIdx >= 0) {
                 pos = pathPos(path.coords, path.stopIndexes, anim.curIdx, anim.nextIdx, eased);
+                // 路径当前切线方向（每帧跟随弯道，仅判断东西镜像）
+                const ahead = pathPos(path.coords, path.stopIndexes, anim.curIdx, anim.nextIdx, Math.min(1, eased + 0.02));
+                if (pos && ahead) west = ahead[0] < pos[0];
               }
               m.setPosition(pos ?? curC);
+              const els = busDotsRef.current.get(anim.key);
+              if (els) els.rot.style.transform = west ? FLIP_X : NO_FLIP;
             }
           }
         }
@@ -685,25 +750,31 @@ export function BusMapWidget({
   );
 }
 
-/** 创建车辆 Marker（HTML 圆点，anchor center；返回 marker + dot DOM） */
+/** 创建车辆 Marker（TbBus 图标，anchor center；返回 marker + 图标 DOM） */
 function createBusMarker(
   M: any, map: any, key: string, color: string,
   radius: number, title: string,
-): { m: any; dot: HTMLElement } {
-  const dot = document.createElement('div');
-  dot.className = 'bm-dot';
-  dot.style.cssText =
-    `width:${radius * 2}px;height:${radius * 2}px;background:${color};` +
-    `border-radius:50%;box-shadow:0 0 ${radius}px ${color};`;
+): { m: any; dot: { wrap: HTMLElement; rot: HTMLElement } } {
+  const size = Math.max(14, Math.round(radius * 2.5)); // 图标高度 px（旧"半径"语义 ×2.5）
+  const wrap = document.createElement('div');
+  wrap.className = 'bm-dot'; // 外层：停靠脉冲（scale 动画）
+  wrap.style.cssText =
+    `width:${size}px;height:${size}px;` +
+    `filter:drop-shadow(0 0 ${Math.max(4, Math.round(size / 4))}px ${color})` +
+    `drop-shadow(0 1px 2px rgba(0,0,0,0.85));`;
+  const rot = document.createElement('div'); // 内层：朝向旋转
+  rot.style.cssText = 'width:100%;height:100%;transform-origin:center;';
+  rot.innerHTML = renderToStaticMarkup(<TbBus size={size} color={color} />);
+  wrap.appendChild(rot);
   const m = new M.Marker({
     position: [0, 0],
-    content: dot,
+    content: wrap,
     anchor: 'center',
     title,
     zIndex: 120,
   });
   m.setMap(map);
-  return { m, dot };
+  return { m, dot: { wrap, rot } };
 }
 
 /** 从 localStorage 读取段用时学习缓存 */
