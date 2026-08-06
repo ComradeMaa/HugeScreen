@@ -413,7 +413,8 @@ export function AttackMapWidget({
   }, [interactive, sceneVersion]);
 
   return (
-    <div className="relative w-full h-full">
+    // 组件背景 = 海洋深色（地图外区域与地图内海洋无缝一致；WebGL canvas 透明透出此色）
+    <div className="relative w-full h-full" style={{ backgroundColor: '#141c26' }}>
       <div ref={containerRef} className="absolute inset-0" />
       {loadState === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center text-textSecondary/30 text-xs">
