@@ -84,39 +84,61 @@ async function planPath(line: BusLine, stations: Map<string, [number, number]>):
   }
 }
 
-/** AMap.Driving 途经点规划 → 拼接全部 step 的 polyline 为坐标数组 */
+/**
+ * AMap.Driving 逐段规划 → 拼接全部 step 的 polyline 为坐标数组。
+ *
+ * ★ 为什么逐段而非一次途经点规划：高德对「途经点」是尽量经过而非强制——
+ *   距道路较远的站点（地理编码坐标偏离站台）会被忽略，路径绕过站点。
+ *   逐段规划每段只有起/终两个端点（无途经点依赖），路径必然从每个站点出发和到达，
+ *   拼接后站站必经；某段规划失败时该段降级为站点直线（不中断整条线）。
+ */
 function drivingPlan(AMap: unknown, pts: [number, number][]): Promise<[number, number][]> {
   return new Promise((resolve, reject) => {
     const A = AMap as any;
     const driving = new A.Driving({ city: '镇江' });
-    const origin = pts[0];
-    const dest = pts[pts.length - 1];
-    const waypoints = pts.slice(1, -1).map((p) => ({ lnglat: p }));
-    driving.search(origin, dest, waypoints, (status: string, result: any) => {
-      if (status === 'complete' && result?.routes?.length > 0) {
-        const coords: [number, number][] = [];
-        for (const step of result.routes[0].steps ?? []) {
-          const raw = step.path;
-          // JS API 1.x：path 为 "lng,lat;lng,lat;..." 字符串；2.0：路径点数组
-          if (typeof raw === 'string') {
-            for (const seg of raw.split(';')) {
-              const [lng, lat] = seg.split(',').map(Number);
-              if (Number.isFinite(lng) && Number.isFinite(lat)) coords.push([lng, lat]);
-            }
-          } else if (Array.isArray(raw)) {
-            for (const p of raw) {
-              const lng = Number(Array.isArray(p) ? p[0] : (p as { lng?: unknown }).lng);
-              const lat = Number(Array.isArray(p) ? p[1] : (p as { lat?: unknown }).lat);
-              if (Number.isFinite(lng) && Number.isFinite(lat)) coords.push([lng, lat]);
-            }
-          }
+    const all: [number, number][] = [];
+    let i = 0;
+
+    const pushPt = (c: [number, number]) => {
+      const last = all[all.length - 1];
+      if (!last || last[0] !== c[0] || last[1] !== c[1]) all.push(c);
+    };
+    const appendStepPath = (raw: unknown) => {
+      // JS API 1.x：path 为 "lng,lat;lng,lat;..." 字符串；2.0：路径点数组
+      if (typeof raw === 'string') {
+        for (const seg of raw.split(';')) {
+          const [lng, lat] = seg.split(',').map(Number);
+          if (Number.isFinite(lng) && Number.isFinite(lat)) pushPt([lng, lat]);
         }
-        if (coords.length >= 2) resolve(coords);
-        else reject(new Error(`driving empty path (status=${status})`));
-      } else {
-        reject(new Error(`driving status=${status}`));
+      } else if (Array.isArray(raw)) {
+        for (const p of raw) {
+          const lng = Number(Array.isArray(p) ? p[0] : (p as { lng?: unknown }).lng);
+          const lat = Number(Array.isArray(p) ? p[1] : (p as { lat?: unknown }).lat);
+          if (Number.isFinite(lng) && Number.isFinite(lat)) pushPt([lng, lat]);
+        }
       }
-    });
+    };
+
+    const seg = () => {
+      if (i >= pts.length - 1) {
+        if (all.length >= 2) resolve(all);
+        else reject(new Error('driving empty path'));
+        return;
+      }
+      driving.search(pts[i], pts[i + 1], {}, (status: string, result: any) => {
+        if (status === 'complete' && result?.routes?.length > 0) {
+          for (const step of result.routes[0].steps ?? []) appendStepPath(step.path);
+        } else {
+          // 该段不可达 → 直线补段（保持线路连续）
+          console.warn(`[busMap] driving seg ${i} fallback straight (${status})`);
+          pushPt(pts[i]);
+          pushPt(pts[i + 1]);
+        }
+        i++;
+        seg();
+      });
+    };
+    seg();
   });
 }
 

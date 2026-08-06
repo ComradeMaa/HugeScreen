@@ -24,9 +24,12 @@ import { easeInOut, pathPos, lerpPos } from './busMap/animate';
  * 站间行驶时长完全数据驱动：
  * - 车辆出发（收到出发消息）时记录本地时刻 departTs
  * - 数据源确认到站（current_station 变化或状态变停靠中）时，用真实耗时回填该段用时（按线路+段缓存，自学习）
- * - 行驶中插值 t = (now - departTs) / 段用时 —— 与数据源真实节奏一致，任何设置都不会提前到站
+ * - 学习值持久化到 localStorage：刷新页面后立即可用（否则每段第一趟永远用默认值 → 到站对齐跳变）
+ * - 未学习段用「全局已学段用时中位数」自适应数据源节奏（模拟器 ~2-5s/段，真实公交可能 30-90s）
+ * - 行驶中插值 t = (now - departTs) / 段用时 —— 与数据源真实节奏一致
  */
-const DEFAULT_SEG_MS = 20000; // 无学习历史时的兜底段用时
+const DEFAULT_SEG_MS = 10000; // 无任何学习历史时的兜底段用时
+const SEGDUR_KEY = 'bm-segdur';
 
 interface BusMapWidgetProps {
   // 数据（liveProps 注入）
@@ -100,7 +103,11 @@ export function BusMapWidget({
   const hasFitRef = useRef(false);
   const isDemoRef = useRef(false);
   /** 段用时自学习缓存：`${lineId}:${fromIdx}:${toIdx}` → 实际行驶毫秒（数据源到站确认时回填） */
-  const segDurRef = useRef(new Map<string, number>());
+  const segDurRef = useRef<Map<string, number>>(loadSegDurs());
+  /** 全局段用时中位数（未学习段的自适应默认） */
+  const medianDurRef = useRef<number | null>(computeMedian(segDurRef.current));
+  /** 到站对齐的平滑滑入动画（避免节奏估计偏差造成瞬移跳变） */
+  const snapRef = useRef(new Map<string, { from: [number, number]; to: [number, number]; t0: number }>());
 
   // ── 数据源：实时线路 vs 演示数据 ──
   const liveHasLines = !!lines && lines.length > 0;
@@ -297,15 +304,17 @@ export function BusMapWidget({
 
       const anim = busAnimsRef.current.get(key);
       if (!anim) {
-        // 新车辆
+        // 新车辆：立即对齐到数据确认的当前站（retained 重放时尤其重要，避免从 (0,0) 起跳）
         const color = lineColor(activeLines.indexOf(line), lineColors, line.id);
         const { m, dot } = createBusMarker(M, map, key, color, busRadius, showBusLabels ? `${line.name} ${pos.bus}` : key);
+        const c0 = stationsRef.current?.get(pos.current_station);
+        if (m && c0) m.setPosition(c0);
         busMarkersRef.current.set(key, m);
         busDotsRef.current.set(key, dot);
         busAnimsRef.current.set(key, {
           key, lineId: line.id,
           cur: pos.current_station, next: pos.next_station,
-          curIdx: Math.max(0, curIdx), nextIdx: Math.max(0, nextIdx),
+          curIdx, nextIdx, // 站不在线路时保持 -1（rAF 有 >=0 检查走直线兜底）
           phase: pos.status === '停靠中' ? 'dwell' : 'moving',
           t: pos.status === '停靠中' ? 1 : 0,
           departTs: pos.status === '停靠中' ? 0 : Date.now(), // 出发时刻 = 收到消息的本地时间
@@ -313,21 +322,38 @@ export function BusMapWidget({
         });
       } else {
         // 已有车辆：站段变化检测（数据源确认到站/换段）
+        const snapToStation = (m: any, name: string, key: string) => {
+          // ★ 数据源已确认车辆位置 → 画面对齐该站坐标。
+          //   节奏估计与数据有偏差时直接瞬移会“跳”，改 200ms 平滑滑入（终点 = 数据权威位置）
+          const c = stationsRef.current?.get(name);
+          if (!m || !c) return;
+          let from: [number, number];
+          try {
+            const pos = m.getPosition();
+            from = [pos.lng, pos.lat];
+          } catch {
+            from = c;
+          }
+          if (Math.abs(from[0] - c[0]) < 1e-7 && Math.abs(from[1] - c[1]) < 1e-7) return; // 已在站
+          snapRef.current.set(key, { from, to: c, t0: performance.now() });
+        };
         if (anim.cur !== pos.current_station || anim.next !== pos.next_station) {
           // 到站学习：本段真实用时回填缓存（仅限此前确实在行驶中）
           learnSegment(anim, Date.now());
           anim.cur = pos.current_station;
           anim.next = pos.next_station;
-          anim.curIdx = Math.max(0, curIdx);
-          anim.nextIdx = Math.max(0, nextIdx);
+          anim.curIdx = curIdx;
+          anim.nextIdx = nextIdx;
           anim.phase = pos.status === '停靠中' ? 'dwell' : 'moving';
           anim.t = pos.status === '停靠中' ? 1 : 0;
           anim.departTs = pos.status === '停靠中' ? 0 : Date.now();
+          snapToStation(busMarkersRef.current.get(key), pos.current_station, key);
         } else if (pos.status === '停靠中' && anim.phase === 'moving') {
           anim.phase = 'dwell'; // 到站（状态确认）
           anim.t = 1;
           learnSegment(anim, Date.now());
           anim.departTs = 0;
+          snapToStation(busMarkersRef.current.get(key), pos.current_station, key);
         } else if (pos.status === '行驶中' && anim.phase === 'dwell') {
           anim.phase = 'moving'; // 出发
           anim.t = 0;
@@ -350,14 +376,16 @@ export function BusMapWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amapReady, buses, isDemo, activeLines, busRadius, showBusLabels, lineColors]);
 
-  /** 到站学习：用真实耗时回填该段用时缓存（阈值 1.5s~10min 过滤异常值） */
+  /** 到站学习：用真实耗时回填该段用时缓存（阈值 1.5s~10min 过滤异常值）+ 持久化 + 更新中位数 */
   const learnSegment = (anim: BusAnim, now: number) => {
     if (anim.departTs <= 0) return;
     const dur = now - anim.departTs;
     if (dur > 1500 && dur < 10 * 60 * 1000) {
       const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
       segDurRef.current.set(segKey, dur);
-      console.log(`[busMap] segment learned ${segKey} = ${(dur / 1000).toFixed(1)}s`);
+      medianDurRef.current = computeMedian(segDurRef.current);
+      try { localStorage.setItem(SEGDUR_KEY, JSON.stringify([...segDurRef.current.entries()])); } catch { /* 忽略 */ }
+      console.log(`[busMap] segment learned ${segKey} = ${(dur / 1000).toFixed(1)}s (median=${((medianDurRef.current ?? 0) / 1000).toFixed(1)}s)`);
     }
   };
 
@@ -386,15 +414,23 @@ export function BusMapWidget({
         } else {
           // 实时：段进度 t 由绝对时间推导（数据驱动节奏）+ 沿真实道路路径插值
           const now = Date.now();
+          // 到站平滑滑入（200ms，终点 = 数据权威位置）
+          for (const [key, s] of snapRef.current) {
+            const m = busMarkersRef.current.get(key);
+            if (!m) { snapRef.current.delete(key); continue; }
+            const st = (performance.now() - s.t0) / 200;
+            if (st >= 1) { snapRef.current.delete(key); continue; }
+            m.setPosition(lerpPos(s.from, s.to, easeInOut(Math.min(1, st))));
+          }
           for (const anim of busAnimsRef.current.values()) {
             const m = busMarkersRef.current.get(anim.key);
             if (!m) continue;
             const curC = stationsRef.current.get(anim.cur);
             const nextC = stationsRef.current.get(anim.next);
             if (anim.phase === 'moving' && curC && nextC) {
-              // t = 已行驶时间 / 段用时（自学习缓存优先，兜底默认值）—— 永远按数据源真实节奏
+              // t = 已行驶时间 / 段用时（自学习缓存 → 全局中位数 → 默认值）—— 永远按数据源真实节奏
               const segKey = `${anim.lineId}:${anim.curIdx}:${anim.nextIdx}`;
-              const dur = segDurRef.current.get(segKey) ?? DEFAULT_SEG_MS;
+              const dur = segDurRef.current.get(segKey) ?? (medianDurRef.current ?? DEFAULT_SEG_MS);
               const t = Math.min(1, Math.max(0, (now - anim.departTs) / dur));
               anim.t = t;
               const eased = easeInOut(t);
@@ -522,4 +558,20 @@ function createBusMarker(
   });
   m.setMap(map);
   return { m, dot };
+}
+
+/** 从 localStorage 读取段用时学习缓存 */
+function loadSegDurs(): Map<string, number> {
+  try {
+    const raw = localStorage.getItem(SEGDUR_KEY);
+    if (raw) return new Map(JSON.parse(raw) as [string, number][]);
+  } catch { /* 忽略 */ }
+  return new Map();
+}
+
+/** 计算段用时中位数（未学习段的自适应默认） */
+function computeMedian(m: Map<string, number>): number | null {
+  const vals = [...m.values()].sort((a, b) => a - b);
+  if (vals.length === 0) return null;
+  return vals[Math.floor(vals.length / 2)];
 }
