@@ -404,6 +404,8 @@ export function AttackMapWidget({
     let raf = 0;
     let last = performance.now();
     let elapsed = 0;
+    /** 已 wrap 的次数：纹理 offset 只在相机 wrap 跳变时补偿整周期（连续移动不补偿） */
+    let wrapCount = 0;
     const loop = () => {
       if (disposed) return;
       raf = requestAnimationFrame(loop);
@@ -412,17 +414,18 @@ export function AttackMapWidget({
       last = now;
       elapsed += dt;
       if (controls) controls.update();
-      // ★ 相机 wrap：边界 B = 地图半宽 100 − 视野半宽（视野边缘恰贴平面边缘不越界），
-      //   纹理 offset 反向补偿 —— 平面边缘永不进入视野（否则露出边界 = 边框重影），首尾无缝循环
+      // ★ 相机 wrap：边界 B = 地图半宽 100 − 视野半宽（视野边缘恰贴平面边缘不越界）。
+      //   相机跳回 ±200 时纹理 offset 补偿一个整周期（repeat 下视觉无缝）——
+      //   连续拖拽不补偿 → 地图内容跟随相机滚动（拖动地图的直觉）
       const viewHalfW = camera.position.y * Math.tan(THREE.MathUtils.degToRad(35 / 2)) * camera.aspect;
       const B = Math.max(0, 100 - viewHalfW);
-      if (camera.position.x > B) camera.position.x -= 200;
-      if (camera.position.x < -B) camera.position.x += 200;
+      if (camera.position.x > B) { camera.position.x -= 200; wrapCount -= 1; }
+      if (camera.position.x < -B) { camera.position.x += 200; wrapCount += 1; }
       if (controls && controls.target.x !== camera.position.x) controls.target.x = camera.position.x;
       const camX = camera.position.x;
 
-      // ★ 卷轴：纹理 offset 随相机反向滚动（RepeatWrapping 下无限循环）
-      if (s.mapTexture) s.mapTexture.offset.x = -(camX / MAP_PERIOD);
+      // ★ 卷轴：纹理 offset = −wrapCount（只补偿 wrap 跳变，连续移动内容跟随相机）
+      if (s.mapTexture && s.mapTexture.offset.x !== -wrapCount) s.mapTexture.offset.x = -wrapCount;
 
       // 弧线组镜像：组平移使弧线端点中心保持在相机附近的周期副本内
       for (const g of s.arcGroups) {
