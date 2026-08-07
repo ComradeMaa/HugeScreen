@@ -221,12 +221,7 @@ function SlotChartEditors({
               onChange={(e) => onUpdate({ value: Number(e.target.value) })}
               className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
           </label>
-          <label className="flex items-center justify-between mt-2">
-            <span className="text-[11px] text-textSecondary/70">小数位数</span>
-            <input type="number" min={0} max={6} value={Number(opts.decimals ?? 0)}
-              onChange={(e) => onUpdate({ decimals: Math.max(0, Math.min(6, Number(e.target.value) || 0)) })}
-              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
-          </label>
+          {/* 小数位数自动探测（无需配置）：数值输入小数位即按该精度显示 */}
           <label className="flex items-center justify-between mt-2">
             <span className="text-[11px] text-textSecondary/70">单位</span>
             <input type="text" value={String(opts.suffix ?? '')}
@@ -3325,12 +3320,7 @@ export function PropertyInspector() {
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), value: Number(e.target.value) } })}
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
             </label>
-            <label className="flex items-center justify-between mt-2">
-              <span className="text-[11px] text-textSecondary/70">小数位数</span>
-              <input type="number" min={0} max={6} value={Number((widget.options as Record<string, unknown>).decimals ?? 0)}
-                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), decimals: Math.max(0, Math.min(6, Number(e.target.value) || 0)) } })}
-                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
-            </label>
+            {/* 小数位数自动探测（无需配置）：数值输入小数位即按该精度显示 */}
             <label className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-textSecondary/70">单位</span>
               <input type="text" value={String((widget.options as Record<string, unknown>).suffix ?? '')}

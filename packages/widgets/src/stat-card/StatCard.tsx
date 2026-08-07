@@ -9,6 +9,10 @@ interface StatCardProps {
   trend?: number;       // 正数上涨，负数下跌（手动模式 or API 传入）
   trendLabel?: string;  // 如 "vs 昨日"
   format?: 'number' | 'currency' | 'percent';
+  /**
+   * 小数位数 — 显式指定时优先；未指定（undefined）时自动探测数值本身的小数位
+   * （输入/数据源 123.9 → 自动显示 1 位小数），方便数据源对接。
+   */
   decimals?: number;
   /** 是否播放数字滚动动画 */
   animated?: boolean;
@@ -47,7 +51,7 @@ export function StatCard({
   trend,
   trendLabel,
   format = 'number',
-  decimals = 0,
+  decimals,
   animated = true,
   showRing = false,
   ringPercent = 0,
@@ -105,7 +109,8 @@ export function StatCard({
   const effectiveTrend = trendMode === 'manual' ? trend : autoTrend;
 
   const trendUp = effectiveTrend !== undefined ? effectiveTrend >= 0 : undefined;
-  const formattedValue = formatValue(animated ? animatedValue : value, format, decimals);
+  const effDecimals = decimals ?? detectDecimals(value);
+  const formattedValue = formatValue(animated ? animatedValue : value, format, effDecimals);
   const pct = Math.max(0, Math.min(100, ringPercent));
 
   const textCol = (
@@ -202,6 +207,19 @@ function ProgressRing({ percent, color }: { percent: number; color: string }) {
       </text>
     </svg>
   );
+}
+
+/**
+ * 未显式指定小数位时，从数值本身探测实际小数位数：
+ * 123.9 → 1 位，3.14159 → 5 位；去尾零（123.90 视为 1 位），上限 6 位
+ * （防浮点噪声如 0.30000000000000004 爆位数）。
+ */
+function detectDecimals(value: number | string | undefined): number {
+  const s = typeof value === 'number' ? String(value) : String(value ?? '');
+  const m = s.match(/\.(\d+)/);
+  if (!m) return 0;
+  const frac = m[1].replace(/0+$/, '');
+  return Math.min(6, frac.length);
 }
 
 function formatValue(
