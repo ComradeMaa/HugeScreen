@@ -1761,12 +1761,14 @@ export function PropertyInspector() {
   const onLayoutField = (w: typeof config.widgets[number], field: 'col' | 'row' | 'colSpan' | 'rowSpan', value: number) => {
     if (!Number.isFinite(value)) return;
     const def = widgetRegistry.get(w.type);
+    // 顶栏可见时组件起始行 = 顶栏行数
+    const headerRowMin = config.header?.visible !== false ? (config.header?.rowSpan ?? 1) : 0;
     const clamped = clampToGrid(
       { ...w.layout, [field]: value },
       config.grid,
       def?.minSize,
       def?.maxSize ?? { colSpan: config.grid.cols, rowSpan: config.grid.rows },
-      1,
+      headerRowMin,
     );
     resizeWidget(w.id, clamped);
   };

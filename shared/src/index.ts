@@ -10,6 +10,8 @@ export interface HeaderSlotConfig {
 export interface HeaderConfig {
   slots: HeaderSlotConfig[];
   visible?: boolean;
+  /** 顶栏占几行（高度可调；长度始终横跨全屏，colSpan 固定 = grid.cols） */
+  rowSpan?: number;
 }
 
 // ─── 大屏完整配置 ───

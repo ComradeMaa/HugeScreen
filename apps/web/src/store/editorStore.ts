@@ -112,6 +112,7 @@ interface EditorState {
   swapHeaderSlots: (fromId: string, toId: string) => void;
   selectHeaderSlot: (id: string | null) => void;
   toggleHeader: () => void;
+  setHeaderRowSpan: (n: number) => void;
 
   setBreakpoint: (bp: Breakpoint) => void;
   toggleEditor: () => void;
@@ -471,6 +472,12 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
         ...s.config,
         header: { ...s.config.header!, visible: !(s.config.header?.visible !== false) },
       },
+    })),
+
+  /** 顶栏行数（高度）：长度始终横跨全屏不可改，仅行数可调 */
+  setHeaderRowSpan: (n: number) =>
+    set((s) => ({
+      config: { ...s.config, header: { ...s.config.header!, rowSpan: Math.max(1, Math.min(4, Math.round(n))) } },
     })),
 
   // ─── 顶栏槽位管理（支持多列组件合并/拆分） ───

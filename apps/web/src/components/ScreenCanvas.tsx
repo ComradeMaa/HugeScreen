@@ -178,6 +178,7 @@ function computeDropLayout(
   kind: 'copy' | 'move',
   wid: string | null,
   defSize?: { colSpan: number; rowSpan: number },
+  rowMin = 1,
 ): { layout: WidgetLayout; blocker?: WidgetConfig } {
   if (kind === 'move' && wid) {
     const dragged = widgets.find((w) => w.id === wid);
@@ -185,7 +186,7 @@ function computeDropLayout(
     // ★ preferShift：移动保持尺寸，下边界超界平移收进（不压缩组件）
     const desired = clampToGrid(
       { col: cell.col, row: cell.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan },
-      grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1, true,
+      grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, rowMin, true,
     );
     const blocker = widgets.find((w) => w.id !== wid && layoutEngine.overlaps(desired, w.layout));
     if (blocker) return { layout: desired, blocker };
@@ -202,7 +203,7 @@ function computeDropLayout(
       colSpan: size.colSpan,
       rowSpan: size.rowSpan,
     },
-    grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1, true,
+    grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, rowMin, true,
   );
   // 与已有组件重叠 → 避让（可能被 reflow 截断或 findFreeSlot 移开）
   const { layout } = computePlacement(widgets, { layout: desired }, grid);
@@ -230,7 +231,6 @@ function slotToPx(
 }
 
 const HEADER_ROW = 0;
-const BASE_HEADER_ROWS = 1;
 
 /** 根据网格列数动态调整顶栏行数 */
 function headerRows(cols: number): number {
@@ -296,11 +296,13 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   type DragSwap = { targetWidgetId: string; originSlot: BlockSlot };
   const [dragSwap, setDragSwap] = useState<DragSwap | null>(null);
 
-  const dynamicHRows = header?.visible !== false ? headerRows(activeGrid.cols) : 0;
+  // ★ 顶栏行数（高度可配）：配置 rowSpan 优先，否则按列数自适应（长度始终横跨全屏）
+  const headerRowSpan = header?.rowSpan ?? headerRows(activeGrid.cols);
+  const dynamicHRows = header?.visible !== false ? headerRowSpan : 0;
   const isNarrowHeader = activeGrid.cols <= 2;
 
-  // 顶栏隐藏时，有效行数减 1（row 0 不再被顶栏占用），cellH 自动变大 → 组件拉伸
-  const effectiveRows = header?.visible !== false ? activeGrid.rows : activeGrid.rows - BASE_HEADER_ROWS;
+  // 顶栏隐藏时，有效行数减顶栏行数（行不再被顶栏占用），cellH 自动变大 → 组件拉伸
+  const effectiveRows = header?.visible !== false ? activeGrid.rows : activeGrid.rows - headerRowSpan;
   const { cellW, cellH } = useMemo(
     () => cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows),
     [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows],
@@ -343,7 +345,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       const layout = bpLayouts?.[w.id] || w.layout;
       // 顶栏隐藏时，所有组件向上平移一行占据顶栏空间
       const adjustedLayout = headerHidden
-        ? { ...layout, row: Math.max(0, layout.row - BASE_HEADER_ROWS) }
+        ? { ...layout, row: Math.max(0, layout.row - headerRowSpan) }
         : layout;
       return {
         id: w.id,
@@ -593,7 +595,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       const type = dragPaletteType;
       const def = type ? widgetRegistry.get(type) : undefined;
       // ★ 新组件默认以最小尺寸落位（用户自行拉伸放大）
-      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize);
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize, header?.visible !== false ? headerRowSpan : 0);
       const key = `copy:${layout.col}:${layout.row}:${layout.colSpan}:${layout.rowSpan}`;
       if (lastDropRef.current === key) return;
       lastDropRef.current = key;
@@ -609,7 +611,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         col: cell.col - dragOffsetRef.current.col,
         row: cell.row - dragOffsetRef.current.row,
       };
-      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid);
+      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid, undefined, header?.visible !== false ? headerRowSpan : 0);
       if (blocker) {
         // 拖到其他组件上 → 交换预览：被挤的 blocker 预览渲染在【拖动组件的原位置】
         //   （交换后它将移去的地方），配 300ms 过渡动画形成"被挤走"的视觉
@@ -668,7 +670,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     if (wt) {
       const def = widgetRegistry.get(wt);
       // ★ 新组件默认以最小尺寸落位（与 dragover 预览一致）
-      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize);
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize, header?.visible !== false ? headerRowSpan : 0);
       addWidget(wt, { ...layout });
       return;
     }
@@ -681,7 +683,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         row: cell.row - dragOffsetRef.current.row,
       };
       // drop 时检测交换（使用纯重叠检测，不受组件大小限制）
-      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid);
+      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid, undefined, header?.visible !== false ? headerRowSpan : 0);
       if (blocker) {
         swapWidgetLayouts(wid, blocker.id);
       } else {
@@ -1205,7 +1207,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           style={{
             ...slotToPx(
               header?.visible === false
-                ? { ...dropPreview.layout, row: Math.max(0, dropPreview.layout.row - BASE_HEADER_ROWS) }
+                ? { ...dropPreview.layout, row: Math.max(0, dropPreview.layout.row - headerRowSpan) }
                 : dropPreview.layout,
               cellW, cellH, grid.gap
             ),
@@ -1225,7 +1227,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         const px = isSwapTarget
           ? slotToPx(
               header?.visible === false
-                ? { ...dragSwap.originSlot, row: Math.max(0, dragSwap.originSlot.row - BASE_HEADER_ROWS) }
+                ? { ...dragSwap.originSlot, row: Math.max(0, dragSwap.originSlot.row - headerRowSpan) }
                 : dragSwap.originSlot,
               cellW, cellH, grid.gap)
           : positionsMap.get(widget.id);
@@ -1334,6 +1336,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
               canvasRef={canvasRef}
               onCommit={(layout) => resizeWidget(widget.id, layout)}
               headerHidden={header?.visible === false}
+              headerRowSpan={headerRowSpan}
             />
           )}
           </Fragment>
@@ -1402,7 +1405,7 @@ function clampAgainstObstacles(
 }
 
 function ResizeHandles({
-  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit, headerHidden = false,
+  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit, headerHidden = false, headerRowSpan = 1,
 }: {
   widget: WidgetConfig;
   px: { left: number; top: number; width: number; height: number };
@@ -1414,8 +1417,10 @@ function ResizeHandles({
   others: WidgetConfig[];
   canvasRef: React.RefObject<HTMLDivElement>;
   onCommit: (layout: WidgetLayout) => void;
-  /** 顶栏隐藏：渲染行向上平移 BASE_HEADER_ROWS，rowMin 为 0（可占 row 0） */
+  /** 顶栏隐藏：渲染行向上平移 headerRowSpan，rowMin 为 0（可占 row 0） */
   headerHidden?: boolean;
+  /** 顶栏行数（可见时组件起始行） */
+  headerRowSpan?: number;
 }) {
   const [preview, setPreview] = useState<WidgetLayout | null>(null);
   const dragRef = useRef<{
@@ -1465,9 +1470,9 @@ function ResizeHandles({
       def?.minSize ?? { colSpan: 1, rowSpan: 1 },
       def?.maxSize ?? { colSpan: grid.cols, rowSpan: grid.rows },
       // 顶栏隐藏时可占 row 0
-      headerHidden ? 0 : 1,
+      headerHidden ? 0 : headerRowSpan,
     );
-    candidate = clampAgainstObstacles(candidate, drag.handle, drag.obstacles, grid, headerHidden ? 0 : 1);
+    candidate = clampAgainstObstacles(candidate, drag.handle, drag.obstacles, grid, headerHidden ? 0 : headerRowSpan);
     setPreview(candidate);
   };
 
@@ -1488,7 +1493,7 @@ function ResizeHandles({
           style={{
             ...slotToPx(
               headerHidden
-                ? { ...preview, row: Math.max(0, preview.row - BASE_HEADER_ROWS) }
+                ? { ...preview, row: Math.max(0, preview.row - headerRowSpan) }
                 : preview,
               cellW, cellH, grid.gap
             ),

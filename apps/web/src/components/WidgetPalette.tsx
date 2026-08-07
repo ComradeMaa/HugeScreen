@@ -969,7 +969,9 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
   const renameCustomComponent = useEditorStore((s) => s.renameCustomComponent);
   const instances = useEditorStore((s) => s.config.widgets);
   const toggleHeader = useEditorStore((s) => s.toggleHeader);
+  const setHeaderRowSpan = useEditorStore((s) => s.setHeaderRowSpan);
   const headerVisible = useEditorStore((s) => s.config.header?.visible !== false);
+  const headerRowSpan = useEditorStore((s) => s.config.header?.rowSpan ?? 1);
   if (allWidgets.length === 0 && headerElements.length === 0) {
     return (
       <div className="p-4 text-center text-xs text-textSecondary/50 py-12">
@@ -1014,16 +1016,31 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
             <div>
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-[10px] font-semibold text-accent-warm/50 uppercase tracking-wider">顶栏</span>
-                <button
-                  onClick={toggleHeader}
-                  className={`text-[9px] px-2 py-0.5 rounded-full border transition-colors ${
-                    headerVisible
-                      ? 'bg-accent-cool/10 text-accent-cool border-accent-cool/25'
-                      : 'bg-surface-hover text-textSecondary/40 border-[rgba(255,255,255,0.06)]'
-                  }`}
-                >
-                  {headerVisible ? '显示' : '隐藏'}
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* ★ 顶栏行数（高度）可调；长度始终横跨全屏不可改 */}
+                  {headerVisible && (
+                    <label className="flex items-center gap-1 text-[9px] text-textSecondary/50">
+                      行数
+                      <select
+                        value={headerRowSpan}
+                        onChange={(e) => setHeaderRowSpan(Number(e.target.value))}
+                        className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[9px] text-text font-mono focus:outline-none focus:border-accent-cool/50 appearance-none cursor-pointer"
+                      >
+                        {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <button
+                    onClick={toggleHeader}
+                    className={`text-[9px] px-2 py-0.5 rounded-full border transition-colors ${
+                      headerVisible
+                        ? 'bg-accent-cool/10 text-accent-cool border-accent-cool/25'
+                        : 'bg-surface-hover text-textSecondary/40 border-[rgba(255,255,255,0.06)]'
+                    }`}
+                  >
+                    {headerVisible ? '显示' : '隐藏'}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 {filteredHeader.map((el) => (
