@@ -73,19 +73,17 @@ function rowGuard(grid: GridConfig, rowMin: number) {
 }
 
 /**
- * 组件网格（绝对行坐标系）：行上界 = floor(网格总行数)。
- * 总行数 = max(配置行数, 组件实际占用行)（含顶栏）——与 ScreenCanvas effectiveRows 同公式，
- * 组件区 = 上界 - rowMin 恒铺满 canvas（默认布局无缝、拖大自动扩展、顶栏变高不压缩）。
+ * 组件网格（绝对行坐标系）：行上界 = widgetRowMin + 组件区行数（固定）——
+ * 组件区恒 grid.rows 行格（连续行格模型，与 ScreenCanvas widgetGrid 同公式）。
  * ★ 网格显示（GridOverlay）与组件放置共用此上界，保证「显示的网格 = 实际网格」。
  */
 export function componentGridFor(config: ScreenConfig): GridConfig {
   const header = config.header;
-  const maxEnd = config.widgets.reduce((m, w) => Math.max(m, w.layout.row + w.layout.rowSpan), 0);
   if (header?.visible === false) {
     const h = header?.rowSpan ?? defaultHeaderRows(config.grid.cols);
-    return { ...config.grid, rows: Math.floor(Math.max(config.grid.rows, maxEnd) - h) };
+    return { ...config.grid, rows: Math.floor(Math.max(config.grid.rows - h, 1)) };
   }
-  return { ...config.grid, rows: Math.floor(Math.max(config.grid.rows, maxEnd)) };
+  return { ...config.grid, rows: componentRowMinFor(config) + config.grid.rows };
 }
 
 /** 组件起始行（绝对行坐标）= ceil(顶栏行数)（0.5 行顶栏取整，防止与顶栏重叠） */

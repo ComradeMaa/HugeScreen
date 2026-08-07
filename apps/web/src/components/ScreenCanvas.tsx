@@ -218,15 +218,53 @@ function cellMetrics(w: number, h: number, gap: number, cols: number, rows: numb
   };
 }
 
-function slotToPx(
+/**
+ * ★ 连续行格（顶栏可见）：总行格 T = 顶栏行数 + 组件区行数（可为小数），
+ *   布局 = 顶线 gap + 顶栏(rowSpan 行格) + 中线 gap + 组件区(行格) = canvas 高
+ *   （组件区底 = canvas 底，无底线 gap —— 组件槽位底自带 1 gap 视觉留白）。
+ *   → cellH = (H - gap*(T+2)) / T，行格 S = cellH + gap。
+ *   顶栏高度 = rowSpan*S（0.5 行 = 半个格，与网格线对齐，无半格缝隙）。
+ */
+function cellMetricsContinuous(w: number, h: number, gap: number, cols: number, rows: number) {
+  return {
+    cellW: (w - gap * (cols + 1)) / cols,
+    cellH: (h - gap * (rows + 2)) / rows,
+  };
+}
+
+/** 组件像素（统一路径）：顶栏可见时组件区从顶栏底 + gap 无缝开始，row 为绝对行（含顶栏） */
+function widgetToPx(
   s: { col: number; row: number; colSpan: number; rowSpan: number },
   cellW: number, cellH: number, gap: number,
+  headerBottom: number, widgetRowMin: number, headerHidden: boolean,
 ) {
+  const top = headerHidden
+    ? gap + s.row * (cellH + gap)
+    : headerBottom + gap + Math.max(0, s.row - widgetRowMin) * (cellH + gap);
   return {
     left: gap + s.col * (cellW + gap),
-    top:  gap + s.row * (cellH + gap),
+    top,
     width:  s.colSpan * cellW + (s.colSpan - 1) * gap,
     height: s.rowSpan * cellH + (s.rowSpan - 1) * gap,
+  };
+}
+
+/** 像素 → 网格（连续行格）：组件区相对换算 + 绝对行偏移；顶栏隐藏用旧公式 */
+function pixelToCellCanvas(
+  x: number, y: number,
+  cellW: number, cellH: number, gap: number,
+  headerBottom: number, widgetRowMin: number, headerHidden: boolean,
+) {
+  const S = cellH + gap;
+  const col = Math.round((x - gap) / (cellW + gap));
+  const row = headerHidden
+    ? Math.round((y - gap) / S)
+    : Math.round((y - (headerBottom + gap)) / S) + widgetRowMin;
+  return {
+    col: Math.max(0, col),
+    row: Math.max(widgetRowMin, row),
+    colSpan: 1,
+    rowSpan: 1,
   };
 }
 
@@ -299,40 +337,32 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   // ★ 组件起始行下限：顶栏支持 0.5 行步进时取整（row 0 与 0.5 行顶栏重叠）
   const widgetRowMin = header?.visible !== false ? Math.ceil(headerRowSpan) : 0;
 
-  // ★ 网格自适应：总行数 = max(配置行数, 组件实际占用行)（绝对行坐标，含顶栏）。
-  //   组件区 = 总行数 - widgetRowMin → 永远铺满 canvas 所有可利用空间：
-  //   - 默认布局（组件占 6 行 + 顶栏 1 行）→ 7 行格恰好填满，无缝
-  //   - 顶栏变高 → 组件区行数不变（不压缩），总行数随组件实际占用自适应
-  //   - 组件拖大 → 总行数自动扩展
+  // ★ 连续行格模型：总行格 T = 顶栏行数 + 组件区行数（组件区格数固定 = grid.rows，
+  //   格大小随可用空间自适应；顶栏高度 = rowSpan 个行格，0.5 行 = 半个格，与网格线对齐无缝隙）。
   //   顶栏隐藏时行被释放，组件区变大（cellH 自动变大 → 组件拉伸）
-  const maxWidgetRowEnd = useMemo(
-    () => visibleWidgets.reduce((m, w) => Math.max(m, w.layout.row + w.layout.rowSpan), 0),
-    [visibleWidgets],
-  );
-  const effectiveRows = header?.visible !== false
-    ? Math.max(activeGrid.rows, maxWidgetRowEnd)
-    : Math.max(activeGrid.rows, maxWidgetRowEnd) - headerRowSpan;
+  const headerVisible = header?.visible !== false;
+  const totalRows = headerVisible ? activeGrid.rows + headerRowSpan : activeGrid.rows - headerRowSpan;
   const { cellW, cellH } = useMemo(
-    () => cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows),
-    [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows],
+    () => headerVisible
+      ? cellMetricsContinuous(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, totalRows)
+      : cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, totalRows),
+    [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, totalRows, headerVisible],
   );
 
-  // ★ 组件网格（绝对行坐标）：行上界 = floor(总行数) —— 网格显示与组件放置共用，
-  //   保证「显示的网格 = 实际网格」（0.5 行顶栏下组件区 = 上界 - widgetRowMin 行）
+  // ★ 组件网格（绝对行坐标）：行上界 = widgetRowMin + 组件区行数（固定）——
+  //   组件区恒 grid.rows 行格，网格显示与组件放置共用此上界
   const widgetGrid = useMemo(
-    () => ({ ...activeGrid, rows: Math.floor(effectiveRows) }),
-    [activeGrid, effectiveRows],
-  );
-  // 像素换算网格：cellH 必须与渲染一致（effectiveRows 小数行），仅用于 pixelToCell 换算
-  const calcGrid = useMemo(
-    () => ({ ...activeGrid, rows: effectiveRows }),
-    [activeGrid, effectiveRows],
+    () => ({ ...activeGrid, rows: widgetRowMin + activeGrid.rows }),
+    [activeGrid, widgetRowMin],
   );
 
-  const headerPx = useMemo(
-    () => slotToPx({ col: 0, row: HEADER_ROW, colSpan: activeGrid.cols, rowSpan: dynamicHRows }, cellW, cellH, activeGrid.gap),
-    [cellW, cellH, activeGrid.gap, activeGrid.cols, dynamicHRows],
-  );
+  // ★ 顶栏：连续行格高度（rowSpan * 行格），与网格行格对齐
+  const headerPx = useMemo(() => ({
+    left: activeGrid.gap,
+    top: activeGrid.gap,
+    width: activeGrid.cols * cellW + (activeGrid.cols - 1) * activeGrid.gap,
+    height: dynamicHRows * (cellH + activeGrid.gap),
+  }), [cellW, cellH, activeGrid.gap, activeGrid.cols, dynamicHRows]);
 
   const headerBottom = headerPx.top + headerPx.height;
 
@@ -365,15 +395,15 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     return visibleWidgets.map((w) => {
       const layout = bpLayouts?.[w.id] || w.layout;
       // 顶栏隐藏时，所有组件向上平移一行占据顶栏空间
-      const adjustedLayout = headerHidden
+      const renderLayout = headerHidden
         ? { ...layout, row: Math.max(0, layout.row - headerRowSpan) }
         : layout;
       return {
         id: w.id,
-        ...slotToPx(adjustedLayout, cellW, cellH, activeGrid.gap),
+        ...widgetToPx(renderLayout, cellW, cellH, activeGrid.gap, headerBottom, widgetRowMin, headerHidden),
       };
     });
-  }, [visibleWidgets, bpLayouts, cellW, cellH, activeGrid.gap]);
+  }, [visibleWidgets, bpLayouts, cellW, cellH, activeGrid.gap, headerBottom, widgetRowMin, headerRowSpan]);
 
   // ★ positions 的 Map 索引，替代 O(N²) 的 positions.find()
   const positionsMap = useMemo(() => {
@@ -608,7 +638,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     // 如果落点在顶栏区域内 → 不处理主区域逻辑
     if (y < headerBottom) { setDropPreview(null); lastDropRef.current = null; return; }
 
-    const cell = layoutEngine.pixelToCell(x, y, 1, 1, calcGrid, canvas.width, canvas.height);
+    const cell = pixelToCellCanvas(x, y, cellW, cellH, activeGrid.gap, headerBottom, widgetRowMin, header?.visible === false);
 
     if (e.dataTransfer.types.includes('application/widget-type')) {
       e.dataTransfer.dropEffect = 'copy';
@@ -659,7 +689,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     } else {
       e.dataTransfer.dropEffect = 'none';
     }
-  }, [clientToDesign, calcGrid, widgetGrid, canvas.width, canvas.height, widgets, headerBottom]);
+  }, [clientToDesign, cellW, cellH, activeGrid.gap, widgetGrid, canvas.width, canvas.height, widgets, headerBottom, widgetRowMin]);
 
   const handleCanvasDragLeave = useCallback((e: React.DragEvent) => {
     // 只有真正离开 canvas 容器才清状态，进入子元素（relatedTarget 仍在容器内）不做处理
@@ -684,7 +714,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     const { x, y } = clientToDesign(e.clientX, e.clientY);
     if (y < headerBottom) return;
 
-    const cell = layoutEngine.pixelToCell(x, y, 1, 1, calcGrid, canvas.width, canvas.height);
+    const cell = pixelToCellCanvas(x, y, cellW, cellH, activeGrid.gap, headerBottom, widgetRowMin, header?.visible === false);
 
     // drop 时 getData 可用，直接用真实类型（dragPaletteType 仅供 dragover 预览计算尺寸）
     const wt = e.dataTransfer.getData('application/widget-type');
@@ -711,7 +741,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         moveWidget(wid, { ...layout });
       }
     }
-  }, [clientToDesign, calcGrid, widgetGrid, canvas.width, canvas.height, widgets, addWidget, moveWidget, swapWidgetLayouts, headerBottom]);
+  }, [clientToDesign, cellW, cellH, activeGrid.gap, widgetGrid, canvas.width, canvas.height, widgets, addWidget, moveWidget, swapWidgetLayouts, headerBottom, widgetRowMin]);
 
   // ─── 共享清理函数 ───
   function doDragCleanup() {
@@ -1010,11 +1040,11 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       )}
       {isEditing && (
         <GridOverlay
-          grid={{ ...grid, rows: effectiveRows }}
+          grid={{ ...grid, rows: totalRows }}
           canvasWidth={activeCanvasW}
           canvasHeight={activeCanvasH}
           headerBottom={headerBottom}
-          widgetRowMin={widgetRowMin}
+          componentRows={activeGrid.rows}
         />
       )}
 
@@ -1247,11 +1277,11 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         <div
           className="absolute pointer-events-none z-40"
           style={{
-            ...slotToPx(
+            ...widgetToPx(
               header?.visible === false
                 ? { ...dropPreview.layout, row: Math.max(0, dropPreview.layout.row - headerRowSpan) }
                 : dropPreview.layout,
-              cellW, cellH, grid.gap
+              cellW, cellH, grid.gap, headerBottom, widgetRowMin, header?.visible === false
             ),
             backgroundColor: 'rgba(0,212,255,0.12)',
             border: '2px solid rgba(0,212,255,0.6)',
@@ -1267,11 +1297,11 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         // 交换预览：被"挤"走的组件渲染在原位置
         const isSwapTarget = dragSwap?.targetWidgetId === widget.id;
         const px = isSwapTarget
-          ? slotToPx(
+          ? widgetToPx(
               header?.visible === false
                 ? { ...dragSwap.originSlot, row: Math.max(0, dragSwap.originSlot.row - headerRowSpan) }
                 : dragSwap.originSlot,
-              cellW, cellH, grid.gap)
+              cellW, cellH, grid.gap, headerBottom, widgetRowMin, header?.visible === false)
           : positionsMap.get(widget.id);
         if (!px) return null;
         const def = widgetRegistry.get(widget.type);
@@ -1380,6 +1410,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
               headerHidden={header?.visible === false}
               headerRowSpan={headerRowSpan}
               rowMin={widgetRowMin}
+              headerBottom={headerBottom}
+              widgetRowMin={widgetRowMin}
             />
           )}
           </Fragment>
@@ -1555,7 +1587,8 @@ function clampAgainstObstacles(
 }
 
 function ResizeHandles({
-  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit, headerHidden = false, headerRowSpan = 1, rowMin = 1,
+  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit,
+  headerHidden = false, headerRowSpan = 1, rowMin = 1, headerBottom = 0, widgetRowMin = 0,
 }: {
   widget: WidgetConfig;
   px: { left: number; top: number; width: number; height: number };
@@ -1573,6 +1606,10 @@ function ResizeHandles({
   headerRowSpan?: number;
   /** 组件行下限（= ceil(顶栏行数)，0.5 行顶栏时取整防重叠） */
   rowMin?: number;
+  /** 顶栏底边（连续行格：组件区从 headerBottom + gap 无缝开始） */
+  headerBottom?: number;
+  /** 组件起始行（连续行格渲染换算） */
+  widgetRowMin?: number;
 }) {
   const [preview, setPreview] = useState<WidgetLayout | null>(null);
   const dragRef = useRef<{
@@ -1644,11 +1681,11 @@ function ResizeHandles({
           className="absolute pointer-events-none"
           style={{
             zIndex: 45,
-            ...slotToPx(
+            ...widgetToPx(
               headerHidden
                 ? { ...preview, row: Math.max(0, preview.row - headerRowSpan) }
                 : preview,
-              cellW, cellH, grid.gap
+              cellW, cellH, grid.gap, headerBottom, widgetRowMin, headerHidden
             ),
             backgroundColor: 'rgba(255,140,66,0.10)',
             border: '2px solid rgba(255,140,66,0.65)',
@@ -1685,25 +1722,25 @@ function ResizeHandles({
 // ─── 网格覆盖层（编辑模式可视化网格 + 吸附参照） ───
 // 颜色遵循设计系统「电光蓝弱 rgba(0,212,255,0.12) 网格线」；
 // 顶栏区域（headerBottom 之上，组件不可放置）线更淡以示区分。
-function GridOverlay({ grid, canvasWidth, canvasHeight, headerBottom = 0, widgetRowMin = 0 }: {
+function GridOverlay({ grid, canvasWidth, canvasHeight, headerBottom = 0, componentRows = 7 }: {
   grid: { cols: number; rows: number; gap: number };
   canvasWidth: number;
   canvasHeight: number;
   headerBottom?: number;
-  /** 组件起始行（= ceil(顶栏行数)）：顶栏区域内不画行线，避免 0.5 行步进时网格与顶栏几何错位 */
-  widgetRowMin?: number;
+  /** 组件区行格数（固定 = grid.rows）：行线 = 顶栏底 + gap 起 componentRows 行格，无缝衔接 */
+  componentRows?: number;
 }) {
   const lines = useMemo(() => {
-    const { cellW, cellH } = cellMetrics(canvasWidth, canvasHeight, grid.gap, grid.cols, grid.rows);
+    // ★ 连续行格：cellH 按总行格 grid.rows（顶栏行 + 组件区行，可为小数）求解
+    const { cellW, cellH } = cellMetricsContinuous(canvasWidth, canvasHeight, grid.gap, grid.cols, grid.rows);
     const cols: number[] = [], rows: number[] = [];
     for (let i = 0; i <= grid.cols; i++) cols.push(grid.gap + i * (cellW + grid.gap));
-    // ★ 行线只画顶线（i=0）+ 组件区实际可放置的格：
-    //   组件行 r 的顶边 y = gap + r*(cellH+gap) 恒对齐，故线 i ∈ [widgetRowMin, floor(rows)]
+    // ★ 行线 = 顶线 + 组件区行线（组件区从顶栏底 + gap 无缝开始，恒 componentRows 行格）
     rows.push(grid.gap);
-    const rowEnd = Math.floor(grid.rows);
-    for (let i = widgetRowMin; i <= rowEnd; i++) rows.push(grid.gap + i * (cellH + grid.gap));
+    const S = cellH + grid.gap;
+    for (let i = 0; i <= componentRows; i++) rows.push(headerBottom + grid.gap + i * S);
     return { cols, rows };
-  }, [grid, canvasWidth, canvasHeight, widgetRowMin]);
+  }, [grid, canvasWidth, canvasHeight, headerBottom, componentRows]);
 
   return (
     <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">

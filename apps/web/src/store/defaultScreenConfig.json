@@ -527,7 +527,7 @@
         "col": 2,
         "row": 1,
         "colSpan": 4,
-        "rowSpan": 6
+        "rowSpan": 7
       },
       "dataSource": {
         "type": "rest",

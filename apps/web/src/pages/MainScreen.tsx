@@ -87,14 +87,20 @@ export function MainScreen() {
     const customComps = (cfg as any).customComponents as any[] || [];
     const header = cfg.header;
 
-    // 网格自适应：总行数 = max(配置行数, 组件实际占用行)（与 ScreenCanvas effectiveRows 一致），缩略图布局才与实际相符
-    const headerSpan = header?.visible === false ? 0 : (header?.rowSpan ?? (cols >= 8 ? 1 : cols >= 2 ? 4 : 7));
-    const maxEnd = widgets.reduce((m, w) => Math.max(m, w.layout.row + w.layout.rowSpan), 0);
-    const totalRows = header?.visible === false
-      ? Math.max(rows, maxEnd) - headerSpan
-      : Math.max(rows, maxEnd);
+    // 连续行格模型（与 ScreenCanvas 一致）：总行格 = 顶栏行 + 组件区行（固定），组件区格数恒定
+    const headerVisible = header?.visible !== false;
+    const headerSpan = headerVisible ? (header?.rowSpan ?? (cols >= 8 ? 1 : cols >= 2 ? 4 : 7)) : 0;
+    const rowMin = headerVisible ? Math.ceil(headerSpan) : 0;
+    const totalRows = headerVisible ? rows + headerSpan : rows - headerSpan;
     const cellW = (width - gap * (cols + 1)) / cols;
-    const cellH = (height - gap * (totalRows + 1)) / totalRows;
+    const cellH = headerVisible
+      ? (height - gap * (totalRows + 2)) / totalRows
+      : (height - gap * (totalRows + 1)) / totalRows;
+    // 顶栏底边（连续行格）+ 组件区起点
+    const headerBottomPx = gap + (headerVisible ? headerSpan * (cellH + gap) : 0);
+    const widgetTop = (l: { row: number }) => headerVisible
+      ? headerBottomPx + gap + Math.max(0, l.row - rowMin) * (cellH + gap)
+      : gap + Math.max(0, l.row - headerSpan) * (cellH + gap);
     const tw = 400;
     const th = Math.round(tw * (height / width));
     const sc = tw / width;
@@ -876,7 +882,7 @@ export function MainScreen() {
     for (const w of widgets) {
       const l = w.layout;
       const x = (gap + l.col * (cellW + gap)) * sc;
-      const y = (gap + l.row * (cellH + gap)) * sc;
+      const y = widgetTop(l) * sc;
       const rw = (l.colSpan * cellW + (l.colSpan - 1) * gap) * sc;
       const rh = (l.rowSpan * cellH + (l.rowSpan - 1) * gap) * sc;
       drawWidget({ x, y, w: rw, h: rh }, w.type, w.category, w.displayName);
