@@ -83,8 +83,9 @@ export function TreeChartWidget({
 
   const roots = trees?.length ? trees : [DEFAULT_TREE];
   // ★ 叶子 label 宽度：最多一行 16 字封顶（10px 字号 × 16 = 160px，全角标点算一字）；
-  //   组件较窄时按剩余空间比例（约 42% − 边距）收缩 —— 布局器随之压缩节点间距
-  //   （连线变短），把空间让给文字，文字始终留在组件内换行。
+  //   组件较窄时按剩余空间比例（约 42% − 边距）收缩。
+  //   此宽度同时用作 series 的 right 边距 —— 布局器把叶子层放在 right 边缘，
+  //   label 恰好占满剩余空间（不溢出），布局区变窄使每层间距（连线）同步压缩。
   const leafLabelWidth = Math.max(90, Math.min(160, Math.floor(containerW * 0.42) - 12));
 
   useEffect(() => {
@@ -104,10 +105,13 @@ export function TreeChartWidget({
         type: 'tree' as const,
         data: [root],
         orient: ORIENT_MAP[orient],
-        // 对称大边距：容纳根节点（左/上）与叶子节点（右/下）的标签，避免溢出
+        // ★ right 边距 = 叶子 label 宽度（关键）：ECharts tree 正交布局中
+        //   叶子层永远贴着 right 边距（叶子点 x = left + 可用宽），label 可用空间
+        //   恒等于 right 边距 —— 只有把 right 设为 label 宽度，文字才不会超出组件；
+        //   同时布局区随之变窄，每层间距（连线长度）自动被压缩，给文字留出空间。
         top: `${(i * 100) / roots.length}%`,
         height: `${100 / roots.length}%`,
-        left: 56, right: 56,
+        left: 56, right: leafLabelWidth,
         // 可缩放/平移：树过大时用户可滚轮缩放补救
         roam: true,
         symbol: 'circle',
