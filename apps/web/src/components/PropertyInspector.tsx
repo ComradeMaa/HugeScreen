@@ -217,8 +217,14 @@ function SlotChartEditors({
           <ColorSwatchRow label="数据名颜色" value={(opts.titleColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ titleColor: c })} />
           <label className="flex items-center justify-between mt-2">
             <span className="text-[11px] text-textSecondary/70">数值</span>
-            <input type="number" value={Number(opts.value ?? 0)}
+            <input type="number" step="any" value={Number(opts.value ?? 0)}
               onChange={(e) => onUpdate({ value: Number(e.target.value) })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+          </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">小数位数</span>
+            <input type="number" min={0} max={6} value={Number(opts.decimals ?? 0)}
+              onChange={(e) => onUpdate({ decimals: Math.max(0, Math.min(6, Number(e.target.value) || 0)) })}
               className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
           </label>
           <label className="flex items-center justify-between mt-2">
@@ -3315,8 +3321,14 @@ export function PropertyInspector() {
             <ColorSwatchRow label="数据名颜色" value={((widget.options as Record<string, unknown>).titleColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), titleColor: c } })} />
             <label className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-textSecondary/70">数值</span>
-              <input type="number" value={Number((widget.options as Record<string, unknown>).value ?? 0)}
+              <input type="number" step="any" value={Number((widget.options as Record<string, unknown>).value ?? 0)}
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), value: Number(e.target.value) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">小数位数</span>
+              <input type="number" min={0} max={6} value={Number((widget.options as Record<string, unknown>).decimals ?? 0)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), decimals: Math.max(0, Math.min(6, Number(e.target.value) || 0)) } })}
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-24 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
             </label>
             <label className="flex items-center justify-between mt-2">
