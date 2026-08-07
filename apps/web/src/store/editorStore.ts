@@ -10,7 +10,7 @@ import type {
   CustomComponentDef,
   DataSourceConfig,
 } from '@hugescreen/shared';
-import { widgetRegistry, layoutEngine } from '@hugescreen/core';
+import { widgetRegistry, layoutEngine, defaultHeaderRows } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import { registerCustomComponent, unregisterCustomComponent, deepInlineSlots, setCompositeConfig } from '@hugescreen/widgets/composite';
 import { generateId } from '../utils/id';
@@ -67,9 +67,28 @@ const DEFAULT_GRID: GridConfig = {
   snapToGrid: true,
 };
 
-/** 顶栏守卫：row 0 是固定顶栏，不应对普通组件开放 */
-function row0Guard(grid: GridConfig) {
-  return { col: 0, row: 0, colSpan: grid.cols, rowSpan: 1 };
+/** 顶栏守卫：顶栏行（row < rowMin）不应对普通组件开放 */
+function rowGuard(grid: GridConfig, rowMin: number) {
+  return { col: 0, row: rowMin, colSpan: grid.cols, rowSpan: 1 };
+}
+
+/**
+ * 组件网格（绝对行坐标系）：行上界 = floor(网格总行数)（顶栏行 + 组件区行），
+ * 组件 row 在此坐标系内放置（下限由 componentRowMinFor 保护顶栏）。
+ * ★ 网格显示（GridOverlay）与组件放置共用此上界，保证「显示的网格 = 实际网格」。
+ */
+export function componentGridFor(config: ScreenConfig): GridConfig {
+  const header = config.header;
+  if (header?.visible === false) return config.grid;
+  const h = header?.rowSpan ?? defaultHeaderRows(config.grid.cols);
+  return { ...config.grid, rows: Math.floor(config.grid.rows + h) };
+}
+
+/** 组件起始行（绝对行坐标）= ceil(顶栏行数)（0.5 行顶栏取整，防止与顶栏重叠） */
+export function componentRowMinFor(config: ScreenConfig): number {
+  const header = config.header;
+  if (header?.visible === false) return 0;
+  return Math.ceil(header?.rowSpan ?? defaultHeaderRows(config.grid.cols));
 }
 
 interface EditorState {
@@ -241,14 +260,17 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: { layout: WidgetLayout }
 
 /**
  * R3：唯一放置路径（拖放预览与 drop 提交共用，保证预览 = 最终结果）。
- * reflow 截断可截断的冲突组件 → 仍重叠则 findFreeSlot 兜底（row ≥ 1 guard）。
+ * reflow 截断可截断的冲突组件 → 仍重叠则 findFreeSlot 兜底（row ≥ rowMin guard）。
  * @param others 除 incoming 外的所有组件（move 时含全部其他组件，add 时 = 全部）
+ * @param grid 组件网格（行上界 = floor(总行数)，见 componentGridFor）
+ * @param rowMin 组件起始行（顶栏保护，见 componentRowMinFor）
  * @returns reflow 后的 others + incoming 的最终 layout
  */
 export function computePlacement(
   others: WidgetConfig[],
   incoming: { layout: WidgetLayout },
   grid: GridConfig,
+  rowMin = 1,
 ): { widgets: WidgetConfig[]; layout: WidgetLayout } {
   let nextWidgets = reflowOnAdd(others, incoming);
   const inc = incoming.layout;
@@ -262,13 +284,13 @@ export function computePlacement(
     const occupied = nextWidgets.map((w) => ({
       col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan,
     }));
-    occupied.push(row0Guard(grid));
+    occupied.push(rowGuard(grid, rowMin));
     const free = layoutEngine.findFreeSlot(
       { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
       occupied,
       grid,
     );
-    return { widgets: nextWidgets, layout: { col: free.col, row: Math.max(1, free.row), colSpan: free.colSpan, rowSpan: free.rowSpan } };
+    return { widgets: nextWidgets, layout: { col: free.col, row: Math.max(rowMin, free.row), colSpan: free.colSpan, rowSpan: free.rowSpan } };
   }
   return { widgets: nextWidgets, layout: { ...inc } };
 }
@@ -367,7 +389,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     };
     set((s) => {
       // ★ R3 唯一路径：reflow 截断冲突的扩大组件 → 兜底 findFreeSlot → 最终 layout
-      const { widgets: others, layout: finalLayout } = computePlacement(s.config.widgets, newWidget, s.config.grid);
+      const { widgets: others, layout: finalLayout } = computePlacement(
+        s.config.widgets, newWidget, componentGridFor(s.config), componentRowMinFor(s.config),
+      );
       newWidget.layout = finalLayout;
       return {
         config: { ...s.config, widgets: [...others, newWidget] },
@@ -411,7 +435,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       // ★ R3 唯一路径：others 避让（reflow 截断 + findFreeSlot 兜底）→ 最终 layout
       const incoming = { ...oldWidget, layout };
       const others = s.config.widgets.filter((w) => w.id !== id);
-      const { widgets: reflowed, layout: finalLayout } = computePlacement(others, incoming, s.config.grid);
+      const { widgets: reflowed, layout: finalLayout } = computePlacement(
+        others, incoming, componentGridFor(s.config), componentRowMinFor(s.config),
+      );
       return {
         config: { ...s.config, widgets: [...reflowed, { ...incoming, layout: finalLayout }] },
       };
@@ -439,7 +465,9 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       // 可截断（扩大过的）障碍在提交时由 reflow 截断腾位
       const others = s.config.widgets.filter((w) => w.id !== id);
       const incoming = { ...self, layout };
-      const { widgets: reflowed } = computePlacement(others, incoming, s.config.grid);
+      const { widgets: reflowed } = computePlacement(
+        others, incoming, componentGridFor(s.config), componentRowMinFor(s.config),
+      );
       return {
         config: {
           ...s.config,

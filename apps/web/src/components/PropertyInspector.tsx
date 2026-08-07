@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useEditorStore, stageUploadFile } from '../store/editorStore';
+import { useEditorStore, stageUploadFile, componentGridFor, componentRowMinFor } from '../store/editorStore';
 import { widgetRegistry, clampToGrid } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetStyle } from '@hugescreen/shared';
@@ -1761,14 +1761,15 @@ export function PropertyInspector() {
   const onLayoutField = (w: typeof config.widgets[number], field: 'col' | 'row' | 'colSpan' | 'rowSpan', value: number) => {
     if (!Number.isFinite(value)) return;
     const def = widgetRegistry.get(w.type);
-    // 顶栏可见时组件起始行 = 顶栏行数（0.5 行顶栏取整，防止与顶栏重叠）
-    const headerRowMin = config.header?.visible !== false ? Math.ceil(config.header?.rowSpan ?? 1) : 0;
+    // 组件网格（行上界含顶栏）与组件起始行（0.5 行顶栏取整）——与画布网格显示/放置一致
+    const wg = componentGridFor(config);
+    const rowMin = componentRowMinFor(config);
     const clamped = clampToGrid(
       { ...w.layout, [field]: value },
-      config.grid,
+      wg,
       def?.minSize,
-      def?.maxSize ?? { colSpan: config.grid.cols, rowSpan: config.grid.rows },
-      headerRowMin,
+      def?.maxSize ?? { colSpan: wg.cols, rowSpan: wg.rows },
+      rowMin,
     );
     resizeWidget(w.id, clamped);
   };

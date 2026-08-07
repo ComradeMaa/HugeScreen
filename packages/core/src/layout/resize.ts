@@ -1,6 +1,13 @@
 import type { GridConfig } from '@hugescreen/shared';
 import type { GridCell } from './index';
 
+/** 顶栏默认行数（未配置 rowSpan 时按列数自适应）：宽屏 1 行，窄屏 4 行，单列手机 7 行 */
+export function defaultHeaderRows(cols: number): number {
+  if (cols >= 8) return 1;
+  if (cols >= 2) return 4;
+  return 7; // 1 列 = 手机，需要足够高度容纳标题+时钟垂直排列
+}
+
 /**
  * 自由网格 resize 数学（纯函数，不依赖 React/registry）。
  * 由 ScreenCanvas 的 ResizeHandles 与 PropertyInspector 数字输入共用。
