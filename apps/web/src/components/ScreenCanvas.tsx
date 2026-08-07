@@ -751,7 +751,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       ph.style.height = c.style.height || '100%';
       c.replaceWith(ph);
     });
-    clone.className = 'hugescreen-drag-clone';
+    // ★ 追加而非覆盖 className：保留 overflow-hidden / flex 等布局 class，
+    //   否则克隆体内部布局崩坏、内容溢出固定尺寸之外（视觉"大一圈"）
+    clone.className = (sourceEl.className + ' hugescreen-drag-clone').trim();
     clone.style.position = 'fixed';
     clone.style.left = (e.clientX - offsetX) + 'px';
     clone.style.top = (e.clientY - offsetY) + 'px';
@@ -834,7 +836,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
 
     // 先克隆再隐藏，避免继承 visibility:hidden
     const clone = sourceEl.cloneNode(true) as HTMLElement;
-    clone.className = 'hugescreen-drag-clone';
+    // ★ 追加而非覆盖 className：保留 overflow-hidden / flex 等布局 class，
+    //   否则克隆体内部布局崩坏、内容溢出固定尺寸之外（视觉"大一圈"）
+    clone.className = (sourceEl.className + ' hugescreen-drag-clone').trim();
     clone.style.position = 'fixed';
     clone.style.left = (e.clientX - offsetX) + 'px';
     clone.style.top = (e.clientY - offsetY) + 'px';
