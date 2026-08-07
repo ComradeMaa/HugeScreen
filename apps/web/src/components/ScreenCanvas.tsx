@@ -609,14 +609,18 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       };
       const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid);
       if (blocker) {
-        // 拖到其他组件上 → 交换预览
+        // 拖到其他组件上 → 交换预览：被挤的 blocker 预览渲染在【拖动组件的原位置】
+        //   （交换后它将移去的地方），配 300ms 过渡动画形成"被挤走"的视觉
+        const dragged = widgets.find((w) => w.id === wid);
         const key = `swap:${blocker.id}:${layout.col}:${layout.row}`;
         if (lastDropRef.current === key) return;
         lastDropRef.current = key;
         lastSwapTargetId.current = blocker.id;
         setDragSwap({
           targetWidgetId: blocker.id,
-          originSlot: { col: blocker.layout.col, row: blocker.layout.row, colSpan: blocker.layout.colSpan, rowSpan: blocker.layout.rowSpan },
+          originSlot: dragged
+            ? { col: dragged.layout.col, row: dragged.layout.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan }
+            : { col: layout.col, row: layout.row, colSpan: layout.colSpan, rowSpan: layout.rowSpan },
         });
         setDropPreview({ layout, swapping: true });
         return;
