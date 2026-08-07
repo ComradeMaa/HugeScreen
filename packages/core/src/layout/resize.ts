@@ -40,8 +40,9 @@ export function clampToGrid(
   colSpan = Math.min(maxC, colSpan);
   rowSpan = Math.min(maxR, rowSpan);
 
-  // 行下限（顶栏保护）
+  // 行下限（顶栏保护）；列下限 0（防拖拽偏移校正产生负 col → 组件左半出屏）
   row = Math.max(rowMin, row);
+  col = Math.max(0, col);
 
   // 先尝试收缩 span 收进网格
   if (col + colSpan > grid.cols) colSpan = Math.max(minC, grid.cols - col);

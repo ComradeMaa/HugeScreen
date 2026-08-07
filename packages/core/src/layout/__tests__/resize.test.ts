@@ -27,6 +27,11 @@ describe('clampToGrid', () => {
       .toEqual({ col: 0, row: 1, colSpan: 1, rowSpan: 2 });
   });
 
+  it('col 下限 0：负 col 收进网格（防组件左半出屏）', () => {
+    expect(clampToGrid({ col: -1, row: 1, colSpan: 2, rowSpan: 2 }, GRID, MIN, MAX))
+      .toEqual({ col: 0, row: 1, colSpan: 2, rowSpan: 2 });
+  });
+
   it('max 上限生效（注册 maxSize 3×3）', () => {
     expect(clampToGrid({ col: 0, row: 1, colSpan: 8, rowSpan: 4 }, GRID, MIN, { colSpan: 3, rowSpan: 3 }))
       .toEqual({ col: 0, row: 1, colSpan: 3, rowSpan: 3 });
