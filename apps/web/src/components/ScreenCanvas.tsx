@@ -591,7 +591,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       // ★ dragover 无法 getData → 用模块级暂存的类型查 defaultSize（R3 预览 = 最终）
       const type = dragPaletteType;
       const def = type ? widgetRegistry.get(type) : undefined;
-      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.defaultSize);
+      // ★ 新组件默认以最小尺寸落位（用户自行拉伸放大）
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize);
       const key = `copy:${layout.col}:${layout.row}:${layout.colSpan}:${layout.rowSpan}`;
       if (lastDropRef.current === key) return;
       lastDropRef.current = key;
@@ -665,7 +666,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     const wt = e.dataTransfer.getData('application/widget-type');
     if (wt) {
       const def = widgetRegistry.get(wt);
-      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.defaultSize);
+      // ★ 新组件默认以最小尺寸落位（与 dragover 预览一致）
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize);
       addWidget(wt, { ...layout });
       return;
     }
