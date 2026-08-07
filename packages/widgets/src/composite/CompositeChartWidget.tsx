@@ -1,37 +1,10 @@
 import { createContext, useContext, useState, Suspense } from 'react';
 import type { CompositeConfig } from '@hugescreen/shared';
 import { widgetRegistry } from '@hugescreen/core';
+import { mergePreservingMeta } from '@hugescreen/data';
 import { TEMPLATE_GRID_AREAS, templateColumns, templateRows } from './types';
 import { useCompositeData } from './useCompositeData';
 import { getCompositeConfig } from './compositeConfigStore';
-
-/**
- * 数据更新时保留用户 per-item 元数据（与 ScreenCanvas.mergePreservingMeta 同款逻辑）：
- * 成员组件的数据源刷新会用新数据项整体覆盖 chartOptions，导致用户勾选的
- * showLabelLine（引出标签线）丢失 —— 按索引从旧 categories 找回该字段合并回去。
- */
-function preserveItemMeta(
-  chartType: string,
-  liveData: unknown,
-  chartOptions: Record<string, unknown>,
-): Record<string, unknown> {
-  if (!liveData || typeof liveData !== 'object' || Array.isArray(liveData)) return {};
-  const out = { ...(liveData as Record<string, unknown>) };
-  if (
-    (chartType === 'pie-chart' || chartType === 'bar-chart')
-    && Array.isArray(out.categories) && Array.isArray(chartOptions.categories)
-  ) {
-    const oldCats = chartOptions.categories as Array<Record<string, unknown>>;
-    out.categories = (out.categories as Array<Record<string, unknown>>).map((item, i) => {
-      const oldItem = oldCats[i];
-      if (oldItem && oldItem.showLabelLine !== undefined) {
-        return { ...item, showLabelLine: oldItem.showLabelLine };
-      }
-      return item;
-    });
-  }
-  return out;
-}
 
 /** 嵌套深度上下文 — 防止过深嵌套导致性能问题 */
 const NestDepth = createContext(0);
@@ -124,8 +97,13 @@ export function CompositeChartWidget({ composite, compositeKey, interactive = fa
         const mergedProps = {
           ...defaultCfg,
           ...(slot.chartOptions as object),
-          // ★ 保留 per-item 元数据（showLabelLine）—— 否则数据源刷新会把勾选覆盖掉
-          ...preserveItemMeta(slot.chartType, slotLiveData, (slot.chartOptions as Record<string, unknown>) ?? {}),
+          // ★ 保留 per-item 元数据（showLabelLine / pinned）—— 与独立组件共用
+          //   @hugescreen/data 的 mergePreservingMeta，否则数据源刷新会把勾选覆盖掉
+          ...mergePreservingMeta(
+            (slotLiveData ?? {}) as Record<string, unknown>,
+            (slot.chartOptions as Record<string, unknown>) ?? {},
+            slot.chartType,
+          ),
           dataSource: slot.dataSource,
           widgetId: slot.id,
           // ★ 浏览模式交互透传（3D 组件据此启用旋转/悬停；编辑模式 false 与 dnd-kit 无冲突）

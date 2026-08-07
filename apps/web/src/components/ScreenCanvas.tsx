@@ -4,6 +4,7 @@ import { CANONICAL_SLOTS, CENTER_SLOT, findSlotAt } from '../store/defaultLayout
 import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetConfig } from '@hugescreen/shared';
+import { mergePreservingMeta } from '@hugescreen/data';
 import { useWidgetData } from '../hooks/useWidgetData';
 import { EnergyFlow } from './EnergyFlow';
 import { LowPolyBg } from './LowPolyBg';
@@ -122,48 +123,8 @@ function pickDataFields(props: Record<string, unknown>, chartType: string): Reco
   return out;
 }
 
-/** 合并新数据时保留已有 per-item 元数据（如 showLabelLine），图片组件追加 API 图片而不覆盖手动上传 */
-function mergePreservingMeta(newData: Record<string, unknown>, currentOpts: Record<string, unknown>, chartType: string): Record<string, unknown> {
-  const merged = { ...newData };
-  // For categories-based charts, preserve showLabelLine from current options
-  if ((chartType === "pie-chart" || chartType === "bar-chart") && Array.isArray(newData.categories) && Array.isArray(currentOpts.categories)) {
-    const oldCats = currentOpts.categories as Array<Record<string, unknown>>;
-    merged.categories = (newData.categories as Array<Record<string, unknown>>).map((item, i) => {
-      const oldItem = oldCats[i] as Record<string, unknown> | undefined;
-      if (oldItem && oldItem.showLabelLine !== undefined) {
-        return { ...item, showLabelLine: oldItem.showLabelLine };
-      }
-      return item;
-    });
-  }
-  // 图片组件：保留 pinned=true 的图片，替换 pinned=false 的图片为 API 新数据
-  if (chartType === "image-widget" && Array.isArray(newData.images)) {
-    const rawOld = Array.isArray(currentOpts.images) ? currentOpts.images : [];
-    // 向后兼容：旧数据是 string[] → 视为 {url, pinned:true}（不丢失已有图片）
-    const oldImages = rawOld.map((e: any) =>
-      typeof e === 'string' ? { url: e, pinned: true } : e
-    ) as Array<{ url: string; pinned?: boolean }>;
-    const pinned = oldImages.filter((e: any) => e?.pinned);
-    const pinnedUrls = new Set(pinned.map((p: any) => p.url));
-    const newEntries = (newData.images as Array<{ url: string; pinned?: boolean }>).filter(
-      (e: any) => !pinnedUrls.has(e.url)
-    );
-    merged.images = [...pinned, ...newEntries];
-  }
-  if (chartType === "video-widget" && Array.isArray(newData.videos)) {
-    const rawOld = Array.isArray(currentOpts.videos) ? currentOpts.videos : [];
-    const oldVideos = rawOld.map((e: any) =>
-      typeof e === 'string' ? { url: e, pinned: true } : e
-    ) as Array<{ url: string; pinned?: boolean }>;
-    const pinned = oldVideos.filter((e: any) => e?.pinned);
-    const pinnedUrls = new Set(pinned.map((p: any) => p.url));
-    const newEntries = (newData.videos as Array<{ url: string; pinned?: boolean }>).filter(
-      (e: any) => !pinnedUrls.has(e.url)
-    ).slice(0, 4 - pinned.length); // 最多4个
-    merged.videos = [...pinned, ...newEntries];
-  }
-  return merged;
-}
+// ★ mergePreservingMeta 已提取到 @hugescreen/data（transform/mergeMeta.ts），
+//   独立组件与成员组件（CompositeChartWidget）共用同一份实现，防止能力漂移
 
 
 
