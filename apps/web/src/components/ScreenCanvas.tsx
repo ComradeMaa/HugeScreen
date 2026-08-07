@@ -1323,6 +1323,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
               others={visibleWidgets.filter((w) => w.id !== widget.id)}
               canvasRef={canvasRef}
               onCommit={(layout) => resizeWidget(widget.id, layout)}
+              headerHidden={header?.visible === false}
             />
           )}
           </Fragment>
@@ -1354,6 +1355,7 @@ function clampAgainstObstacles(
   handle: ResizeHandle,
   others: WidgetConfig[],
   grid: GridConfig,
+  rowMin = 1,
 ): WidgetLayout {
   let { col, row, colSpan, rowSpan } = candidate;
   for (const o of others) {
@@ -1381,11 +1383,11 @@ function clampAgainstObstacles(
     }
   }
   return clampToGrid({ col, row, colSpan, rowSpan }, grid,
-    undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1);
+    undefined, { colSpan: grid.cols, rowSpan: grid.rows }, rowMin);
 }
 
 function ResizeHandles({
-  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit,
+  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit, headerHidden = false,
 }: {
   widget: WidgetConfig;
   px: { left: number; top: number; width: number; height: number };
@@ -1397,6 +1399,8 @@ function ResizeHandles({
   others: WidgetConfig[];
   canvasRef: React.RefObject<HTMLDivElement>;
   onCommit: (layout: WidgetLayout) => void;
+  /** 顶栏隐藏：渲染行向上平移 BASE_HEADER_ROWS，rowMin 为 0（可占 row 0） */
+  headerHidden?: boolean;
 }) {
   const [preview, setPreview] = useState<WidgetLayout | null>(null);
   const dragRef = useRef<{
@@ -1445,9 +1449,10 @@ function ResizeHandles({
       drag.startLayout, drag.handle, dxCells, dyCells, grid,
       def?.minSize ?? { colSpan: 1, rowSpan: 1 },
       def?.maxSize ?? { colSpan: grid.cols, rowSpan: grid.rows },
-      1,
+      // 顶栏隐藏时可占 row 0
+      headerHidden ? 0 : 1,
     );
-    candidate = clampAgainstObstacles(candidate, drag.handle, drag.obstacles, grid);
+    candidate = clampAgainstObstacles(candidate, drag.handle, drag.obstacles, grid, headerHidden ? 0 : 1);
     setPreview(candidate);
   };
 
@@ -1461,12 +1466,17 @@ function ResizeHandles({
 
   return (
     <>
-      {/* 幽灵预览：组件本体不动，仅提交时落库 */}
+      {/* 幽灵预览：组件本体不动，仅提交时落库（顶栏隐藏时行向上平移与组件渲染一致） */}
       {preview && (
         <div
           className="absolute pointer-events-none z-45"
           style={{
-            ...slotToPx(preview, cellW, cellH, grid.gap),
+            ...slotToPx(
+              headerHidden
+                ? { ...preview, row: Math.max(0, preview.row - BASE_HEADER_ROWS) }
+                : preview,
+              cellW, cellH, grid.gap
+            ),
             backgroundColor: 'rgba(255,140,66,0.10)',
             border: '2px solid rgba(255,140,66,0.65)',
             boxShadow: '0 0 14px rgba(255,140,66,0.35)',
