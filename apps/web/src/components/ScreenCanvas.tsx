@@ -303,6 +303,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   const headerRowSpan = header?.rowSpan ?? headerRows(activeGrid.cols);
   const dynamicHRows = header?.visible !== false ? headerRowSpan : 0;
   const isNarrowHeader = activeGrid.cols <= 2;
+  // ★ 组件起始行下限：顶栏支持 0.5 行步进时取整（row 0 与 0.5 行顶栏重叠）
+  const widgetRowMin = header?.visible !== false ? Math.ceil(headerRowSpan) : 0;
 
   // ★ 网格自适应：顶栏可见时总行数 = 顶栏行 + 组件区行（组件行数不被顶栏压缩）；
   //   顶栏隐藏时行被释放，组件区变大（cellH 自动变大 → 组件拉伸）
@@ -599,7 +601,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       const type = dragPaletteType;
       const def = type ? widgetRegistry.get(type) : undefined;
       // ★ 新组件默认以最小尺寸落位（用户自行拉伸放大）
-      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize, header?.visible !== false ? headerRowSpan : 0);
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize, widgetRowMin);
       const key = `copy:${layout.col}:${layout.row}:${layout.colSpan}:${layout.rowSpan}`;
       if (lastDropRef.current === key) return;
       lastDropRef.current = key;
@@ -615,7 +617,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         col: cell.col - dragOffsetRef.current.col,
         row: cell.row - dragOffsetRef.current.row,
       };
-      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid, undefined, header?.visible !== false ? headerRowSpan : 0);
+      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid, undefined, widgetRowMin);
       if (blocker) {
         // 拖到其他组件上 → 交换预览：被挤的 blocker 预览渲染在【拖动组件的原位置】
         //   （交换后它将移去的地方），配 300ms 过渡动画形成"被挤走"的视觉
@@ -674,7 +676,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     if (wt) {
       const def = widgetRegistry.get(wt);
       // ★ 新组件默认以最小尺寸落位（与 dragover 预览一致）
-      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize, header?.visible !== false ? headerRowSpan : 0);
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.minSize, widgetRowMin);
       addWidget(wt, { ...layout });
       return;
     }
@@ -687,7 +689,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         row: cell.row - dragOffsetRef.current.row,
       };
       // drop 时检测交换（使用纯重叠检测，不受组件大小限制）
-      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid, undefined, header?.visible !== false ? headerRowSpan : 0);
+      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid, undefined, widgetRowMin);
       if (blocker) {
         swapWidgetLayouts(wid, blocker.id);
       } else {
@@ -1361,6 +1363,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
               onCommit={(layout) => resizeWidget(widget.id, layout)}
               headerHidden={header?.visible === false}
               headerRowSpan={headerRowSpan}
+              rowMin={widgetRowMin}
             />
           )}
           </Fragment>
@@ -1413,7 +1416,7 @@ function HeaderResizeHandle({
     const d = designAt(e.clientX, e.clientY);
     // 连续换算 + 四舍五入到 0.5 行 → 细微调节
     const dyCells = (d.y - drag.startY) / (cellH + gap);
-    const span = Math.max(1, Math.min(10, Math.round((drag.startSpan + dyCells) * 2) / 2));
+    const span = Math.max(0.5, Math.min(10, Math.round((drag.startSpan + dyCells) * 2) / 2));
     setPreview(span);
   };
 
@@ -1536,7 +1539,7 @@ function clampAgainstObstacles(
 }
 
 function ResizeHandles({
-  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit, headerHidden = false, headerRowSpan = 1,
+  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit, headerHidden = false, headerRowSpan = 1, rowMin = 1,
 }: {
   widget: WidgetConfig;
   px: { left: number; top: number; width: number; height: number };
@@ -1550,8 +1553,10 @@ function ResizeHandles({
   onCommit: (layout: WidgetLayout) => void;
   /** 顶栏隐藏：渲染行向上平移 headerRowSpan，rowMin 为 0（可占 row 0） */
   headerHidden?: boolean;
-  /** 顶栏行数（可见时组件起始行） */
+  /** 顶栏行数（可见时组件起始行，用于预览平移） */
   headerRowSpan?: number;
+  /** 组件行下限（= ceil(顶栏行数)，0.5 行顶栏时取整防重叠） */
+  rowMin?: number;
 }) {
   const [preview, setPreview] = useState<WidgetLayout | null>(null);
   const dragRef = useRef<{
@@ -1601,9 +1606,9 @@ function ResizeHandles({
       def?.minSize ?? { colSpan: 1, rowSpan: 1 },
       def?.maxSize ?? { colSpan: grid.cols, rowSpan: grid.rows },
       // 顶栏隐藏时可占 row 0
-      headerHidden ? 0 : headerRowSpan,
+      headerHidden ? 0 : rowMin,
     );
-    candidate = clampAgainstObstacles(candidate, drag.handle, drag.obstacles, grid, headerHidden ? 0 : headerRowSpan);
+    candidate = clampAgainstObstacles(candidate, drag.handle, drag.obstacles, grid, headerHidden ? 0 : rowMin);
     setPreview(candidate);
   };
 
