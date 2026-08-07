@@ -299,9 +299,19 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   // ★ 组件起始行下限：顶栏支持 0.5 行步进时取整（row 0 与 0.5 行顶栏重叠）
   const widgetRowMin = header?.visible !== false ? Math.ceil(headerRowSpan) : 0;
 
-  // ★ 网格自适应：顶栏可见时总行数 = 顶栏行 + 组件区行（组件行数不被顶栏压缩）；
+  // ★ 网格自适应：总行数 = max(配置行数, 组件实际占用行)（绝对行坐标，含顶栏）。
+  //   组件区 = 总行数 - widgetRowMin → 永远铺满 canvas 所有可利用空间：
+  //   - 默认布局（组件占 6 行 + 顶栏 1 行）→ 7 行格恰好填满，无缝
+  //   - 顶栏变高 → 组件区行数不变（不压缩），总行数随组件实际占用自适应
+  //   - 组件拖大 → 总行数自动扩展
   //   顶栏隐藏时行被释放，组件区变大（cellH 自动变大 → 组件拉伸）
-  const effectiveRows = header?.visible !== false ? activeGrid.rows + headerRowSpan : activeGrid.rows - headerRowSpan;
+  const maxWidgetRowEnd = useMemo(
+    () => visibleWidgets.reduce((m, w) => Math.max(m, w.layout.row + w.layout.rowSpan), 0),
+    [visibleWidgets],
+  );
+  const effectiveRows = header?.visible !== false
+    ? Math.max(activeGrid.rows, maxWidgetRowEnd)
+    : Math.max(activeGrid.rows, maxWidgetRowEnd) - headerRowSpan;
   const { cellW, cellH } = useMemo(
     () => cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows),
     [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows],

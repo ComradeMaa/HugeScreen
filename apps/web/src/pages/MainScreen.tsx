@@ -87,9 +87,12 @@ export function MainScreen() {
     const customComps = (cfg as any).customComponents as any[] || [];
     const header = cfg.header;
 
-    // 网格自适应：总行数含顶栏行（与 ScreenCanvas effectiveRows 一致），缩略图布局才与实际相符
+    // 网格自适应：总行数 = max(配置行数, 组件实际占用行)（与 ScreenCanvas effectiveRows 一致），缩略图布局才与实际相符
     const headerSpan = header?.visible === false ? 0 : (header?.rowSpan ?? (cols >= 8 ? 1 : cols >= 2 ? 4 : 7));
-    const totalRows = headerSpan + rows;
+    const maxEnd = widgets.reduce((m, w) => Math.max(m, w.layout.row + w.layout.rowSpan), 0);
+    const totalRows = header?.visible === false
+      ? Math.max(rows, maxEnd) - headerSpan
+      : Math.max(rows, maxEnd);
     const cellW = (width - gap * (cols + 1)) / cols;
     const cellH = (height - gap * (totalRows + 1)) / totalRows;
     const tw = 400;

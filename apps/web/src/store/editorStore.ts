@@ -73,15 +73,19 @@ function rowGuard(grid: GridConfig, rowMin: number) {
 }
 
 /**
- * 组件网格（绝对行坐标系）：行上界 = floor(网格总行数)（顶栏行 + 组件区行），
- * 组件 row 在此坐标系内放置（下限由 componentRowMinFor 保护顶栏）。
+ * 组件网格（绝对行坐标系）：行上界 = floor(网格总行数)。
+ * 总行数 = max(配置行数, 组件实际占用行)（含顶栏）——与 ScreenCanvas effectiveRows 同公式，
+ * 组件区 = 上界 - rowMin 恒铺满 canvas（默认布局无缝、拖大自动扩展、顶栏变高不压缩）。
  * ★ 网格显示（GridOverlay）与组件放置共用此上界，保证「显示的网格 = 实际网格」。
  */
 export function componentGridFor(config: ScreenConfig): GridConfig {
   const header = config.header;
-  if (header?.visible === false) return config.grid;
-  const h = header?.rowSpan ?? defaultHeaderRows(config.grid.cols);
-  return { ...config.grid, rows: Math.floor(config.grid.rows + h) };
+  const maxEnd = config.widgets.reduce((m, w) => Math.max(m, w.layout.row + w.layout.rowSpan), 0);
+  if (header?.visible === false) {
+    const h = header?.rowSpan ?? defaultHeaderRows(config.grid.cols);
+    return { ...config.grid, rows: Math.floor(Math.max(config.grid.rows, maxEnd) - h) };
+  }
+  return { ...config.grid, rows: Math.floor(Math.max(config.grid.rows, maxEnd)) };
 }
 
 /** 组件起始行（绝对行坐标）= ceil(顶栏行数)（0.5 行顶栏取整，防止与顶栏重叠） */
@@ -502,11 +506,24 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       },
     })),
 
-  /** 顶栏行数（高度）：长度始终横跨全屏不可改；0.5 行步进支持细微调节，最小 0.5 行 */
+  /** 顶栏行数（高度）：长度始终横跨全屏不可改；0.5 行步进支持细微调节，最小 0.5 行。
+   *  顶栏行数变化 → 组件区整体下移/上移（组件相对顶栏位置不变，不被覆盖、不压缩），
+   *  网格总行数由组件实际占用自适应（见 componentGridFor）。 */
   setHeaderRowSpan: (n: number) =>
-    set((s) => ({
-      config: { ...s.config, header: { ...s.config.header!, rowSpan: Math.max(0.5, Math.min(10, Math.round(n * 2) / 2)) } },
-    })),
+    set((s) => {
+      const clamped = Math.max(0.5, Math.min(10, Math.round(n * 2) / 2));
+      const oldSpan = s.config.header?.rowSpan ?? defaultHeaderRows(s.config.grid.cols);
+      if (clamped === oldSpan) return s;
+      const delta = Math.ceil(clamped) - Math.ceil(oldSpan);
+      const widgets = delta === 0 ? s.config.widgets
+        : s.config.widgets.map((w) => ({
+            ...w,
+            layout: { ...w.layout, row: Math.max(0, w.layout.row + delta) },
+          }));
+      return {
+        config: { ...s.config, header: { ...s.config.header!, rowSpan: clamped }, widgets },
+      };
+    }),
 
   // ─── 顶栏槽位管理（支持多列组件合并/拆分） ───
   setHeaderSlot: (slotId: string, elementType: string | null, options?: Record<string, unknown>) =>
