@@ -117,8 +117,11 @@ export function TreeChartWidget({
             align: 'left' as const,
             color: '#9E9EA8',
             fontSize: 10,
-            overflow: 'truncate' as const,
-            width: 64,
+            // ★ 叶子文字自适应：最多一行 16 字（10px 字号 × 16 = 160px，全角标点算一字），
+            //   超出部分 break 自动换行（中文按字符断行）。tree 布局按 label 实际尺寸
+            //   压缩节点间连线长度，把水平/垂直空间让给多行文字。
+            overflow: 'break' as const,
+            width: 160,
           },
         },
         lineStyle: {
