@@ -65,6 +65,14 @@ function nanoid(len = 8) {
   return id;
 }
 
+/** 兼容三种时间格式 → ISO：SQLite datetime('now') / ISO / 毫秒时间戳字符串（旧迁移数据） */
+function normalizeTime(t) {
+  if (!t) return t;
+  if (/^\d+(\.\d+)?$/.test(t)) return new Date(parseFloat(t)).toISOString();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(t)) return new Date(t.replace(' ', 'T') + 'Z').toISOString();
+  return t;
+}
+
 /** 获取本机所有局域网 IPv4 地址 */
 function getLocalIPs() {
   /** @type {{name:string, ip:string}[]} */
@@ -291,11 +299,11 @@ app.get('/api/view/:id', (req, res) => {
   }
 });
 
-// DELETE /api/view/:id — 删除配置
+// DELETE /api/view/:id — 删除配置（仅限本人发布）
 app.delete('/api/view/:id', requireAuth, (req, res) => {
   try {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM published_views WHERE id = ?').get(req.params.id);
+    const row = db.prepare('SELECT * FROM published_views WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
     if (!row) {
       return res.status(404).json({ error: `配置 ${req.params.id} 不存在` });
     }
@@ -307,14 +315,14 @@ app.delete('/api/view/:id', requireAuth, (req, res) => {
   }
 });
 
-// GET /api/views — 列出所有配置
-app.get('/api/views', (_req, res) => {
+// GET /api/views — 列出当前用户的已发布配置
+app.get('/api/views', requireAuth, (req, res) => {
   try {
     const db = getDb();
     const rows = db.prepare(
-      'SELECT id, name, created_at FROM published_views ORDER BY created_at DESC'
-    ).all();
-    res.json(rows.map(r => ({ id: r.id, name: r.name, createdAt: r.created_at })));
+      'SELECT id, name, created_at FROM published_views WHERE user_id = ? ORDER BY created_at DESC'
+    ).all(req.user.id);
+    res.json(rows.map(r => ({ id: r.id, name: r.name, createdAt: normalizeTime(r.created_at) })));
   } catch (e) {
     res.status(500).json({ error: '获取列表失败' });
   }
