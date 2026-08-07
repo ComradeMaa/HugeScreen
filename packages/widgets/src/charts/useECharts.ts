@@ -34,7 +34,7 @@ export function useECharts() {
     };
   }, []);
 
-  return { chartRef, setOption };
+  return { chartRef, setOption, instanceRef };
 }
 
 export { echarts };

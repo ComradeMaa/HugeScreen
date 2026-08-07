@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useECharts, echarts } from './useECharts';
 
 export interface TreeNode {
@@ -63,10 +63,33 @@ export function TreeChartWidget({
   expandCollapse = true,
   initialDepth = 2,
 }: TreeChartWidgetProps) {
-  const { chartRef, setOption } = useECharts();
+  const { chartRef, setOption, instanceRef } = useECharts();
   const [didInit, setDidInit] = useState(false);
   // 容器宽度：叶子 label 换行区宽度按组件剩余空间收缩，防止文字溢出组件外
   const [containerW, setContainerW] = useState(600);
+  // ★ roam 状态保持（滚轮缩放/拖拽平移）：ECharts 的 treeRoam action 会把
+  //   center/zoom 写回 series option，但组件 setOption(notMerge) 会清空它们 →
+  //   进入/退出编辑模式或修改组件时 roam 被重置。这里监听 treeRoam 事件读回
+  //   每棵树的 zoom/center 缓存，每次 setOption 时随 series 一起带回。
+  const roamRef = useRef<Record<number, { zoom?: number; center?: number[] }>>({});
+
+  useEffect(() => {
+    const inst = instanceRef.current;
+    if (!inst) return;
+    const handler = () => {
+      const series = (inst.getOption() as any).series as any[];
+      if (!Array.isArray(series)) return;
+      const next: Record<number, { zoom?: number; center?: number[] }> = {};
+      series.forEach((s, i) => {
+        if (s.zoom != null || s.center != null) {
+          next[i] = { zoom: s.zoom, center: s.center };
+        }
+      });
+      roamRef.current = next;
+    };
+    inst.on('treeRoam', handler);
+    return () => { inst.off('treeRoam', handler); };
+  }, [instanceRef]);
 
   useEffect(() => {
     const el = chartRef.current;
@@ -102,6 +125,8 @@ export function TreeChartWidget({
       },
       // 每棵树一个 series，各占一份垂直空间竖排（多根 data 会重叠，故用多 series）
       series: roots.map((root, i) => ({
+        // ★ 恢复该树上次的 roam 状态（zoom/center），避免编辑模式切换/配置修改后重置
+        ...(roamRef.current[i] ?? {}),
         type: 'tree' as const,
         data: [root],
         orient: ORIENT_MAP[orient],
