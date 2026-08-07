@@ -20,6 +20,9 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
     'sandwich':      { cols: 1, rows: '1fr 6fr 1fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
     'top4Bottom':    { cols: 4, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }, { area: 'd', label: 'D' }, { area: 'e', label: 'E' }] },
     'top6Bottom':    { cols: 6, rows: '1fr 7fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }, { area: 'd', label: 'D' }, { area: 'e', label: 'E' }, { area: 'f', label: 'F' }, { area: 'g', label: 'G' }] },
+    // 两列 1/3 变体：3 列网格，a 1 列 + b 2 列（左 1/3）/ a 2 列 + b 1 列（右 1/3）
+    '2colLeftThird': { cols: 3, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
+    '2colRightThird': { cols: 3, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
   };
 
   const { cols, cells, rows } = areas[template];
@@ -30,6 +33,8 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
   const isTopNarrow = template === 'topNarrow';
   const isTop4Bottom = template === 'top4Bottom';
   const isTop6Bottom = template === 'top6Bottom';
+  const isLeftThird = template === '2colLeftThird';
+  const isRightThird = template === '2colRightThird';
 
   return (
     <div
@@ -49,6 +54,10 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
         if (is1l2r && i === 0) rowSpan = 2;
         if (isTop4Bottom && i === 4) colSpan = 4;
         if (isTop6Bottom && i === 6) colSpan = 6;
+        if (isLeftThird && i === 0) colSpan = 1; // A 左 1/3
+        if (isLeftThird && i === 1) colSpan = 2; // B 右 2/3
+        if (isRightThird && i === 0) colSpan = 2; // A 左 2/3
+        if (isRightThird && i === 1) colSpan = 1; // B 右 1/3
 
         return (
           <div

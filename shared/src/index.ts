@@ -96,7 +96,9 @@ export type CompositeLayoutTemplate =
   | 'topNarrow'     // 上 1/8 窄条 + 下 7/8
   | 'sandwich'      // 上 1/8 窄条 + 中 6/8 + 下 1/8 窄条
   | 'top4Bottom'    // 上 1/8 四等分窄条 + 下 7/8
-  | 'top6Bottom';   // 上 1/8 六等分窄条 + 下 7/8
+  | 'top6Bottom'    // 上 1/8 六等分窄条 + 下 7/8
+  | '2colLeftThird'   // 两列：左 1/3 + 右 2/3
+  | '2colRightThird'; // 两列：左 2/3 + 右 1/3
 
 export type CompositeSubChartType = string;
 

@@ -844,6 +844,9 @@ export function MainScreen() {
         '1top2bottom': '"a a a a" "a a a a" "b b c c" "b b c c"',
         '1left2right': '"a a b b" "a a b b" "a a c c" "a a c c"',
         'topNarrow': '"a a a a" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b"',
+        // 两列 1/3 变体：6 列，a 2 列 + b 4 列（左 1/3）/ a 4 列 + b 2 列（右 1/3）
+        '2colLeftThird': '"a a b b b b" "a a b b b b" "a a b b b b" "a a b b b b"',
+        '2colRightThird': '"a a a a b b" "a a a a b b" "a a a a b b" "a a a a b b"',
       };
       const tpl = template || '2col';
       const areaStr = TEMPLATE_AREAS[tpl] || TEMPLATE_AREAS['2col'];

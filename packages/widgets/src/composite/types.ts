@@ -14,6 +14,8 @@ export const LAYOUT_TEMPLATES: CompositeLayoutTemplate[] = [
   'sandwich',
   'top4Bottom',
   'top6Bottom',
+  '2colLeftThird',
+  '2colRightThird',
 ];
 
 /** Number of sub-slots per template */
@@ -28,6 +30,8 @@ export const TEMPLATE_SLOT_COUNTS: Record<CompositeLayoutTemplate, number> = {
   'sandwich': 3,
   'top4Bottom': 5,
   'top6Bottom': 7,
+  '2colLeftThird': 2,
+  '2colRightThird': 2,
 };
 
 /** CSS grid-template-areas for each template */
@@ -46,16 +50,20 @@ export const TEMPLATE_GRID_AREAS: Record<CompositeLayoutTemplate, string> = {
   'top4Bottom':     '"a a b b c c d d" "e e e e e e e e" "e e e e e e e e" "e e e e e e e e" "e e e e e e e e" "e e e e e e e e" "e e e e e e e e" "e e e e e e e e"',
   // 上 1/8 六等分 + 下 7/8：8 行 × 12 列，7 槽位 (a-f 各 2 列)
   'top6Bottom':     '"a a b b c c d d e e f f" "g g g g g g g g g g g g" "g g g g g g g g g g g g" "g g g g g g g g g g g g" "g g g g g g g g g g g g" "g g g g g g g g g g g g" "g g g g g g g g g g g g" "g g g g g g g g g g g g"',
+  // 两列：左 1/3 + 右 2/3（6 列 × 4 行，2 槽位）
+  '2colLeftThird':  '"a a b b b b" "a a b b b b" "a a b b b b" "a a b b b b"',
+  // 两列：左 2/3 + 右 1/3（6 列 × 4 行，2 槽位）
+  '2colRightThird': '"a a a a b b" "a a a a b b" "a a a a b b" "a a a a b b"',
 };
 
 /** Grid column count per template */
 const TEMPLATE_COLUMNS: Record<CompositeLayoutTemplate, number> = {
-  '2col': 4, '2row': 4, '3col': 6, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 4, 'sandwich': 4, 'top4Bottom': 8, 'top6Bottom': 12,
+  '2col': 4, '2row': 4, '3col': 6, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 4, 'sandwich': 4, 'top4Bottom': 8, 'top6Bottom': 12, '2colLeftThird': 6, '2colRightThird': 6,
 };
 
 /** Grid row count per template */
 const TEMPLATE_ROWS: Record<CompositeLayoutTemplate, number> = {
-  '2col': 4, '2row': 4, '3col': 4, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 8, 'sandwich': 8, 'top4Bottom': 8, 'top6Bottom': 8,
+  '2col': 4, '2row': 4, '3col': 4, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 8, 'sandwich': 8, 'top4Bottom': 8, 'top6Bottom': 8, '2colLeftThird': 4, '2colRightThird': 4,
 };
 
 /** Human-readable labels */
@@ -70,6 +78,8 @@ export const TEMPLATE_LABELS: Record<CompositeLayoutTemplate, string> = {
   'sandwich': '三明治',
   'top4Bottom': '上四下一',
   'top6Bottom': '上六下一',
+  '2colLeftThird': '左1/3',
+  '2colRightThird': '右1/3',
 };
 
 /** Display name for sub-chart types — 动态从 widgetRegistry 获取 */
@@ -113,10 +123,10 @@ export function isTemplateViableForSize(
   rowSpan: number,
 ): boolean {
   const minCols: Record<CompositeLayoutTemplate, number> = {
-    '2col': 3, '2row': 2, '3col': 4, '2x2': 4, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 2, 'sandwich': 3, 'top4Bottom': 4, 'top6Bottom': 6,
+    '2col': 3, '2row': 2, '3col': 4, '2x2': 4, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 2, 'sandwich': 3, 'top4Bottom': 4, 'top6Bottom': 6, '2colLeftThird': 3, '2colRightThird': 3,
   };
   const minRows: Record<CompositeLayoutTemplate, number> = {
-    '2col': 2, '2row': 3, '3col': 2, '2x2': 3, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 3, 'sandwich': 5, 'top4Bottom': 3, 'top6Bottom': 3,
+    '2col': 2, '2row': 3, '3col': 2, '2x2': 3, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 3, 'sandwich': 5, 'top4Bottom': 3, 'top6Bottom': 3, '2colLeftThird': 2, '2colRightThird': 2,
   };
   return colSpan >= minCols[template] && rowSpan >= minRows[template];
 }
