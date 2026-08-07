@@ -16,7 +16,9 @@ export interface CellMinMax {
 /**
  * 网格边界 clamp：
  *   - col/row 钳制到网格内（row 下限由 rowMin 保护顶栏）
- *   - span 先收缩到网格剩余空间；若已到 min 仍超界 → 平移 col/row 收进网格
+ *   - 默认（resize 语义）：span 先收缩到网格剩余空间；已到 min 仍超界 → 平移收进
+ *   - preferShift（拖拽移动/放置语义）：**保持 span 不变**，超界直接平移收进 ——
+ *     拖拽改变位置绝不能影响组件大小
  *   - max 为可选上限（注册 maxSize，网格本身也天然限宽）
  */
 export function clampToGrid(
@@ -25,6 +27,7 @@ export function clampToGrid(
   min?: CellMinMax,
   max?: CellMinMax,
   rowMin = 1,
+  preferShift = false,
 ): GridCell {
   let { col, row, colSpan, rowSpan } = cell;
 
@@ -43,6 +46,13 @@ export function clampToGrid(
   // 行下限（顶栏保护）；列下限 0（防拖拽偏移校正产生负 col → 组件左半出屏）
   row = Math.max(rowMin, row);
   col = Math.max(0, col);
+
+  if (preferShift) {
+    // ★ 移动语义：保持尺寸，超界仅平移收进（拖拽改变位置不影响大小）
+    if (col + colSpan > grid.cols) col = grid.cols - colSpan;
+    if (row + rowSpan > grid.rows) row = grid.rows - rowSpan;
+    return { col, row, colSpan, rowSpan };
+  }
 
   // 先尝试收缩 span 收进网格
   if (col + colSpan > grid.cols) colSpan = Math.max(minC, grid.cols - col);

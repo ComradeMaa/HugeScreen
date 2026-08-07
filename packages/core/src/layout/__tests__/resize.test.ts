@@ -32,6 +32,17 @@ describe('clampToGrid', () => {
       .toEqual({ col: 0, row: 1, colSpan: 2, rowSpan: 2 });
   });
 
+  it('preferShift：下边界超界平移收进，保持尺寸不压缩（拖拽移动语义）', () => {
+    // row 6 + 2 = 8 > 7 → 平移到 row 5，rowSpan 保持 2
+    expect(clampToGrid({ col: 0, row: 6, colSpan: 2, rowSpan: 2 }, GRID, MIN, MAX, 1, true))
+      .toEqual({ col: 0, row: 5, colSpan: 2, rowSpan: 2 });
+  });
+
+  it('默认（resize 语义）：下边界超界仍收缩 span', () => {
+    expect(clampToGrid({ col: 0, row: 6, colSpan: 2, rowSpan: 2 }, GRID, MIN, MAX))
+      .toEqual({ col: 0, row: 6, colSpan: 2, rowSpan: 1 });
+  });
+
   it('max 上限生效（注册 maxSize 3×3）', () => {
     expect(clampToGrid({ col: 0, row: 1, colSpan: 8, rowSpan: 4 }, GRID, MIN, { colSpan: 3, rowSpan: 3 }))
       .toEqual({ col: 0, row: 1, colSpan: 3, rowSpan: 3 });

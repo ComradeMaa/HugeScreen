@@ -182,9 +182,10 @@ function computeDropLayout(
   if (kind === 'move' && wid) {
     const dragged = widgets.find((w) => w.id === wid);
     if (!dragged) return { layout: { col: cell.col, row: cell.row, colSpan: 1, rowSpan: 1 } };
+    // ★ preferShift：移动保持尺寸，下边界超界平移收进（不压缩组件）
     const desired = clampToGrid(
       { col: cell.col, row: cell.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan },
-      grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1,
+      grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1, true,
     );
     const blocker = widgets.find((w) => w.id !== wid && layoutEngine.overlaps(desired, w.layout));
     if (blocker) return { layout: desired, blocker };
@@ -192,7 +193,7 @@ function computeDropLayout(
   }
   // copy：新组件 = 注册默认尺寸；★ 鼠标保持在判定框中心
   //   （落点格 = 鼠标格 − 尺寸一半，向下取整保证框覆盖鼠标格；
-  //   靠网格边界时 clampToGrid 平移，边界限制优先）
+  //   ★ preferShift：边界超界平移收进，保持最小尺寸不压缩）
   const size = defSize ?? { colSpan: 2, rowSpan: 2 };
   const desired = clampToGrid(
     {
@@ -201,7 +202,7 @@ function computeDropLayout(
       colSpan: size.colSpan,
       rowSpan: size.rowSpan,
     },
-    grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1,
+    grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1, true,
   );
   // 与已有组件重叠 → 避让（可能被 reflow 截断或 findFreeSlot 移开）
   const { layout } = computePlacement(widgets, { layout: desired }, grid);
