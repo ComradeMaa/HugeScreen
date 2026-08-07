@@ -740,6 +740,13 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
 
     // ★ 关键：先克隆再隐藏原组件，避免 clone 继承 visibility:hidden
     const clone = sourceEl.cloneNode(true) as HTMLElement;
+    // ★ 移除克隆体中的 ECharts canvas：图表克隆后动画循环继续每帧重绘 canvas，
+    //   叠加克隆体每帧移动会卡顿（饼图等 ECharts 组件明显）—— 用背景占位替代。
+    clone.querySelectorAll('canvas').forEach((c) => {
+      const ph = document.createElement('div');
+      ph.style.cssText = 'position:absolute;inset:0;background:rgba(30,30,36,0.9)';
+      c.replaceWith(ph);
+    });
     clone.className = 'hugescreen-drag-clone';
     clone.style.position = 'fixed';
     clone.style.left = (e.clientX - offsetX) + 'px';
