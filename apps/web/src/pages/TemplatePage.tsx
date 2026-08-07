@@ -6,7 +6,6 @@ import { GuestUpgradeDialog } from '../components/GuestUpgradeDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PublishSuccessDialog } from '../components/PublishSuccessDialog';
 import { RenameDialog } from '../components/RenameDialog';
-import { useRelativeTime } from '../hooks/useRelativeTime';
 import { apiFetch } from '../utils/api';
 import defaultScreenConfig from '../store/defaultScreenConfig.json';
 
@@ -15,35 +14,6 @@ interface TemplateItem {
   name: string;
   updatedAt: string;
   thumbnail?: string | null;
-}
-
-interface PublishedViewItem {
-  id: string;
-  name: string;
-  createdAt: string;
-}
-
-/** 已发布大屏单行记录：名称 + 相对时间 + 查看链接 + 删除按钮 */
-function PublishedViewRow({ view, onDeleteRequest }: { view: PublishedViewItem; onDeleteRequest: (v: PublishedViewItem) => void }) {
-  const relative = useRelativeTime(view.createdAt);
-  return (
-    <div className="group flex items-center gap-4 bg-gradient-to-r from-[#7E8DB5]/35 to-[#7181AC]/15
-                    border border-[rgba(183,172,178,0.12)] rounded-xl px-4 py-3
-                    hover:border-[rgba(183,172,178,0.35)] transition-all duration-200">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#E8E8EC] font-medium truncate">{view.name || '未命名'}</p>
-        <p className="text-[11px] text-[#F1EFF2]/40 mt-0.5 font-mono">{view.id} · {relative}</p>
-      </div>
-      <a href={`/viewer?id=${view.id}`} target="_blank" rel="noreferrer"
-        className="flex-shrink-0 px-3 py-1.5 bg-[#1B2238]/60 border border-[rgba(133,177,224,0.15)] text-[#F1EFF2]/70 text-xs rounded-lg hover:bg-[#1B2238] hover:text-[#F1EFF2] transition-all">
-        查看 ↗
-      </a>
-      <button onClick={() => onDeleteRequest(view)}
-        className="flex-shrink-0 px-3 py-1.5 bg-[#f87171]/10 border border-[#f87171]/20 text-[#f87171] text-xs rounded-lg hover:bg-[#f87171]/20 transition-all">
-        删除
-      </button>
-    </div>
-  );
 }
 
 export function TemplatePage() {
@@ -59,9 +29,6 @@ export function TemplatePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const [views, setViews] = useState<PublishedViewItem[]>([]);
-  const [viewsLoading, setViewsLoading] = useState(true);
-  const [viewDeleteTarget, setViewDeleteTarget] = useState<PublishedViewItem | null>(null);
 
   const filteredTemplates = searchQuery.trim()
     ? templates.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase().trim()))
@@ -84,33 +51,9 @@ export function TemplatePage() {
     }
   }, []);
 
-  const fetchViews = useCallback(async () => {
-    setViewsLoading(true);
-    try {
-      const res = await apiFetch('/api/views');
-      if (res.ok) {
-        setViews(await res.json());
-      }
-    } catch { /* ignore */ } finally {
-      setViewsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     fetchTemplates();
-    fetchViews();
-  }, [fetchTemplates, fetchViews]);
-
-  const handleDeleteView = async () => {
-    if (!viewDeleteTarget) return;
-    try {
-      const res = await apiFetch(`/api/view/${viewDeleteTarget.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setViewDeleteTarget(null);
-        fetchViews();
-      }
-    } catch { /* ignore */ }
-  };
+  }, [fetchTemplates]);
 
   const handleCreate = async (name: string) => {
     const res = await apiFetch('/api/templates', {
@@ -183,7 +126,6 @@ export function TemplatePage() {
     if (pubRes.ok) {
       const data = await pubRes.json();
       setPublishUrl(`${window.location.origin}${data.url}`);
-      fetchViews();
     } else {
       alert('发布失败');
     }
@@ -211,7 +153,10 @@ export function TemplatePage() {
                   升级账号
                 </button>
               )}
-              <span className="text-sm text-[#F1EFF2]/60">欢迎, {user?.username}</span>
+              <button onClick={() => window.open('/views', '_blank')} title="查看已发布大屏"
+                className="text-sm text-[#F1EFF2]/60 hover:text-[#F1EFF2] underline-offset-4 hover:underline transition-colors">
+                欢迎, {user?.username}
+              </button>
               <button onClick={logout}
                 className="text-xs text-[#F1EFF2]/40 hover:text-[#F1EFF2]/70 transition-colors">
                 退出登录
@@ -316,28 +261,6 @@ export function TemplatePage() {
               </div>
             )}
           </div>
-
-          {/* 已发布大屏 */}
-          <div className="mt-12">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[#F1EFF2]/80 text-base font-medium">已发布大屏</h2>
-              <span className="text-xs text-[#F1EFF2]/40">{views.length} 个发布</span>
-            </div>
-            {viewsLoading ? (
-              <div className="text-center py-8 text-xs text-[#F1EFF2]/40">加载中...</div>
-            ) : views.length === 0 ? (
-              <div className="text-center py-12 border border-dashed border-[rgba(133,177,224,0.15)] rounded-2xl">
-                <p className="text-sm text-[#F1EFF2]/50 mb-1">还没有已发布的大屏</p>
-                <p className="text-xs text-[#F1EFF2]/30">在模板卡片上点击「发布」即可生成永久链接</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {views.map(view => (
-                  <PublishedViewRow key={view.id} view={view} onDeleteRequest={setViewDeleteTarget} />
-                ))}
-              </div>
-            )}
-          </div>
         </div>
         </div>{/* end scrollable */}
 
@@ -363,17 +286,6 @@ export function TemplatePage() {
           open={publishUrl !== null}
           url={publishUrl || ''}
           onClose={() => setPublishUrl(null)}
-        />
-        <ConfirmDialog
-          open={viewDeleteTarget !== null}
-          title="删除已发布大屏"
-          message={viewDeleteTarget
-            ? `确定删除发布"${viewDeleteTarget.name || '未命名'}"？删除后链接 /viewer?id=${viewDeleteTarget.id} 将无法访问，此操作不可撤销。`
-            : ''}
-          confirmLabel="删除"
-          danger
-          onConfirm={handleDeleteView}
-          onCancel={() => setViewDeleteTarget(null)}
         />
         <ConfirmDialog
           open={showDeleteAccount}

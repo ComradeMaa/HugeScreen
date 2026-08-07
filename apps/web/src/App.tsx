@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage';
 import { AuthGuard } from './components/AuthGuard';
 import { RequireAuth } from './components/RequireAuth';
 import { TemplatePage } from './pages/TemplatePage';
+import { ViewsPage } from './pages/ViewsPage';
 
 export function App() {
   return (
@@ -23,6 +24,11 @@ export function App() {
         {/* 编辑器 — 复用 MainScreen，传入 templateId */}
         <Route path="/editor/:templateId" element={
           <RequireAuth><MainScreen /></RequireAuth>
+        } />
+
+        {/* 已发布大屏管理 — 需要登录 */}
+        <Route path="/views" element={
+          <RequireAuth><ViewsPage /></RequireAuth>
         } />
 
         {/* 向后兼容 — 旧的 /screen 路由，无需认证 */}
