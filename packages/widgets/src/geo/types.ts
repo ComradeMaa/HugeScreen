@@ -19,7 +19,7 @@ export function getPinIconKeys(): string[] {
 
 /** 图标标签（内置 + 自定义） */
 export function getPinIconLabel(key: string): string {
-  const builtin: Record<string, string> = { pulse: '脉冲', tower: '基站' };
+  const builtin: Record<string, string> = { pulse: '脉冲', tower: '基站', 'server-rack': '服务器机柜' };
   return builtin[key] ?? key;
 }
 
