@@ -89,6 +89,7 @@ export interface WidgetLayout {
 export type CompositeLayoutTemplate =
   | '2col'          // 两等列
   | '2row'          // 两等行
+  | '3row'          // 三等行
   | '3col'          // 三等列
   | '2x2'           // 2×2 网格 (4 子图)
   | '1top2bottom'   // 上宽下两

@@ -12,6 +12,7 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
   const areas: Record<CompositeLayoutTemplate, { cols: number; cells: { area: string; label: string }[]; rows?: string }> = {
     '2col':          { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
     '2row':          { cols: 1, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
+    '3row':          { cols: 1, rows: '1fr 1fr 1fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
     '3col':          { cols: 3, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },
     '2x2':           { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }, { area: 'd', label: 'D' }] },
     '1top2bottom':   { cols: 2, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }, { area: 'c', label: 'C' }] },

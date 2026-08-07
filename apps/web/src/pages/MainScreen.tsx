@@ -843,6 +843,8 @@ export function MainScreen() {
         '2x2': '"a a b b" "a a b b" "c c d d" "c c d d"',
         '1top2bottom': '"a a a a" "a a a a" "b b c c" "b b c c"',
         '1left2right': '"a a b b" "a a b b" "a a c c" "a a c c"',
+        // 三等行：6 行 × 4 列，a/b/c 各 2 行
+        '3row': '"a a a a" "a a a a" "b b b b" "b b b b" "c c c c" "c c c c"',
         'topNarrow': '"a a a a" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b" "b b b b"',
         // 两列 1/3 变体：6 列，a 2 列 + b 4 列（左 1/3）/ a 4 列 + b 2 列（右 1/3）
         '2colLeftThird': '"a a b b b b" "a a b b b b" "a a b b b b" "a a b b b b"',

@@ -6,6 +6,7 @@ import { getCompositeConfig } from './compositeConfigStore';
 export const LAYOUT_TEMPLATES: CompositeLayoutTemplate[] = [
   '2col',
   '2row',
+  '3row',
   '3col',
   '2x2',
   '1top2bottom',
@@ -24,6 +25,7 @@ export const LAYOUT_TEMPLATES: CompositeLayoutTemplate[] = [
 export const TEMPLATE_SLOT_COUNTS: Record<CompositeLayoutTemplate, number> = {
   '2col': 2,
   '2row': 2,
+  '3row': 3,
   '3col': 3,
   '2x2': 4,
   '1top2bottom': 3,
@@ -42,6 +44,8 @@ export const TEMPLATE_SLOT_COUNTS: Record<CompositeLayoutTemplate, number> = {
 export const TEMPLATE_GRID_AREAS: Record<CompositeLayoutTemplate, string> = {
   '2col':          '"a a b b" "a a b b" "a a b b" "a a b b"',
   '2row':          '"a a a a" "a a a a" "b b b b" "b b b b"',
+  // 三等行：6 行 × 4 列，a/b/c 各 2 行
+  '3row':          '"a a a a" "a a a a" "b b b b" "b b b b" "c c c c" "c c c c"',
   '3col':          '"a a b b c c" "a a b b c c" "a a b b c c" "a a b b c c"',
   '2x2':           '"a a b b" "a a b b" "c c d d" "c c d d"',
   '1top2bottom':   '"a a a a" "a a a a" "b b c c" "b b c c"',
@@ -66,18 +70,19 @@ export const TEMPLATE_GRID_AREAS: Record<CompositeLayoutTemplate, string> = {
 
 /** Grid column count per template */
 const TEMPLATE_COLUMNS: Record<CompositeLayoutTemplate, number> = {
-  '2col': 4, '2row': 4, '3col': 6, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 4, 'sandwich': 4, 'top4Bottom': 8, 'top6Bottom': 12, '2colLeftThird': 6, '2colRightThird': 6, '2rowTopThird': 4, '2rowBottomThird': 4,
+  '2col': 4, '2row': 4, '3row': 4, '3col': 6, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 4, 'sandwich': 4, 'top4Bottom': 8, 'top6Bottom': 12, '2colLeftThird': 6, '2colRightThird': 6, '2rowTopThird': 4, '2rowBottomThird': 4,
 };
 
 /** Grid row count per template */
 const TEMPLATE_ROWS: Record<CompositeLayoutTemplate, number> = {
-  '2col': 4, '2row': 4, '3col': 4, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 8, 'sandwich': 8, 'top4Bottom': 8, 'top6Bottom': 8, '2colLeftThird': 4, '2colRightThird': 4, '2rowTopThird': 6, '2rowBottomThird': 6,
+  '2col': 4, '2row': 4, '3row': 6, '3col': 4, '2x2': 4, '1top2bottom': 4, '1left2right': 4, 'topNarrow': 8, 'sandwich': 8, 'top4Bottom': 8, 'top6Bottom': 8, '2colLeftThird': 4, '2colRightThird': 4, '2rowTopThird': 6, '2rowBottomThird': 6,
 };
 
 /** Human-readable labels */
 export const TEMPLATE_LABELS: Record<CompositeLayoutTemplate, string> = {
   '2col': '两列',
   '2row': '两行',
+  '3row': '三行',
   '3col': '三列',
   '2x2': '田字格',
   '1top2bottom': '上一下二',
@@ -133,10 +138,10 @@ export function isTemplateViableForSize(
   rowSpan: number,
 ): boolean {
   const minCols: Record<CompositeLayoutTemplate, number> = {
-    '2col': 3, '2row': 2, '3col': 4, '2x2': 4, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 2, 'sandwich': 3, 'top4Bottom': 4, 'top6Bottom': 6, '2colLeftThird': 3, '2colRightThird': 3, '2rowTopThird': 2, '2rowBottomThird': 2,
+    '2col': 3, '2row': 2, '3row': 2, '3col': 4, '2x2': 4, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 2, 'sandwich': 3, 'top4Bottom': 4, 'top6Bottom': 6, '2colLeftThird': 3, '2colRightThird': 3, '2rowTopThird': 2, '2rowBottomThird': 2,
   };
   const minRows: Record<CompositeLayoutTemplate, number> = {
-    '2col': 2, '2row': 3, '3col': 2, '2x2': 3, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 3, 'sandwich': 5, 'top4Bottom': 3, 'top6Bottom': 3, '2colLeftThird': 2, '2colRightThird': 2, '2rowTopThird': 3, '2rowBottomThird': 3,
+    '2col': 2, '2row': 3, '3row': 3, '3col': 2, '2x2': 3, '1top2bottom': 3, '1left2right': 3, 'topNarrow': 3, 'sandwich': 5, 'top4Bottom': 3, 'top6Bottom': 3, '2colLeftThird': 2, '2colRightThird': 2, '2rowTopThird': 3, '2rowBottomThird': 3,
   };
   return colSpan >= minCols[template] && rowSpan >= minRows[template];
 }
