@@ -91,7 +91,8 @@ export function MainScreen() {
     const headerVisible = header?.visible !== false;
     const headerSpan = headerVisible ? (header?.rowSpan ?? (cols >= 8 ? 1 : cols >= 2 ? 4 : 7)) : 0;
     const rowMin = headerVisible ? Math.ceil(headerSpan) : 0;
-    const totalRows = headerVisible ? rows + headerSpan : rows - headerSpan;
+    // 组件区行数恒 = grid.rows - 1（主体可用网格固定 6 行），总行格 = 组件区 + 顶栏行
+    const totalRows = headerVisible ? (rows - 1) + headerSpan : rows - headerSpan;
     const cellW = (width - gap * (cols + 1)) / cols;
     const cellH = headerVisible
       ? (height - gap * (totalRows + 2)) / totalRows

@@ -341,7 +341,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   //   格大小随可用空间自适应；顶栏高度 = rowSpan 个行格，0.5 行 = 半个格，与网格线对齐无缝隙）。
   //   顶栏隐藏时行被释放，组件区变大（cellH 自动变大 → 组件拉伸）
   const headerVisible = header?.visible !== false;
-  const totalRows = headerVisible ? activeGrid.rows + headerRowSpan : activeGrid.rows - headerRowSpan;
+  // ★ 组件区行数恒 = grid.rows - 1（主体可用网格固定 6 行），顶栏变高 → 总行格增大、格变小
+  const componentRows = Math.max(1, activeGrid.rows - 1);
+  const totalRows = headerVisible ? componentRows + headerRowSpan : activeGrid.rows - headerRowSpan;
   const { cellW, cellH } = useMemo(
     () => headerVisible
       ? cellMetricsContinuous(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, totalRows)
@@ -352,8 +354,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   // ★ 组件网格（绝对行坐标）：行上界 = widgetRowMin + 组件区行数（固定）——
   //   组件区恒 grid.rows 行格，网格显示与组件放置共用此上界
   const widgetGrid = useMemo(
-    () => ({ ...activeGrid, rows: widgetRowMin + activeGrid.rows }),
-    [activeGrid, widgetRowMin],
+    () => ({ ...activeGrid, rows: widgetRowMin + componentRows }),
+    [activeGrid, widgetRowMin, componentRows],
   );
 
   // ★ 顶栏：连续行格高度（rowSpan * 行格），与网格行格对齐
@@ -1044,7 +1046,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           canvasWidth={activeCanvasW}
           canvasHeight={activeCanvasH}
           headerBottom={headerBottom}
-          componentRows={activeGrid.rows}
+          componentRows={componentRows}
         />
       )}
 
