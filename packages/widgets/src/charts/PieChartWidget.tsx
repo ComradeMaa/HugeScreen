@@ -94,6 +94,10 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
               formatter: '{b}: {d}%',
               color: '#E8E8EC',
               fontSize: 10,
+              // ★ 长名称完整显示：超出宽度自动换行（overflow: 'break'），不再截断成省略号
+              overflow: 'break' as const,
+              width: 140,
+              lineHeight: 13,
             } : { show: false },
             labelLine: showLine ? {
               show: true,
