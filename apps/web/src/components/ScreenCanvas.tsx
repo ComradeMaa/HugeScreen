@@ -982,7 +982,14 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       {backgroundEffect === 'low-poly' && (
         <LowPolyBg canvasW={activeCanvasW} canvasH={activeCanvasH} />
       )}
-      {isEditing && <GridOverlay grid={grid} canvasWidth={activeCanvasW} canvasHeight={activeCanvasH} headerBottom={headerBottom} />}
+      {isEditing && (
+        <GridOverlay
+          grid={{ ...grid, rows: effectiveRows }}
+          canvasWidth={activeCanvasW}
+          canvasHeight={activeCanvasH}
+          headerBottom={headerBottom}
+        />
+      )}
 
       {/* ═══ 固定顶栏 ═══ */}
       {header?.visible !== false && (
