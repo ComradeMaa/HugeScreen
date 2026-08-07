@@ -742,9 +742,13 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     const clone = sourceEl.cloneNode(true) as HTMLElement;
     // ★ 移除克隆体中的 ECharts canvas：图表克隆后动画循环继续每帧重绘 canvas，
     //   叠加克隆体每帧移动会卡顿（饼图等 ECharts 组件明显）—— 用背景占位替代。
+    //   ★ 占位 div 必须是普通流内块级 + 继承 canvas 尺寸 —— 绝对定位 + inset:0
+    //   在父容器无定位祖先时会相对视口铺满，导致克隆体外观巨大。
     clone.querySelectorAll('canvas').forEach((c) => {
       const ph = document.createElement('div');
-      ph.style.cssText = 'position:absolute;inset:0;background:rgba(30,30,36,0.9)';
+      ph.style.background = 'rgba(30,30,36,0.9)';
+      ph.style.width = c.style.width || '100%';
+      ph.style.height = c.style.height || '100%';
       c.replaceWith(ph);
     });
     clone.className = 'hugescreen-drag-clone';
