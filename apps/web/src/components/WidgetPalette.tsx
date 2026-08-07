@@ -4,6 +4,7 @@ import type { WidgetDefinition } from '@hugescreen/core';
 import type { WidgetCategory } from '@hugescreen/shared';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { HeaderElementDefinition } from '@hugescreen/widgets';
+import { setDragPaletteType } from '../store/dragState';
 import {
   TrendingUp,
   LineChart,
@@ -1081,6 +1082,8 @@ function PaletteItem({ widget, onDelete, onRename }: { widget: WidgetDefinition;
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/widget-type', widget.type);
     e.dataTransfer.effectAllowed = 'copy';
+    // ★ dragover 阶段无法 getData → 暂存模块级，供画布计算 defaultSize 预览
+    setDragPaletteType(widget.type);
     const thumb = createWidgetThumbnail(widget.type, 120, 72);
     e.dataTransfer.setDragImage(thumb, 60, 36);
     requestAnimationFrame(() => thumb.remove());
@@ -1090,6 +1093,7 @@ function PaletteItem({ widget, onDelete, onRename }: { widget: WidgetDefinition;
     <div
       draggable
       onDragStart={handleDragStart}
+      onDragEnd={() => setDragPaletteType(null)}
       className="flex items-center gap-2.5 px-2.5 py-2 rounded-md cursor-grab active:cursor-grabbing
         hover:bg-surface-hover transition-colors group border border-transparent hover:border-[rgba(255,255,255,0.04)]"
     >
@@ -1154,6 +1158,7 @@ function HeaderPaletteItem({ element }: { element: HeaderElementDefinition }) {
     <div
       draggable
       onDragStart={handleDragStart}
+      onDragEnd={() => setDragPaletteType(null)}
       className="flex items-center gap-2.5 px-2.5 py-2 rounded-md cursor-grab active:cursor-grabbing
         hover:bg-surface-hover transition-colors group border border-transparent hover:border-[rgba(255,255,255,0.04)]"
     >

@@ -1,10 +1,10 @@
 import { Suspense, lazy, useMemo, useRef, useState, useCallback, useEffect, Fragment } from 'react';
-import { useEditorStore } from '../store/editorStore';
-import { CANONICAL_SLOTS, CENTER_SLOT, findSlotAt } from '../store/defaultLayout';
-import { widgetRegistry, layoutEngine } from '@hugescreen/core';
+import { useEditorStore, computePlacement } from '../store/editorStore';
+import { widgetRegistry, layoutEngine, clampToGrid } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
-import type { WidgetConfig } from '@hugescreen/shared';
+import type { WidgetConfig, WidgetLayout } from '@hugescreen/shared';
 import { mergePreservingMeta } from '@hugescreen/data';
+import { dragPaletteType } from '../store/dragState';
 import { useWidgetData } from '../hooks/useWidgetData';
 import { EnergyFlow } from './EnergyFlow';
 import { LowPolyBg } from './LowPolyBg';
@@ -149,65 +149,7 @@ interface BlockSlot {
   rowSpan: number;
 }
 
-function isSlotHardBlocked(
-  slot: BlockSlot,
-  widgets: WidgetConfig[],
-  excludeId?: string,
-): boolean {
-  return widgets.some((w) => {
-    if (w.id === excludeId) return false;
-    return layoutEngine.overlaps(
-      { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
-      slot,
-    );
-  });
-}
-
-/**
- * 检测槽位是否被「不可压缩」的组件阻挡。
- * - 中央大区块（4×6 区域）→ 永远阻挡
- * - 组件占据多个标准槽位（merge 扩大 / swap 后）→ 不阻挡，允许 reflow 截断
- * - 组件处于默认尺寸 → 阻挡
- */
-function isSlotBlockedByUnexpanded(
-  slot: BlockSlot,
-  widgets: WidgetConfig[],
-): boolean {
-  const blocker = getOverlappingWidget(slot, widgets);
-  if (!blocker) return false;
-
-  // 中央大区块 → 永远不可截断
-  if (
-    layoutEngine.overlaps(
-      { col: blocker.layout.col, row: blocker.layout.row, colSpan: blocker.layout.colSpan, rowSpan: blocker.layout.rowSpan },
-      CENTER_SLOT,
-    )
-  ) {
-    return true;
-  }
-
-  // ★ 检查组件是否占据超过一个标准槽位（merge 扩大 或 swap 后布局跨越多个槽位）
-  const canonicalSlot = findSlotAt(blocker.layout.col, blocker.layout.row);
-  if (canonicalSlot) {
-    const blockerArea = blocker.layout.colSpan * blocker.layout.rowSpan;
-    const slotArea = canonicalSlot.colSpan * canonicalSlot.rowSpan;
-    // 面积 > 单个标准槽位 → 可分割（无论是否 swap 导致）
-    if (blockerArea > slotArea) return false;
-  }
-
-  // 检查组件是否被扩大过（超出注册默认尺寸）
-  const def = widgetRegistry.get(blocker.type);
-  const defColSpan = def?.defaultSize?.colSpan ?? blocker.layout.colSpan;
-  const defRowSpan = def?.defaultSize?.rowSpan ?? blocker.layout.rowSpan;
-  const isExpanded =
-    blocker.layout.colSpan > defColSpan ||
-    blocker.layout.rowSpan > defRowSpan;
-
-  // 未扩大 → 阻挡；已扩大 → 放行，由 reflowOnAdd 截断
-  return !isExpanded;
-}
-
-/** 获取槽位中重叠的组件（不检查大小限制），用于交换检测 */
+/** 获取与区域重叠的组件（不检查大小限制），用于交换检测 */
 function getOverlappingWidget(
   slot: BlockSlot,
   widgets: WidgetConfig[],
@@ -220,6 +162,43 @@ function getOverlappingWidget(
       slot,
     );
   }) ?? null;
+}
+
+/**
+ * 自由网格落点计算（R3 唯一路径的入口，dragover/drop 共用）：
+ * - 新组件（copy）：cell 为左上角 + 注册 defaultSize 尺寸，clamp 网格边界；
+ *   与已有组件重叠 → computePlacement 避让（reflow 截断扩大者 / findFreeSlot 兜底）
+ * - 移动（move）：cell 为左上角 + 保持原尺寸；与其他组件重叠 → 返回 blocker（交换预览），
+ *   否则直接放置
+ */
+function computeDropLayout(
+  widgets: WidgetConfig[],
+  grid: import('@hugescreen/shared').GridConfig,
+  cell: { col: number; row: number },
+  kind: 'copy' | 'move',
+  wid: string | null,
+  defSize?: { colSpan: number; rowSpan: number },
+): { layout: WidgetLayout; blocker?: WidgetConfig } {
+  if (kind === 'move' && wid) {
+    const dragged = widgets.find((w) => w.id === wid);
+    if (!dragged) return { layout: { col: cell.col, row: cell.row, colSpan: 1, rowSpan: 1 } };
+    const desired = clampToGrid(
+      { col: cell.col, row: cell.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan },
+      grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1,
+    );
+    const blocker = widgets.find((w) => w.id !== wid && layoutEngine.overlaps(desired, w.layout));
+    if (blocker) return { layout: desired, blocker };
+    return { layout: desired };
+  }
+  // copy：新组件 = 落点左上角 + 注册默认尺寸
+  const size = defSize ?? { colSpan: 2, rowSpan: 2 };
+  const desired = clampToGrid(
+    { col: cell.col, row: cell.row, colSpan: size.colSpan, rowSpan: size.rowSpan },
+    grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1,
+  );
+  // 与已有组件重叠 → 避让（可能被 reflow 截断或 findFreeSlot 移开）
+  const { layout } = computePlacement(widgets, { layout: desired }, grid);
+  return { layout };
 }
 
 // ─── 像素计算 ───
@@ -299,11 +278,12 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   const lastSwapTargetId = useRef<string | null>(null); // 上一个被"挤"的组件 ID，用于归位动画
   const lastHeaderSwapInfo = useRef<{ targetSlotId: string; sourceSlotId: string } | null>(null); // 顶栏交换归位动画
 
-  type Preview = BlockSlot & { blocked?: boolean; swapping?: boolean };
+  // 自由网格拖放预览：layout = 最终放置位置（可能已被避让），swapping = 交换模式
+  type Preview = { layout: WidgetLayout; swapping?: boolean };
   const [dropPreview, setDropPreview] = useState<Preview | null>(null);
 
   // 拖拽交换预览：拖拽已有组件到另一个组件上时，目标组件被"挤"到原位置
-  type DragSwap = { targetWidgetId: string; originSlot: BlockSlot; targetSlot: BlockSlot };
+  type DragSwap = { targetWidgetId: string; originSlot: BlockSlot };
   const [dragSwap, setDragSwap] = useState<DragSwap | null>(null);
 
   const dynamicHRows = header?.visible !== false ? headerRows(activeGrid.cols) : 0;
@@ -368,19 +348,6 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     for (const p of positions) map.set(p.id, p);
     return map;
   }, [positions]);
-
-  const isCenterEmpty = useMemo(() => {
-    return !visibleWidgets.some((w) => {
-      const wEndCol = w.layout.col + w.layout.colSpan;
-      const wEndRow = w.layout.row + w.layout.rowSpan;
-      return (
-        w.layout.col < CENTER_SLOT.col + CENTER_SLOT.colSpan &&
-        wEndCol > CENTER_SLOT.col &&
-        w.layout.row < CENTER_SLOT.row + CENTER_SLOT.rowSpan &&
-        wEndRow > CENTER_SLOT.row
-      );
-    });
-  }, [visibleWidgets]);
 
   const clientToDesign = useCallback(
     (clientX: number, clientY: number) => {
@@ -609,43 +576,43 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     if (y < headerBottom) { setDropPreview(null); lastDropRef.current = null; return; }
 
     const cell = layoutEngine.pixelToCell(x, y, 1, 1, grid, canvas.width, canvas.height);
-    const slot = findSlotAt(cell.col, cell.row);
-    if (!slot) { setDropPreview(null); lastDropRef.current = null; return; }
 
     if (e.dataTransfer.types.includes('application/widget-type')) {
       e.dataTransfer.dropEffect = 'copy';
-      const key = `copy:${slot.col}:${slot.row}`;
+      // ★ dragover 无法 getData → 用模块级暂存的类型查 defaultSize（R3 预览 = 最终）
+      const type = dragPaletteType;
+      const def = type ? widgetRegistry.get(type) : undefined;
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.defaultSize);
+      const key = `copy:${layout.col}:${layout.row}:${layout.colSpan}:${layout.rowSpan}`;
       if (lastDropRef.current === key) return;
       lastDropRef.current = key;
       setDragSwap(null);
-      setDropPreview({ ...slot, blocked: isSlotBlockedByUnexpanded(slot, widgets) });
+      setDropPreview({ layout });
     } else if (e.dataTransfer.types.includes('application/widget-id')) {
       e.dataTransfer.dropEffect = 'move';
       // ★ 使用 ref 而非 getData()：Chrome 在 dragover 中禁止 getData() 读取自定义类型
       const wid = draggingWidgetId.current;
       if (!wid) { setDragSwap(null); setDropPreview(null); return; }
-      const blocker = getOverlappingWidget(slot, widgets, wid);
-      const dragged = blocker ? widgets.find((w) => w.id === wid) : null;
-      if (blocker && dragged) {
-        // 已有组件拖到同类组件上 → 交换预览（不检查大小）
-        const key = `swap:${blocker.id}:${slot.col}:${slot.row}`;
+      const { layout, blocker } = computeDropLayout(widgets, grid, cell, 'move', wid);
+      if (blocker) {
+        // 拖到其他组件上 → 交换预览
+        const key = `swap:${blocker.id}:${layout.col}:${layout.row}`;
         if (lastDropRef.current === key) return;
         lastDropRef.current = key;
         lastSwapTargetId.current = blocker.id;
         setDragSwap({
           targetWidgetId: blocker.id,
-          originSlot: { col: dragged.layout.col, row: dragged.layout.row, colSpan: dragged.layout.colSpan, rowSpan: dragged.layout.rowSpan },
-          targetSlot: { ...slot },
+          originSlot: { col: blocker.layout.col, row: blocker.layout.row, colSpan: blocker.layout.colSpan, rowSpan: blocker.layout.rowSpan },
         });
-        setDropPreview({ ...slot, swapping: true });
+        setDropPreview({ layout, swapping: true });
         return;
       }
-      const key = `move:${slot.col}:${slot.row}`;
+      const key = `move:${layout.col}:${layout.row}`;
       if (lastDropRef.current === key) return;
       lastDropRef.current = key;
       // 不在这里清 lastSwapTargetId：保留它让组件归位也有动画
       setDragSwap(null);
-      setDropPreview({ ...slot, blocked: false });
+      setDropPreview({ layout });
     } else {
       e.dataTransfer.dropEffect = 'none';
     }
@@ -675,24 +642,24 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     if (y < headerBottom) return;
 
     const cell = layoutEngine.pixelToCell(x, y, 1, 1, grid, canvas.width, canvas.height);
-    const slot = findSlotAt(cell.col, cell.row);
-    if (!slot) return;
 
+    // drop 时 getData 可用，直接用真实类型（dragPaletteType 仅供 dragover 预览计算尺寸）
     const wt = e.dataTransfer.getData('application/widget-type');
     if (wt) {
-      if (isSlotBlockedByUnexpanded(slot, widgets)) return;
-      addWidget(wt, { ...slot });
+      const def = widgetRegistry.get(wt);
+      const { layout } = computeDropLayout(widgets, grid, cell, 'copy', null, def?.defaultSize);
+      addWidget(wt, { ...layout });
       return;
     }
     // ★ 优先用 ref（dragover 中 getData 不可用），drop 时 ref 兜底
     const wid = draggingWidgetId.current || e.dataTransfer.getData('application/widget-id');
     if (wid) {
-      // 直接在 drop 时检测交换（使用纯重叠检测，不受组件大小限制）
-      const blocker = getOverlappingWidget(slot, widgets, wid);
+      // drop 时检测交换（使用纯重叠检测，不受组件大小限制）
+      const { layout, blocker } = computeDropLayout(widgets, grid, cell, 'move', wid);
       if (blocker) {
         swapWidgetLayouts(wid, blocker.id);
       } else {
-        moveWidget(wid, { ...slot });
+        moveWidget(wid, { ...layout });
       }
     }
   }, [clientToDesign, grid, canvas.width, canvas.height, widgets, addWidget, moveWidget, swapWidgetLayouts, headerBottom]);
@@ -1169,59 +1136,23 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         />
       )}
 
-      {/* ═══ 中心空提示 ═══ */}
-      {isEditing && isCenterEmpty && (
-        <div
-          className="absolute flex items-center justify-center pointer-events-none z-20"
-          style={slotToPx(CENTER_SLOT, cellW, cellH, grid.gap)}
-        >
-          <span className="text-sm text-textSecondary/25 tracking-widest select-none">Ctrl+E 以添加组件</span>
-        </div>
-      )}
-
-      {/* ═══ 可用区块提示（低图层，已有组件自然遮挡不可用位置） ═══ */}
-      {showWidgetSlotsHint && CANONICAL_SLOTS.map(slot => (
-        <div
-          key={`whint-${slot.col}-${slot.row}`}
-          className="absolute pointer-events-none z-35"
-          style={{
-            ...slotToPx(slot, cellW, cellH, grid.gap),
-            border: '1px solid rgba(0,212,255,0.2)',
-            backgroundColor: 'rgba(0,212,255,0.03)',
-            borderRadius: 4,
-          }}
-        />
-      ))}
-
-      {/* ═══ 拖入预览 ═══ */}
+      {/* ═══ 拖入预览（自由网格：layout 即最终放置位置，可能已被避让） ═══ */}
       {isEditing && dropPreview && (
         <div
           className="absolute pointer-events-none z-40"
           style={{
             ...slotToPx(
               header?.visible === false
-                ? { ...dropPreview, row: Math.max(0, dropPreview.row - BASE_HEADER_ROWS) }
-                : dropPreview,
+                ? { ...dropPreview.layout, row: Math.max(0, dropPreview.layout.row - BASE_HEADER_ROWS) }
+                : dropPreview.layout,
               cellW, cellH, grid.gap
             ),
-            backgroundColor: dropPreview.blocked
-              ? 'rgba(248,113,113,0.12)'
-              : 'rgba(0,212,255,0.12)',
-            border: dropPreview.blocked
-              ? '2px solid rgba(248,113,113,0.55)'
-              : '2px solid rgba(0,212,255,0.6)',
-            boxShadow: dropPreview.blocked
-              ? 'none'
-              : '0 0 16px rgba(0,212,255,0.35), inset 0 0 8px rgba(0,212,255,0.1)',
+            backgroundColor: 'rgba(0,212,255,0.12)',
+            border: '2px solid rgba(0,212,255,0.6)',
+            boxShadow: '0 0 16px rgba(0,212,255,0.35), inset 0 0 8px rgba(0,212,255,0.1)',
             borderRadius: 4,
           }}
-        >
-          {dropPreview.blocked && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-negative/80 text-xs font-semibold bg-surface-panel/90 px-2 py-0.5 rounded">此区块已有组件</span>
-            </div>
-          )}
-        </div>
+        />
       )}
 
 
@@ -1239,9 +1170,6 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         if (!px) return null;
         const def = widgetRegistry.get(widget.type);
         const Comp = def?.component;
-        const isCenter = widget.layout.col === CENTER_SLOT.col &&
-          widget.layout.colSpan >= CENTER_SLOT.colSpan &&
-          widget.layout.row === CENTER_SLOT.row;
         const isSelected = widget.id === selectedWidgetId;
         const hasBorder = !!widget.style.borderStyle && widget.style.borderStyle !== 'none';
         const borderOutset = 12; // 边框向外溢出 px（利用网格间距容纳边框）
@@ -1272,7 +1200,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
             onDragStart={e => handleWidgetDragStart(e, widget.id)}
             onDragEnd={e => handleWidgetDragEnd(e, widget.id)}
           >
-            {!isEditing && <CornerAccent isCenter={isCenter} />}
+            {!isEditing && <CornerAccent />}
             {isEditing && isSelected && (
               <>
                 {/* 选中光环 */}
@@ -1290,7 +1218,6 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
             <WidgetTitleBar
               primary={widget.style.title?.primary}
               secondary={widget.style.title?.secondary}
-              isCenter={isCenter}
               isEditing={isEditing}
               accentColor={theme.colors.primary}
             />
@@ -1363,12 +1290,11 @@ function GridOverlay({ grid, canvasWidth, canvasHeight }: { grid: { cols: number
 interface WidgetTitleBarProps {
   primary?: { text: string };
   secondary?: { text: string };
-  isCenter: boolean;
   isEditing: boolean;
   accentColor: string;
 }
 
-function WidgetTitleBar({ primary, secondary, isCenter, isEditing, accentColor }: WidgetTitleBarProps) {
+function WidgetTitleBar({ primary, secondary, isEditing, accentColor }: WidgetTitleBarProps) {
   const hasPrimary = !!primary?.text;
   const hasSecondary = !!secondary?.text;
   const hasAny = hasPrimary || hasSecondary;
@@ -1425,18 +1351,14 @@ function WidgetTitleBar({ primary, secondary, isCenter, isEditing, accentColor }
         )}
       </div>
 
-      {/* 中心组件展示态：装饰渐变线 */}
-      {isCenter && !isEditing && (
-        <div className="flex-1 ml-3 h-px bg-gradient-to-r from-accent-cool/30 to-transparent flex-shrink-0" />
-      )}
     </div>
   );
 }
 
 // ─── HUD 角标 ───
-function CornerAccent({ isCenter }: { isCenter: boolean }) {
-  const alpha = isCenter ? 0.25 : 0.12;
-  const size = isCenter ? 16 : 10;
+function CornerAccent() {
+  const alpha = 0.12;
+  const size = 10;
   const corners = [
     { style: { top: 2, left: 2, borderTop: 1, borderLeft: 1 } },
     { style: { top: 2, right: 2, borderTop: 1, borderRight: 1 } },

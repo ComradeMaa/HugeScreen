@@ -14,7 +14,7 @@ import { widgetRegistry, layoutEngine } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import { registerCustomComponent, unregisterCustomComponent, deepInlineSlots, setCompositeConfig } from '@hugescreen/widgets/composite';
 import { generateId } from '../utils/id';
-import { DEFAULT_GRID as LAYOUT_GRID, findSlotAt, type ScreenSlot } from './defaultLayout';
+import { DEFAULT_GRID as LAYOUT_GRID } from './defaultLayout';
 import defaultScreenConfig from './defaultScreenConfig.json';
 
 // ─── 文件上传暂存（File 不可序列化，存模块级 Map）───
@@ -157,152 +157,44 @@ interface EditorState {
   loadConfig: (json: string) => void;
   exportConfig: () => void;
   importConfig: () => void;
-  loadSlots: (slots: ScreenSlot[]) => void;
-}
-
-/** 根据默认槽位创建初始组件 */
-function createDefaultWidgets(slots: ScreenSlot[]): WidgetConfig[] {
-  return slots.map((slot) => ({
-    id: generateId(),
-    type: slot.defaultType,
-    displayName: slot.label,
-    category: slot.category,
-    layout: slot.layout,
-    dataSource: {
-      type: 'static',
-      config: {},
-      mapping: {},
-      staticData: slot.defaultData ?? [],
-    },
-    options: slot.defaultOptions ?? {},
-    animation: { enabled: true },
-    style: {
-      title: { primary: { text: slot.label } },
-      ...(slot.defaultStyle as object),
-    },
-  }));
 }
 
 /**
- * 删除组件后，尝试将同列相邻组件扩展填充空位。
- * 优先「下方组件上移」，其次「上方组件下扩」。
+ * R1：组件是否「被扩大过」（> 注册默认尺寸）→ 可被新落点截断。
+ * 自由网格下默认尺寸组件 = 固体障碍（防意外截断回归）。
  */
-function mergeSlotsAfterRemove(widgets: WidgetConfig[], removed: WidgetConfig, gridRows: number): WidgetConfig[] {
-  const { col, row, colSpan, rowSpan } = removed.layout;
-  const removedRowEnd = row + rowSpan;
-
-  // 尝试找正下方同列等宽的组件 → 上移扩展
-  const belowIdx = widgets.findIndex(
-    (w) =>
-      w.layout.col === col &&
-      w.layout.colSpan === colSpan &&
-      w.layout.row === removedRowEnd,
-  );
-
-  if (belowIdx !== -1) {
-    const below = widgets[belowIdx];
-    const newRowSpan = rowSpan + below.layout.rowSpan;
-    // Guard: ensure expanded widget stays within grid bounds
-    if (row + newRowSpan <= gridRows) {
-      const merged: WidgetConfig = {
-        ...below,
-        layout: {
-          ...below.layout,
-          row,
-          rowSpan: newRowSpan,
-        },
-      };
-      return widgets.map((w, i) => (i === belowIdx ? merged : w));
-    }
-  }
-
-  // 尝试找正上方同列等宽的组件 → 下扩填充
-  const aboveIdx = widgets.findIndex(
-    (w) =>
-      w.layout.col === col &&
-      w.layout.colSpan === colSpan &&
-      w.layout.row + w.layout.rowSpan === row,
-  );
-
-  if (aboveIdx !== -1) {
-    const above = widgets[aboveIdx];
-    const newRowSpan = above.layout.rowSpan + rowSpan;
-    // Guard: ensure expanded widget stays within grid bounds
-    if (above.layout.row + newRowSpan <= gridRows) {
-      const merged: WidgetConfig = {
-        ...above,
-        layout: {
-          ...above.layout,
-          rowSpan: newRowSpan,
-        },
-      };
-      return widgets.map((w, i) => (i === aboveIdx ? merged : w));
-    }
-  }
-
-  return widgets;
+export function isTruncatable(w: WidgetConfig): boolean {
+  const def = widgetRegistry.get(w.type);
+  const defRowSpan = def?.defaultSize?.rowSpan ?? w.layout.rowSpan;
+  const defColSpan = def?.defaultSize?.colSpan ?? w.layout.colSpan;
+  return w.layout.rowSpan > defRowSpan || w.layout.colSpan > defColSpan;
 }
 
 /**
- * 添加组件时的反向 reflow：如果新组件的目标位置与已被合并扩大的组件重叠，
- * 把被扩大组件缩回其注册默认尺寸，腾出空间给新组件。
- *
- * 三场景覆盖：
- *   I.   新组件在顶部  → 旧组件向下收缩（row 下移，rowSpan 减少）
- *   II.  新组件在底部  → 旧组件向上收缩（rowSpan 减少）
- *   III. 新组件在中间  → 旧组件保留最上方部分，下方释放为空区块
- *
- * ★ 兼容 swap 后的多槽位组件：组件布局跨越多个标准槽位时（即使未超过自身默认尺寸），
- *   也能被新组件截断——以标准槽位尺寸为最小阈值，而非组件默认尺寸。
+ * 添加/移动组件时的反向 reflow：与目标位置重叠的「被扩大组件」收缩腾空间。
+ * R1：只有扩大过的组件可截断；R2：收缩下限 = 注册 minSize，全覆盖缩回默认尺寸并锚定自身左上角。
+ * 场景：
+ *   I.   新组件在顶部 → 旧组件向下收缩
+ *   II.  新组件在底部 → 旧组件向上收缩
+ *   III. 新组件在中间 → 旧组件保留最上方部分
+ *   IV.  新组件完全覆盖 → 缩回注册默认尺寸（锚定自身左上角，不移动到落点）
  */
-function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetConfig[] {
+function reflowOnAdd(widgets: WidgetConfig[], incoming: { layout: WidgetLayout }): WidgetConfig[] {
   const inc = incoming.layout;
 
   return widgets.map((existing) => {
     const ex = existing.layout;
-    const overlaps = layoutEngine.overlaps(
+    if (!layoutEngine.overlaps(
       { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
       { col: ex.col, row: ex.row, colSpan: ex.colSpan, rowSpan: ex.rowSpan },
-    );
-    if (!overlaps) return existing;
+    )) return existing;
+    if (!isTruncatable(existing)) return existing;
 
     const def = widgetRegistry.get(existing.type);
     const defRowSpan = def?.defaultSize?.rowSpan ?? ex.rowSpan;
     const defColSpan = def?.defaultSize?.colSpan ?? ex.colSpan;
-
-    // ── 可分割判定 ──
-    const defMinRowSpan = def?.minSize?.rowSpan ?? 1;
-    const defMinColSpan = def?.minSize?.colSpan ?? 1;
-
-    // 条件 A：组件被 merge 扩大过（rowSpan/colSpan > 默认）
-    const isExpanded = ex.rowSpan > defRowSpan || ex.colSpan > defColSpan;
-    // 条件 B：组件布局跨越多个标准槽位（swap 后常见：中心组件换到侧栏 2×4）
-    const canonicalSlot = findSlotAt(ex.col, ex.row);
-    const spansMultipleSlots = canonicalSlot
-      ? (ex.colSpan * ex.rowSpan > canonicalSlot.colSpan * canonicalSlot.rowSpan)
-      : false;
-    // 条件 C：组件当前尺寸大于注册最小尺寸（默认尺寸较大的组件允许被新组件截断）
-    const isAboveMin = ex.rowSpan > defMinRowSpan || ex.colSpan > defMinColSpan;
-
-    // 三种条件都不满足 → 不可截断
-    if (!isExpanded && !spansMultipleSlots && !isAboveMin) return existing;
-
-    // 最小阈值：
-    //   扩大过 → 用组件默认尺寸
-    //   跨多槽位 → 用标准槽位尺寸
-    //   仅超过最小尺寸 → 用组件注册的 minSize
-    let minRowSpan: number;
-    let minColSpan: number;
-    if (isExpanded) {
-      minRowSpan = defRowSpan;
-      minColSpan = defColSpan;
-    } else if (spansMultipleSlots) {
-      minRowSpan = canonicalSlot?.rowSpan ?? defRowSpan;
-      minColSpan = canonicalSlot?.colSpan ?? defColSpan;
-    } else {
-      minRowSpan = defMinRowSpan;
-      minColSpan = defMinColSpan;
-    }
+    const minRowSpan = def?.minSize?.rowSpan ?? 1;
+    const minColSpan = def?.minSize?.colSpan ?? 1;
 
     const incRowEnd = inc.row + inc.rowSpan;
     const exRowEnd = ex.row + ex.rowSpan;
@@ -336,14 +228,47 @@ function reflowOnAdd(widgets: WidgetConfig[], incoming: WidgetConfig): WidgetCon
       }
     }
 
-    // ═══ 场景 IV：新组件完全覆盖已扩大的组件 → 缩回默认尺寸 ═══
-    // （仅限真正被 merge 扩大的组件；swap 产生的多槽位不由场景 IV 处理，交由 findFreeSlot 转移）
-    if (isExpanded && inc.row <= ex.row && incRowEnd >= exRowEnd) {
-      return { ...existing, layout: { ...ex, row: inc.row, rowSpan: defRowSpan, col: inc.col, colSpan: defColSpan } };
+    // ═══ 场景 IV：新组件完全覆盖 → 缩回默认尺寸（锚定自身左上角） ═══
+    if (inc.row <= ex.row && incRowEnd >= exRowEnd) {
+      return { ...existing, layout: { ...ex, colSpan: defColSpan, rowSpan: defRowSpan } };
     }
 
     return existing;
   });
+}
+
+/**
+ * R3：唯一放置路径（拖放预览与 drop 提交共用，保证预览 = 最终结果）。
+ * reflow 截断可截断的冲突组件 → 仍重叠则 findFreeSlot 兜底（row ≥ 1 guard）。
+ * @param others 除 incoming 外的所有组件（move 时含全部其他组件，add 时 = 全部）
+ * @returns reflow 后的 others + incoming 的最终 layout
+ */
+export function computePlacement(
+  others: WidgetConfig[],
+  incoming: { layout: WidgetLayout },
+  grid: GridConfig,
+): { widgets: WidgetConfig[]; layout: WidgetLayout } {
+  let nextWidgets = reflowOnAdd(others, incoming);
+  const inc = incoming.layout;
+  const stillOverlaps = nextWidgets.some((w) =>
+    layoutEngine.overlaps(
+      { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
+      { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
+    ),
+  );
+  if (stillOverlaps) {
+    const occupied = nextWidgets.map((w) => ({
+      col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan,
+    }));
+    occupied.push(row0Guard(grid));
+    const free = layoutEngine.findFreeSlot(
+      { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
+      occupied,
+      grid,
+    );
+    return { widgets: nextWidgets, layout: { col: free.col, row: Math.max(1, free.row), colSpan: free.colSpan, rowSpan: free.rowSpan } };
+  }
+  return { widgets: nextWidgets, layout: { ...inc } };
 }
 
 function createDefaultHeader(): { slots: HeaderSlotConfig[]; visible: boolean } {
@@ -439,35 +364,11 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       },
     };
     set((s) => {
-      // ★ 关键：reflow — 如果新组件落点有被合并扩大的组件，先缩回腾空间
-      let widgets = reflowOnAdd(s.config.widgets, newWidget);
-      // 检测 reflow 后是否还有重叠，有则用 findFreeSlot 找不重叠位置
-      const incomingCell = {
-        col: newWidget.layout.col,
-        row: newWidget.layout.row,
-        colSpan: newWidget.layout.colSpan,
-        rowSpan: newWidget.layout.rowSpan,
-      };
-      const stillOverlaps = widgets.some((w) =>
-        layoutEngine.overlaps(incomingCell, {
-          col: w.layout.col,
-          row: w.layout.row,
-          colSpan: w.layout.colSpan,
-          rowSpan: w.layout.rowSpan,
-        }),
-      );
-      if (stillOverlaps) {
-        const occupied = widgets.map((w) => ({
-          col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan,
-        }));
-        occupied.push(row0Guard(s.config.grid));
-        const free = layoutEngine.findFreeSlot(incomingCell, occupied, s.config.grid);
-        // 确保不会落在 row 0
-        newWidget.layout = { col: free.col, row: Math.max(1, free.row), colSpan: free.colSpan, rowSpan: free.rowSpan };
-      }
-      widgets.push(newWidget);
+      // ★ R3 唯一路径：reflow 截断冲突的扩大组件 → 兜底 findFreeSlot → 最终 layout
+      const { widgets: others, layout: finalLayout } = computePlacement(s.config.widgets, newWidget, s.config.grid);
+      newWidget.layout = finalLayout;
       return {
-        config: { ...s.config, widgets },
+        config: { ...s.config, widgets: [...others, newWidget] },
         selectedWidgetId: newWidget.id,
       };
     });
@@ -478,11 +379,7 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     const removed = state.config.widgets.find((w) => w.id === id);
     if (!removed) return;
 
-    let widgets = state.config.widgets.filter((w) => w.id !== id);
-
-
-    // 侧边栏槽位合并：删除后下方/上方同列组件扩展填充
-    widgets = mergeSlotsAfterRemove(widgets, removed, state.config.grid.rows);
+    const widgets = state.config.widgets.filter((w) => w.id !== id);
 
     set((s) => ({
       config: { ...s.config, widgets },
@@ -501,45 +398,13 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       const oldWidget = s.config.widgets.find((w) => w.id === id);
       if (!oldWidget) return s;
 
-      // 1. 从旧位置移除（不做合并 — merge 仅限于 delete 操作）
-      let widgets = s.config.widgets.map((w) => w.id === id ? { ...w, layout } : w);
-
-      // 2. 重叠守卫：如果新位置与其他组件重叠 → 调整
-      const inc = layout;
-      const others = widgets.filter((w) => w.id !== id);
-      const overlaps = others.find((w) =>
-        layoutEngine.overlaps(
-          { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
-          { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
-        ),
-      );
-      if (overlaps) {
-        // 尝试 reflow：如果重叠的是已扩大的组件，缩回默认尺寸
-        widgets = reflowOnAdd(widgets, widgets.find((w) => w.id === id)!);
-        // reflow 后仍重叠 → findFreeSlot 兜底
-        const stillOverlaps = widgets.filter((w) => w.id !== id).some((w) =>
-          layoutEngine.overlaps(
-            { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
-            { col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan },
-          ),
-        );
-        if (stillOverlaps) {
-          const occupied = widgets.filter((w) => w.id !== id).map((w) => ({
-            col: w.layout.col, row: w.layout.row, colSpan: w.layout.colSpan, rowSpan: w.layout.rowSpan,
-          }));
-          occupied.push(row0Guard(s.config.grid));
-          const free = layoutEngine.findFreeSlot(
-            { col: inc.col, row: inc.row, colSpan: inc.colSpan, rowSpan: inc.rowSpan },
-            occupied,
-            s.config.grid,
-          );
-          const idx = widgets.findIndex((w) => w.id === id);
-          if (idx !== -1) {
-            widgets[idx] = { ...widgets[idx], layout: { col: free.col, row: Math.max(1, free.row), colSpan: free.colSpan, rowSpan: free.rowSpan } };
-          }
-        }
-      }
-      return { config: { ...s.config, widgets } };
+      // ★ R3 唯一路径：others 避让（reflow 截断 + findFreeSlot 兜底）→ 最终 layout
+      const incoming = { ...oldWidget, layout };
+      const others = s.config.widgets.filter((w) => w.id !== id);
+      const { widgets: reflowed, layout: finalLayout } = computePlacement(others, incoming, s.config.grid);
+      return {
+        config: { ...s.config, widgets: [...reflowed, { ...incoming, layout: finalLayout }] },
+      };
     }),
 
   /** 原子交换两个组件的布局（不做 merge/reflow，纯位置互换） */
@@ -1057,11 +922,5 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       reader.readAsText(file);
     };
     input.click();
-  },
-
-  loadSlots: (slots: ScreenSlot[]) => {
-    set((s) => ({
-      config: { ...s.config, widgets: createDefaultWidgets(slots) },
-    }));
   },
 }));
