@@ -18,6 +18,8 @@ interface StatCardProps {
   ringPercent?: number;
   /** 占比环颜色 */
   ringColor?: string;
+  /** 数据名（标题）颜色 */
+  titleColor?: string;
   /** 数值颜色 */
   valueColor?: string;
   /** 单位颜色 */
@@ -50,6 +52,7 @@ export function StatCard({
   showRing = false,
   ringPercent = 0,
   ringColor = '#00D4FF',
+  titleColor = '#9E9EA8',
   valueColor = '#FFFFFF',
   suffixColor = '#9E9EA8',
   showTrend = false,
@@ -110,7 +113,7 @@ export function StatCard({
       {title && (
         <div className="flex items-center gap-1 mb-0.5">
           <div className="rounded-full bg-accent-cool flex-shrink-0" style={{ width: 2, height: '0.85em' }} />
-          <span className="text-textSecondary truncate" style={{ fontSize: 'clamp(9px, 9cqh, 15px)' }}>{title}</span>
+          <span className="truncate" style={{ color: titleColor, fontSize: 'clamp(9px, 9cqh, 15px)' }}>{title}</span>
         </div>
       )}
 

@@ -214,6 +214,7 @@ function SlotChartEditors({
               className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
               placeholder="指标名称" />
           </label>
+          <ColorSwatchRow label="数据名颜色" value={(opts.titleColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ titleColor: c })} />
           <label className="flex items-center justify-between mt-2">
             <span className="text-[11px] text-textSecondary/70">数值</span>
             <input type="number" value={Number(opts.value ?? 0)}
@@ -3311,6 +3312,7 @@ export function PropertyInspector() {
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
                 placeholder="指标名称" />
             </label>
+            <ColorSwatchRow label="数据名颜色" value={((widget.options as Record<string, unknown>).titleColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), titleColor: c } })} />
             <label className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-textSecondary/70">数值</span>
               <input type="number" value={Number((widget.options as Record<string, unknown>).value ?? 0)}
@@ -3619,17 +3621,36 @@ export function PropertyInspector() {
 const PRESET_VALUE_COLORS = ["#FFFFFF", "#00D4FF", "#FF8C42", "#34d399", "#f87171"];
 const PRESET_SUFFIX_COLORS = ["#9E9EA8", "#00D4FF", "#FF8C42", "#34d399"];
 
+/** input[type=color] 只接受 #RRGGBB 六位 hex；其他格式（rgba 等）回退默认色 */
+function sanitizeHex(value: string): string {
+  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000';
+}
+
+/**
+ * 颜色选择行：预设色块 + 调色盘（彩虹圆盘，点击弹出系统调色盘）。
+ * 预设保留不变，调色盘供用户自由选色 —— 所有组件共用此组件，统一获得自定义配色能力。
+ */
 function ColorSwatchRow({ label, value, colors, onChange }: { label: string; value: string; colors: string[]; onChange: (c: string) => void }) {
   return (
     <label className="flex items-center justify-between mt-2">
       <span className="text-[11px] text-textSecondary/70">{label}</span>
-      <div className="flex gap-1">
+      <div className="flex gap-1 items-center">
         {colors.map((c) => (
           <button key={c} onClick={() => onChange(c)}
             className="w-5 h-5 rounded-full border-2 transition-colors"
             style={{ backgroundColor: c, borderColor: value === c ? "#00D4FF" : "rgba(255,255,255,0.1)" }}
           />
         ))}
+        {/* 调色盘：彩虹渐变圆盘 + 透明覆盖的原生颜色选择器 */}
+        <label
+          className="relative w-5 h-5 rounded-full border border-white/20 overflow-hidden cursor-pointer flex-shrink-0"
+          style={{ background: 'conic-gradient(#f87171, #fbbf24, #34d399, #00D4FF, #a78bfa, #f87171)' }}
+          title="自定义颜色"
+        >
+          <input type="color" value={sanitizeHex(value)}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+        </label>
       </div>
     </label>
   );
