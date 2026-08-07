@@ -17,8 +17,9 @@ export function registerCustomComponent(def: CustomComponentDef): void {
     icon: 'LayoutDashboard',
     category: 'custom',
     defaultSize: def.defaultSize ?? { colSpan: 4, rowSpan: 4 },
-    minSize: { colSpan: 3, rowSpan: 3 },
-    maxSize: { colSpan: 8, rowSpan: 6 },
+    // ★ 与普通组件统一：最小 2×2（与组件池内其他组件一致），最大可铺满整个界面
+    minSize: { colSpan: 2, rowSpan: 2 },
+    maxSize: { colSpan: 99, rowSpan: 99 },
     component: CompositeChartWidget,
     configSchema: { type: 'object', properties: { compositeKey: { type: 'string', title: '组合标识' } } },
     defaultConfig: { compositeKey: def.type },
