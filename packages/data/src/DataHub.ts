@@ -65,12 +65,19 @@ class DataFetcher {
   addSubscriber(entry: SubEntry): void {
     this.subs.set(entry.widgetId, entry);
     this.recalcPolling();
-    // ★ 新订阅者立即回放最近一次成功数据（同 URL 的后来者，如自定义组件第二个实例）：
+    // ★ 新订阅者回放最近一次成功数据（同 URL 的后来者，如自定义组件第二个实例）：
     //   initialFetch 只在 Fetcher 首次创建时执行，interval=0 时没有轮询兜底——
     //   若不回放，后订阅的成员组件永远等不到数据（只有 interval>0 靠轮询才能收到）。
+    // ★ 必须异步回放：subscribe() 返回后调用方才注册 eventBus handler，
+    //   同步 emit 会让新订阅者自己错过回放（旧订阅者反而收到——诡异串扰）。
     if (this._lastRawOk) {
       console.log(`[DataHub] ${this.url} new subscriber → replay last raw (#${this._fetchCount})`);
-      this.dispatchTo(entry, this._lastRaw, true);
+      queueMicrotask(() => {
+        // 微任务执行前可能已退订（组件卸载/切换数据源）→ 保护
+        if (this.subs.get(entry.widgetId) === entry) {
+          this.dispatchTo(entry, this._lastRaw, true);
+        }
+      });
     }
   }
 
