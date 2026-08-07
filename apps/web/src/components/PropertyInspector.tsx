@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useEditorStore, stageUploadFile } from '../store/editorStore';
+import { widgetRegistry, clampToGrid } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
 import type { WidgetStyle } from '@hugescreen/shared';
 import type { CompositeSubChartType, CompositeConfig } from '@hugescreen/shared';
@@ -1751,10 +1752,24 @@ const HEADER_BORDER_OPTIONS = [
 export function PropertyInspector() {
   const {
     config, selectedWidgetId, selectedHeaderSlotId,
-    updateWidget, setHeaderSlot,
+    updateWidget, setHeaderSlot, resizeWidget,
     compositeSlotEdit, setCompositeSlotEdit,
     pinEditWidgetId, setPinEditWidgetId, selectWidget,
   } = useEditorStore();
+
+  // ★ 自由网格：布局字段数字编辑（clampToGrid 钳制网格边界 + resizeWidget 触发 reflow 避让）
+  const onLayoutField = (w: typeof config.widgets[number], field: 'col' | 'row' | 'colSpan' | 'rowSpan', value: number) => {
+    if (!Number.isFinite(value)) return;
+    const def = widgetRegistry.get(w.type);
+    const clamped = clampToGrid(
+      { ...w.layout, [field]: value },
+      config.grid,
+      def?.minSize,
+      def?.maxSize ?? { colSpan: config.grid.cols, rowSpan: config.grid.rows },
+      1,
+    );
+    resizeWidget(w.id, clamped);
+  };
 
   // ─── 组合图表槽位编辑（构建窗口中选中了子图表）───
   if (compositeSlotEdit) {
@@ -1970,13 +1985,32 @@ export function PropertyInspector() {
               <span>类型</span>
               <span className="font-mono">{widget.type}</span>
             </div>
-            <div className="flex justify-between py-0.5">
-              <span>位置</span>
-              <span className="font-mono">({widget.layout.col}, {widget.layout.row})</span>
+            {/* ★ 自由网格：布局四元组可数字编辑（经 clampToGrid + reflow 避让） */}
+            <div className="flex justify-between items-center py-0.5 gap-2">
+              <span className="flex-shrink-0">位置</span>
+              <div className="flex items-center gap-1 flex-1">
+                <span className="text-[10px] text-textSecondary/40">列</span>
+                <input type="number" min={0} value={widget.layout.col}
+                  onChange={(e) => onLayoutField(widget, 'col', Number(e.target.value))}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 w-12 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50" />
+                <span className="text-[10px] text-textSecondary/40">行</span>
+                <input type="number" min={1} value={widget.layout.row}
+                  onChange={(e) => onLayoutField(widget, 'row', Number(e.target.value))}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 w-12 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50" />
+              </div>
             </div>
-            <div className="flex justify-between py-0.5">
-              <span>尺寸</span>
-              <span className="font-mono">{widget.layout.colSpan}×{widget.layout.rowSpan}</span>
+            <div className="flex justify-between items-center py-0.5 gap-2">
+              <span className="flex-shrink-0">尺寸</span>
+              <div className="flex items-center gap-1 flex-1">
+                <span className="text-[10px] text-textSecondary/40">宽</span>
+                <input type="number" min={1} value={widget.layout.colSpan}
+                  onChange={(e) => onLayoutField(widget, 'colSpan', Number(e.target.value))}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 w-12 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50" />
+                <span className="text-[10px] text-textSecondary/40">高</span>
+                <input type="number" min={1} value={widget.layout.rowSpan}
+                  onChange={(e) => onLayoutField(widget, 'rowSpan', Number(e.target.value))}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 w-12 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50" />
+              </div>
             </div>
           </div>
         </CollapsibleFieldGroup>
