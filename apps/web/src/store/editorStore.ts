@@ -422,10 +422,21 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
     }),
 
   resizeWidget: (id: string, layout: WidgetLayout) =>
-    set((s) => ({
-      config: { ...s.config, widgets: s.config.widgets.map((w) =>
-        w.id === id ? { ...w, layout } : w) },
-    })),
+    set((s) => {
+      const self = s.config.widgets.find((w) => w.id === id);
+      if (!self) return s;
+      // R4：resize 只动自己，绝不整体位移 —— 不可截断障碍由预览期贴边阻挡，
+      // 可截断（扩大过的）障碍在提交时由 reflow 截断腾位
+      const others = s.config.widgets.filter((w) => w.id !== id);
+      const incoming = { ...self, layout };
+      const { widgets: reflowed } = computePlacement(others, incoming, s.config.grid);
+      return {
+        config: {
+          ...s.config,
+          widgets: [...reflowed, { ...incoming, layout }],
+        },
+      };
+    }),
 
   selectWidget: (id: string | null) => set({ selectedWidgetId: id, selectedHeaderSlotId: null }),
 

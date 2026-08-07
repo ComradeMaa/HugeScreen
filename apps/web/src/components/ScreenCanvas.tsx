@@ -1,8 +1,8 @@
 import { Suspense, lazy, useMemo, useRef, useState, useCallback, useEffect, Fragment } from 'react';
-import { useEditorStore, computePlacement } from '../store/editorStore';
-import { widgetRegistry, layoutEngine, clampToGrid } from '@hugescreen/core';
+import { useEditorStore, computePlacement, isTruncatable } from '../store/editorStore';
+import { widgetRegistry, layoutEngine, clampToGrid, resizeCellFromHandle, type ResizeHandle } from '@hugescreen/core';
 import { headerElementRegistry } from '@hugescreen/widgets';
-import type { WidgetConfig, WidgetLayout } from '@hugescreen/shared';
+import type { WidgetConfig, WidgetLayout, GridConfig } from '@hugescreen/shared';
 import { mergePreservingMeta } from '@hugescreen/data';
 import { dragPaletteType } from '../store/dragState';
 import { useWidgetData } from '../hooks/useWidgetData';
@@ -250,7 +250,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   const backgroundVideo = useEditorStore(s => s.backgroundVideo);
   const pinEditWidgetId = useEditorStore(s => s.pinEditWidgetId);
   // 稳定 action 引用（store 创建时固定，不会随渲染变化）
-  const { addWidget, moveWidget, swapWidgetLayouts, removeWidget,
+  const { addWidget, moveWidget, swapWidgetLayouts, removeWidget, resizeWidget,
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
     setDraggingWidget, setDraggingHeaderEl, selectWidget, selectHeaderSlot,
   } = useEditorStore.getState();
@@ -1258,10 +1258,188 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
               isSelected={isSelected}
             />
           )}
+          {/* ═══ Resize 手柄（自由网格：选中时 8 方向拉伸） ═══ */}
+          {isEditing && isSelected && (
+            <ResizeHandles
+              widget={widget}
+              px={px}
+              grid={activeGrid}
+              cellW={cellW}
+              cellH={cellH}
+              canvasWidth={activeCanvasW}
+              canvasHeight={activeCanvasH}
+              others={visibleWidgets.filter((w) => w.id !== widget.id)}
+              canvasRef={canvasRef}
+              onCommit={(layout) => resizeWidget(widget.id, layout)}
+            />
+          )}
           </Fragment>
         );
       })}
     </div>
+  );
+}
+
+// ─── Resize 手柄（自由网格：选中组件 8 方向拉伸） ───
+
+const HANDLE_POSITIONS: { handle: ResizeHandle; style: React.CSSProperties }[] = [
+  { handle: 'nw', style: { top: -6, left: -6, cursor: 'nwse-resize' } },
+  { handle: 'n',  style: { top: -6, left: '50%', marginLeft: -4, cursor: 'ns-resize' } },
+  { handle: 'ne', style: { top: -6, right: -6, cursor: 'nesw-resize' } },
+  { handle: 'e',  style: { top: '50%', right: -6, marginTop: -4, cursor: 'ew-resize' } },
+  { handle: 'se', style: { bottom: -6, right: -6, cursor: 'nwse-resize' } },
+  { handle: 's',  style: { bottom: -6, left: '50%', marginLeft: -4, cursor: 'ns-resize' } },
+  { handle: 'sw', style: { bottom: -6, left: -6, cursor: 'nesw-resize' } },
+  { handle: 'w',  style: { top: '50%', left: -6, marginTop: -4, cursor: 'ew-resize' } },
+];
+
+/**
+ * R4：resize 预览期贴边 —— 与不可截断障碍（默认尺寸组件）重叠时，
+ * 沿手柄方向把 candidate 贴到障碍边界（横纵轴独立计算）。
+ */
+function clampAgainstObstacles(
+  candidate: WidgetLayout,
+  handle: ResizeHandle,
+  others: WidgetConfig[],
+  grid: GridConfig,
+): WidgetLayout {
+  let { col, row, colSpan, rowSpan } = candidate;
+  for (const o of others) {
+    if (isTruncatable(o)) continue; // 可截断障碍放行，提交时由 reflow 截断
+    const ob = o.layout;
+    const overlaps =
+      col < ob.col + ob.colSpan && col + colSpan > ob.col &&
+      row < ob.row + ob.rowSpan && row + rowSpan > ob.row;
+    if (!overlaps) continue;
+    // 横轴：'e' 贴障碍左缘；'w' 贴障碍右缘（右边界锚定）
+    if (handle.includes('e')) {
+      colSpan = Math.min(colSpan, ob.col - col);
+    } else if (handle.includes('w')) {
+      const right = col + colSpan;
+      col = Math.max(col, ob.col + ob.colSpan);
+      colSpan = right - col;
+    }
+    // 纵轴：'s' 贴障碍上缘；'n' 贴障碍下缘（下边界锚定）
+    if (handle.includes('s')) {
+      rowSpan = Math.min(rowSpan, ob.row - row);
+    } else if (handle.includes('n')) {
+      const bottom = row + rowSpan;
+      row = Math.max(row, ob.row + ob.rowSpan);
+      rowSpan = bottom - row;
+    }
+  }
+  return clampToGrid({ col, row, colSpan, rowSpan }, grid,
+    undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1);
+}
+
+function ResizeHandles({
+  widget, px, grid, cellW, cellH, canvasWidth, canvasHeight, others, canvasRef, onCommit,
+}: {
+  widget: WidgetConfig;
+  px: { left: number; top: number; width: number; height: number };
+  grid: GridConfig;
+  cellW: number;
+  cellH: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  others: WidgetConfig[];
+  canvasRef: React.RefObject<HTMLDivElement>;
+  onCommit: (layout: WidgetLayout) => void;
+}) {
+  const [preview, setPreview] = useState<WidgetLayout | null>(null);
+  const dragRef = useRef<{
+    handle: ResizeHandle;
+    startLayout: WidgetLayout;
+    startX: number;
+    startY: number;
+    obstacles: WidgetConfig[];
+  } | null>(null);
+
+  const designAt = (clientX: number, clientY: number) => {
+    const el = canvasRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (canvasWidth / rect.width),
+      y: (clientY - rect.top) * (canvasHeight / rect.height),
+    };
+  };
+
+  const onPointerDown = (e: React.PointerEvent, handle: ResizeHandle) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const start = designAt(e.clientX, e.clientY);
+    dragRef.current = {
+      handle,
+      startLayout: widget.layout,
+      startX: start.x,
+      startY: start.y,
+      // 快照障碍（pointerdown 时捕获，避免拖拽中布局抖动）
+      obstacles: others.filter((o) => !isTruncatable(o)),
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setPreview(widget.layout);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const d = designAt(e.clientX, e.clientY);
+    const dxCells = Math.round((d.x - drag.startX) / (cellW + grid.gap));
+    const dyCells = Math.round((d.y - drag.startY) / (cellH + grid.gap));
+    const def = widgetRegistry.get(widget.type);
+    let candidate = resizeCellFromHandle(
+      drag.startLayout, drag.handle, dxCells, dyCells, grid,
+      def?.minSize ?? { colSpan: 1, rowSpan: 1 },
+      def?.maxSize ?? { colSpan: grid.cols, rowSpan: grid.rows },
+      1,
+    );
+    candidate = clampAgainstObstacles(candidate, drag.handle, drag.obstacles, grid);
+    setPreview(candidate);
+  };
+
+  const endResize = (commit: boolean) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    if (commit && preview) onCommit(preview);
+    setPreview(null);
+  };
+
+  return (
+    <>
+      {/* 幽灵预览：组件本体不动，仅提交时落库 */}
+      {preview && (
+        <div
+          className="absolute pointer-events-none z-45"
+          style={{
+            ...slotToPx(preview, cellW, cellH, grid.gap),
+            backgroundColor: 'rgba(255,140,66,0.10)',
+            border: '2px solid rgba(255,140,66,0.65)',
+            boxShadow: '0 0 14px rgba(255,140,66,0.35)',
+            borderRadius: 4,
+          }}
+        />
+      )}
+      {/* 手柄覆盖层（widget div 的兄弟，避开 overflow-hidden 裁剪） */}
+      <div
+        className="absolute z-45"
+        style={{ left: px.left, top: px.top, width: px.width, height: px.height, pointerEvents: 'none' }}
+      >
+        {HANDLE_POSITIONS.map(({ handle, style }) => (
+          <div
+            key={handle}
+            className="absolute w-2 h-2 rounded-sm bg-accent-warm border border-black/40"
+            style={{ ...style, pointerEvents: 'auto', touchAction: 'none', boxShadow: '0 0 6px rgba(255,140,66,0.8)' }}
+            onPointerDown={(e) => onPointerDown(e, handle)}
+            onPointerMove={onPointerMove}
+            onPointerUp={() => endResize(true)}
+            onPointerCancel={() => endResize(false)}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
