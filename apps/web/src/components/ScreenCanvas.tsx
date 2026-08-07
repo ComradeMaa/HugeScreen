@@ -267,6 +267,8 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const draggingWidgetId = useRef<string | null>(null);
+  // ★ 拖拽偏移校正：鼠标所在格 − 组件 origin 格（handleWidgetDragStart 记录，dragover/drop 反扣）
+  const dragOffsetRef = useRef<{ col: number; row: number }>({ col: 0, row: 0 });
   // 自定义拖拽副本（替代浏览器默认半透明鬼影）
   const dragCloneEl = useRef<HTMLElement | null>(null);
   const dragCloneOffset = useRef({ x: 0, y: 0 });
@@ -593,7 +595,12 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       // ★ 使用 ref 而非 getData()：Chrome 在 dragover 中禁止 getData() 读取自定义类型
       const wid = draggingWidgetId.current;
       if (!wid) { setDragSwap(null); setDropPreview(null); return; }
-      const { layout, blocker } = computeDropLayout(widgets, grid, cell, 'move', wid);
+      // ★ 偏移校正：反扣拖拽起点鼠标相对组件 origin 的格偏移（防预览框跳格）
+      const corrected = {
+        col: cell.col - dragOffsetRef.current.col,
+        row: cell.row - dragOffsetRef.current.row,
+      };
+      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid);
       if (blocker) {
         // 拖到其他组件上 → 交换预览
         const key = `swap:${blocker.id}:${layout.col}:${layout.row}`;
@@ -654,8 +661,13 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     // ★ 优先用 ref（dragover 中 getData 不可用），drop 时 ref 兜底
     const wid = draggingWidgetId.current || e.dataTransfer.getData('application/widget-id');
     if (wid) {
+      // ★ 偏移校正：与 dragover 一致，drop 落点 = 鼠标格 − 起点偏移
+      const corrected = {
+        col: cell.col - dragOffsetRef.current.col,
+        row: cell.row - dragOffsetRef.current.row,
+      };
       // drop 时检测交换（使用纯重叠检测，不受组件大小限制）
-      const { layout, blocker } = computeDropLayout(widgets, grid, cell, 'move', wid);
+      const { layout, blocker } = computeDropLayout(widgets, grid, corrected, 'move', wid);
       if (blocker) {
         swapWidgetLayouts(wid, blocker.id);
       } else {
@@ -678,6 +690,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       dragSourceEl.current.style.visibility = 'visible';
       dragSourceEl.current = null;
     }
+    dragOffsetRef.current = { col: 0, row: 0 };
     // 清理顶栏拖拽残留状态，防止中断的拖拽污染下一次拖拽
     pendingHeaderSwap.current = null;
     headerDragSlotId.current = null;
@@ -704,6 +717,19 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
     const rect = sourceEl.getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
+
+    // ★ 拖拽偏移校正：记录「鼠标所在格 − 组件 origin 格」，
+    //   拖拽预览/落点按反扣后的格计算 → 鼠标抓组件哪一点，组件就保持原位
+    //   直到移动越过半格（修复预览框"偏右一格"的跳变）。
+    const wl = widgets.find((w2) => w2.id === id);
+    if (wl) {
+      const sDesign = clientToDesign(e.clientX, e.clientY);
+      const sCol = Math.round((sDesign.x - activeGrid.gap) / (cellW + activeGrid.gap));
+      const sRow = Math.round((sDesign.y - activeGrid.gap) / (cellH + activeGrid.gap));
+      dragOffsetRef.current = { col: sCol - wl.layout.col, row: sRow - wl.layout.row };
+    } else {
+      dragOffsetRef.current = { col: 0, row: 0 };
+    }
 
     // ★ 关键：先克隆再隐藏原组件，避免 clone 继承 visibility:hidden
     const clone = sourceEl.cloneNode(true) as HTMLElement;
@@ -753,7 +779,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       setLocalWidgetDrag(false);
     };
     document.addEventListener('dragend', onNativeDragEnd);
-  }, [isEditing, setDraggingWidget]);
+  }, [isEditing, setDraggingWidget, clientToDesign, widgets, activeGrid, cellW, cellH]);
 
   const handleWidgetDragEnd = useCallback((e: React.DragEvent, id: string) => {
     doDragCleanup();
