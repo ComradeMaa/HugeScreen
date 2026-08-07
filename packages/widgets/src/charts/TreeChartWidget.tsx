@@ -65,8 +65,27 @@ export function TreeChartWidget({
 }: TreeChartWidgetProps) {
   const { chartRef, setOption } = useECharts();
   const [didInit, setDidInit] = useState(false);
+  // 容器宽度：叶子 label 换行区宽度按组件剩余空间收缩，防止文字溢出组件外
+  const [containerW, setContainerW] = useState(600);
+
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      if (w > 0) setContainerW(w);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const roots = trees?.length ? trees : [DEFAULT_TREE];
+  // ★ 叶子 label 宽度：最多一行 16 字封顶（10px 字号 × 16 = 160px，全角标点算一字）；
+  //   组件较窄时按剩余空间比例（约 42% − 边距）收缩 —— 布局器随之压缩节点间距
+  //   （连线变短），把空间让给文字，文字始终留在组件内换行。
+  const leafLabelWidth = Math.max(90, Math.min(160, Math.floor(containerW * 0.42) - 12));
 
   useEffect(() => {
     const opt = (animated: boolean) => ({
@@ -117,11 +136,10 @@ export function TreeChartWidget({
             align: 'left' as const,
             color: '#9E9EA8',
             fontSize: 10,
-            // ★ 叶子文字自适应：最多一行 16 字（10px 字号 × 16 = 160px，全角标点算一字），
-            //   超出部分 break 自动换行（中文按字符断行）。tree 布局按 label 实际尺寸
-            //   压缩节点间连线长度，把水平/垂直空间让给多行文字。
+            // ★ 叶子文字自适应：最多一行 16 字，超出 break 自动换行（中文按字符断行）；
+            //   宽度按容器剩余空间收缩（leafLabelWidth），保证换行区不超出组件边界。
             overflow: 'break' as const,
-            width: 160,
+            width: leafLabelWidth,
           },
         },
         lineStyle: {
@@ -143,7 +161,7 @@ export function TreeChartWidget({
       setDidInit(true);
       setOption(opt(false), true);
     }
-  }, [JSON.stringify(roots), orient, lineColor, nodeColor, expandCollapse, initialDepth]);
+  }, [JSON.stringify(roots), orient, lineColor, nodeColor, expandCollapse, initialDepth, leafLabelWidth]);
 
   return <div ref={chartRef} className="w-full h-full" />;
 }
