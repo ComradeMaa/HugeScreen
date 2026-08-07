@@ -39,6 +39,8 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
 
   useEffect(() => {
     const total = pd.reduce((sum, d) => sum + d.value, 0);
+    // ★ 标签宽度随容器自适应（换行宽度，保证文字不超出组件）
+    const labelWidth = Math.max(90, Math.min(160, Math.round((chartRef.current?.offsetWidth ?? 400) * 0.3)));
 
     const opt = (animated: boolean, dataOverride?: typeof pd) => ({
       animation: animated,
@@ -71,7 +73,8 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
         radius: roseType !== 'none'
           ? (donut ? ['15%', '75%'] : ['0%', '75%'])
           : (hasAnyLabelLine
-            ? (donut ? ['38%', '62%'] : ['0%', '58%'])
+            // ★ 有引出线时缩小饼图半径，给标签留出组件内空间（防标签超出组件被裁剪）
+            ? (donut ? ['34%', '50%'] : ['0%', '48%'])
             : (donut ? ['45%', '72%'] : ['0%', '70%'])),
         avoidLabelOverlap: true,
         startAngle: 90,
@@ -96,7 +99,7 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
               fontSize: 10,
               // ★ 长名称完整显示：超出宽度自动换行（overflow: 'break'），不再截断成省略号
               overflow: 'break' as const,
-              width: 140,
+              width: labelWidth,
               lineHeight: 13,
             } : { show: false },
             labelLine: showLine ? {
@@ -127,7 +130,7 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
   const isTopLeftTitle = titlePosition === 'topLeft';
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full overflow-hidden">
       {showColorLegend && (
         <div className={`absolute ${isTopLeftTitle && showTitle ? 'top-5' : 'top-1'} left-2 z-10 pointer-events-none flex flex-col gap-0.5 max-w-[70%]`}>
           {pd.map((d, i) => (
