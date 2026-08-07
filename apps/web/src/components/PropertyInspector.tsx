@@ -201,12 +201,15 @@ function SlotChartEditors({
               onChange={(e) => onUpdate({ showRing: e.target.checked, showIcon: e.target.checked ? false : opts.showIcon })} className="rounded" />
           </label>
           {!!opts.showRing && (
-            <label className="flex items-center justify-between mt-2">
-              <span className="text-[11px] text-textSecondary/70">占比(%)</span>
-              <input type="number" value={Number(opts.ringPercent ?? 0)}
-                onChange={(e) => onUpdate({ ringPercent: Number(e.target.value) })}
-                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
-            </label>
+            <>
+              <label className="flex items-center justify-between mt-2">
+                <span className="text-[11px] text-textSecondary/70">占比(%)</span>
+                <input type="number" value={Number(opts.ringPercent ?? 0)}
+                  onChange={(e) => onUpdate({ ringPercent: Number(e.target.value) })}
+                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+              </label>
+              <ColorSwatchRow label="环颜色" value={(opts.ringColor as string) ?? "#00D4FF"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ ringColor: c })} />
+            </>
           )}
           <label className="flex flex-col gap-1 mt-2">
             <span className="text-[11px] text-textSecondary/70">数据名</span>
@@ -3336,12 +3339,15 @@ export function PropertyInspector() {
                 className="rounded" />
             </label>
             {!!(widget.options as Record<string, unknown>).showRing && (
-              <label className="flex items-center justify-between mt-2">
-                <span className="text-[11px] text-textSecondary/70">占比(%)</span>
-                <input type="number" value={Number((widget.options as Record<string, unknown>).ringPercent ?? 0)}
-                  onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), ringPercent: Number(e.target.value) } })}
-                  className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
-              </label>
+              <>
+                <label className="flex items-center justify-between mt-2">
+                  <span className="text-[11px] text-textSecondary/70">占比(%)</span>
+                  <input type="number" value={Number((widget.options as Record<string, unknown>).ringPercent ?? 0)}
+                    onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), ringPercent: Number(e.target.value) } })}
+                    className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+                </label>
+                <ColorSwatchRow label="环颜色" value={((widget.options as Record<string, unknown>).ringColor as string) ?? "#00D4FF"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), ringColor: c } })} />
+              </>
             )}
             <label className="flex flex-col gap-1 mt-2">
               <span className="text-[11px] text-textSecondary/70">数据名</span>
