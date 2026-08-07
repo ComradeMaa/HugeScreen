@@ -1,5 +1,5 @@
 /**
- * 认证路由：注册 / 登录 / 游客 / 升级 / 获取当前用户
+ * 认证路由：注册 / 登录 / 游客 / 升级 / 获取当前用户 / 注销账号
  */
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
@@ -125,6 +125,34 @@ router.get('/me', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[auth] me error:', e.message);
     res.status(500).json({ error: '获取用户信息失败' });
+  }
+});
+
+// ─── DELETE /api/auth/me — 注销账号（销毁账号及其全部数据） ───
+router.delete('/me', requireAuth, (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.user;
+
+    const row = db.prepare('SELECT username, is_guest FROM users WHERE id = ?').get(id);
+    if (!row) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // 事务：删除发布配置（快照）→ 模板（CASCADE 兜底）→ 数据源 → 用户
+    const destroy = db.transaction(() => {
+      db.prepare('DELETE FROM published_views WHERE user_id = ?').run(id);
+      db.prepare('DELETE FROM templates WHERE user_id = ?').run(id);
+      db.prepare('DELETE FROM datasources WHERE created_by = ?').run(id);
+      db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    });
+    destroy();
+
+    console.log(`[auth] 注销账号: ${row.username} (${id})`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[auth] delete error:', e.message);
+    res.status(500).json({ error: '注销失败，请稍后重试' });
   }
 });
 

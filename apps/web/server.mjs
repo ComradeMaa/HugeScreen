@@ -17,6 +17,7 @@
  * API：
  *   POST   /api/auth/register|login|guest  认证
  *   GET    /api/auth/me                    当前用户
+ *   DELETE /api/auth/me                    注销账号（销毁账号及数据）
  *   POST   /api/auth/upgrade               游客升级
  *   GET    /api/templates                  列出模板
  *   POST   /api/templates                  新建模板

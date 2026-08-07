@@ -27,6 +27,8 @@ export function TemplatePage() {
   const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
   const [publishUrl, setPublishUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const filteredTemplates = searchQuery.trim()
     ? templates.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase().trim()))
@@ -73,6 +75,26 @@ export function TemplatePage() {
         fetchTemplates();
       }
     } catch { /* ignore */ }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deletingAccount) return;
+    setDeletingAccount(true);
+    try {
+      const res = await apiFetch('/api/auth/me', { method: 'DELETE' });
+      if (res.ok) {
+        logout(); // 清 token 并跳转登录页
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '注销失败，请稍后重试');
+        setShowDeleteAccount(false);
+      }
+    } catch {
+      alert('网络错误，注销失败');
+      setShowDeleteAccount(false);
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const handleRename = async (newName: string) => {
@@ -135,6 +157,10 @@ export function TemplatePage() {
               <button onClick={logout}
                 className="text-xs text-[#F1EFF2]/40 hover:text-[#F1EFF2]/70 transition-colors">
                 退出登录
+              </button>
+              <button onClick={() => setShowDeleteAccount(true)}
+                className="text-xs text-[#f87171]/50 hover:text-[#f87171] transition-colors">
+                注销账号
               </button>
             </div>
           </div>
@@ -257,6 +283,18 @@ export function TemplatePage() {
           open={publishUrl !== null}
           url={publishUrl || ''}
           onClose={() => setPublishUrl(null)}
+        />
+        <ConfirmDialog
+          open={showDeleteAccount}
+          title="注销账号"
+          message={user?.is_guest
+            ? `确定注销游客账号 "${user?.username}"？该账号的模板将被永久删除，此操作不可撤销。`
+            : `确定注销账号 "${user?.username}"？账号、所有模板和已发布大屏将被永久销毁，此操作不可撤销。`}
+          confirmLabel="永久注销"
+          cancelLabel="再想想"
+          danger
+          onConfirm={handleDeleteAccount}
+          onCancel={() => setShowDeleteAccount(false)}
         />
     </div>
   );
