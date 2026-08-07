@@ -1344,15 +1344,20 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
 
 // ─── Resize 手柄（自由网格：选中组件 8 方向拉伸） ───
 
+/**
+ * 手柄命中区（比视觉方块大得多，鼠标易命中）：
+ * 角 = 20×20 外扩 10px；边 = 16px 厚居中。
+ * 内部视觉方块 8px 居中显示。
+ */
 const HANDLE_POSITIONS: { handle: ResizeHandle; style: React.CSSProperties }[] = [
-  { handle: 'nw', style: { top: -6, left: -6, cursor: 'nwse-resize' } },
-  { handle: 'n',  style: { top: -6, left: '50%', marginLeft: -4, cursor: 'ns-resize' } },
-  { handle: 'ne', style: { top: -6, right: -6, cursor: 'nesw-resize' } },
-  { handle: 'e',  style: { top: '50%', right: -6, marginTop: -4, cursor: 'ew-resize' } },
-  { handle: 'se', style: { bottom: -6, right: -6, cursor: 'nwse-resize' } },
-  { handle: 's',  style: { bottom: -6, left: '50%', marginLeft: -4, cursor: 'ns-resize' } },
-  { handle: 'sw', style: { bottom: -6, left: -6, cursor: 'nesw-resize' } },
-  { handle: 'w',  style: { top: '50%', left: -6, marginTop: -4, cursor: 'ew-resize' } },
+  { handle: 'nw', style: { top: -10, left: -10, cursor: 'nwse-resize' } },
+  { handle: 'n',  style: { top: -8, left: '50%', marginLeft: -10, width: 20, height: 16, cursor: 'ns-resize' } },
+  { handle: 'ne', style: { top: -10, right: -10, cursor: 'nesw-resize' } },
+  { handle: 'e',  style: { top: '50%', right: -10, marginTop: -10, width: 16, height: 20, cursor: 'ew-resize' } },
+  { handle: 'se', style: { bottom: -10, right: -10, cursor: 'nwse-resize' } },
+  { handle: 's',  style: { bottom: -8, left: '50%', marginLeft: -10, width: 20, height: 16, cursor: 'ns-resize' } },
+  { handle: 'sw', style: { bottom: -10, left: -10, cursor: 'nesw-resize' } },
+  { handle: 'w',  style: { top: '50%', left: -10, marginTop: -10, width: 16, height: 20, cursor: 'ew-resize' } },
 ];
 
 /**
@@ -1501,13 +1506,17 @@ function ResizeHandles({
         {HANDLE_POSITIONS.map(({ handle, style }) => (
           <div
             key={handle}
-            className="absolute w-2 h-2 rounded-sm bg-accent-warm border border-black/40"
-            style={{ ...style, pointerEvents: 'auto', touchAction: 'none', boxShadow: '0 0 6px rgba(255,140,66,0.8)' }}
+            className="absolute flex items-center justify-center"
+            style={{ ...style, pointerEvents: 'auto', touchAction: 'none' }}
             onPointerDown={(e) => onPointerDown(e, handle)}
             onPointerMove={onPointerMove}
             onPointerUp={() => endResize(true)}
             onPointerCancel={() => endResize(false)}
-          />
+          >
+            {/* 视觉方块：8px 居中，命中区远大于视觉 */}
+            <div className="w-2 h-2 rounded-sm bg-accent-warm border border-black/40"
+              style={{ boxShadow: '0 0 6px rgba(255,140,66,0.8)' }} />
+          </div>
         ))}
       </div>
     </>
