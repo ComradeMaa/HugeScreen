@@ -982,7 +982,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       {backgroundEffect === 'low-poly' && (
         <LowPolyBg canvasW={activeCanvasW} canvasH={activeCanvasH} />
       )}
-      {isEditing && <GridOverlay grid={grid} canvasWidth={activeCanvasW} canvasHeight={activeCanvasH} />}
+      {isEditing && <GridOverlay grid={grid} canvasWidth={activeCanvasW} canvasHeight={activeCanvasH} headerBottom={headerBottom} />}
 
       {/* ═══ 固定顶栏 ═══ */}
       {header?.visible !== false && (
@@ -1495,8 +1495,15 @@ function ResizeHandles({
   );
 }
 
-// ─── 网格覆盖层 ───
-function GridOverlay({ grid, canvasWidth, canvasHeight }: { grid: { cols: number; rows: number; gap: number }; canvasWidth: number; canvasHeight: number }) {
+// ─── 网格覆盖层（编辑模式可视化网格 + 吸附参照） ───
+// 颜色遵循设计系统「电光蓝弱 rgba(0,212,255,0.12) 网格线」；
+// 顶栏区域（headerBottom 之上，组件不可放置）线更淡以示区分。
+function GridOverlay({ grid, canvasWidth, canvasHeight, headerBottom = 0 }: {
+  grid: { cols: number; rows: number; gap: number };
+  canvasWidth: number;
+  canvasHeight: number;
+  headerBottom?: number;
+}) {
   const lines = useMemo(() => {
     const { cellW, cellH } = cellMetrics(canvasWidth, canvasHeight, grid.gap, grid.cols, grid.rows);
     const cols: number[] = [], rows: number[] = [];
@@ -1507,8 +1514,17 @@ function GridOverlay({ grid, canvasWidth, canvasHeight }: { grid: { cols: number
 
   return (
     <svg className="absolute inset-0 w-full h-full pointer-events-none z-30">
-      {lines.cols.map(x => <line key={`c-${x}`} x1={x} y1={0} x2={x} y2={canvasHeight} stroke="rgba(255,255,255,0.06)" strokeWidth={0.5} strokeDasharray="4 4" />)}
-      {lines.rows.map(y => <line key={`r-${y}`} x1={0} y1={y} x2={canvasWidth} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={0.5} strokeDasharray="4 4" />)}
+      {lines.cols.map(x => (
+        <g key={`c-${x}`}>
+          <line x1={x} y1={0} x2={x} y2={headerBottom} stroke="rgba(0,212,255,0.05)" strokeWidth={1} />
+          <line x1={x} y1={headerBottom} x2={x} y2={canvasHeight} stroke="rgba(0,212,255,0.12)" strokeWidth={1} />
+        </g>
+      ))}
+      {lines.rows.map(y => (
+        <g key={`r-${y}`}>
+          <line x1={0} y1={y} x2={canvasWidth} y2={y} stroke={y <= headerBottom ? 'rgba(0,212,255,0.05)' : 'rgba(0,212,255,0.12)'} strokeWidth={1} />
+        </g>
+      ))}
     </svg>
   );
 }
