@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { WidgetConfig } from '@hugescreen/shared';
 import { dataHub, mqttHub, mapData, type TimeWindowConfig } from '@hugescreen/data';
 import { eventBus } from '@hugescreen/core';
+import { useEditorStore } from '../store/editorStore';
 
 /**
  * 为单个组件管理数据订阅。
@@ -16,6 +17,12 @@ import { eventBus } from '@hugescreen/core';
  */
 export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
   const [liveProps, setLiveProps] = useState<Record<string, unknown>>({});
+
+  // ★ 拖拽期间跳过数据重渲染：数据到达不 setState（高频数据源 + 拖拽 = 每帧
+  //   重渲染抢主线程 → 拖拽粘滞），拖拽结束自动恢复。用 ref 避免重订阅。
+  const isDraggingWidget = useEditorStore((s) => s.isDraggingWidget);
+  const isDraggingRef = useRef(isDraggingWidget);
+  isDraggingRef.current = isDraggingWidget;
 
   const ds = widget.dataSource;
   const chartType = widget.type;
@@ -49,6 +56,8 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
 
       const handler = (data: unknown) => {
         console.log(`[useWidgetData] ${widget.id} received data on ${channelKey}`);
+        // ★ 拖拽中不触发重渲染（防粘滞）；拖拽结束恢复
+        if (isDraggingRef.current) return;
         setLiveProps(data as Record<string, unknown>);
       };
       eventBus.on(`data:updated:${channelKey}`, handler);
@@ -64,6 +73,8 @@ export function useWidgetData(widget: WidgetConfig): Record<string, unknown> {
       const channelKey = mqttHub.subscribe(widget.id, ds);
 
       const handler = (data: unknown) => {
+        // ★ 拖拽中不触发重渲染（防粘滞）；拖拽结束恢复
+        if (isDraggingRef.current) return;
         setLiveProps(mapData(data, chartType, ds.mapping ?? {}) as Record<string, unknown>);
       };
       eventBus.on(`data:updated:${channelKey}`, handler);
