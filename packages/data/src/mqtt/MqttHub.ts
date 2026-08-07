@@ -51,6 +51,9 @@ class MqttConnection {
   private _statMsgs = 0;
   private _statTimer: ReturnType<typeof setInterval> | null = null;
 
+  // 页面可见性监听（文档推荐时序：页面隐藏/离开时 client.end()，恢复时重连）
+  private _visHandler: (() => void) | null = null;
+
   constructor(url: string, topics: string[]) {
     this.url = url;
     this.topics = topics;
@@ -118,6 +121,31 @@ class MqttConnection {
       console.log(`[MqttHub] 统计: 10s 内消息 ${this._statMsgs} 条 (${(this._statMsgs / 10).toFixed(1)}/s) · 车辆 ${this.buses.size} · 线路 ${this.lines.length} · online=${this.online} connected=${this.connected}`);
       this._statMsgs = 0;
     }, 10000);
+
+    // 页面隐藏 → 主动断开；恢复可见 → 重连（retained 秒级重放数据，累积状态保留不闪烁）
+    if (!this._visHandler) {
+      this._visHandler = () => this.handleVisibilityChange();
+      document.addEventListener('visibilitychange', this._visHandler);
+      window.addEventListener('pagehide', this._visHandler);
+    }
+  }
+
+  /** 页面可见性切换：隐藏断开连接（保留累积状态），恢复时重连 */
+  private handleVisibilityChange(): void {
+    if (document.hidden || document.visibilityState === 'hidden') {
+      if (this.client && this.subscribers.size > 0) {
+        console.log(`[MqttHub] page hidden → end client ${this.url} (state kept)`);
+        this.client.end(true);
+        this.client = null;
+        this.connected = false;
+        this.scheduleEmit();
+      }
+      return;
+    }
+    if (!this.client && this.subscribers.size > 0) {
+      console.log(`[MqttHub] page visible → reconnect ${this.url}`);
+      this.connect();
+    }
   }
 
   // ─── 消息路由 ───
@@ -184,6 +212,12 @@ class MqttConnection {
 
   destroy(): void {
     if (this._emitTimer) { clearTimeout(this._emitTimer); this._emitTimer = null; }
+    if (this._visHandler) {
+      document.removeEventListener('visibilitychange', this._visHandler);
+      window.removeEventListener('pagehide', this._visHandler);
+      this._visHandler = null;
+    }
+    if (this._statTimer) { clearInterval(this._statTimer); this._statTimer = null; }
     if (this.client) {
       this.client.end(true);
       this.client = null;
