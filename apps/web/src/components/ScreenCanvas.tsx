@@ -190,10 +190,17 @@ function computeDropLayout(
     if (blocker) return { layout: desired, blocker };
     return { layout: desired };
   }
-  // copy：新组件 = 落点左上角 + 注册默认尺寸
+  // copy：新组件 = 注册默认尺寸；★ 鼠标保持在判定框中心
+  //   （落点格 = 鼠标格 − 尺寸一半，向下取整保证框覆盖鼠标格；
+  //   靠网格边界时 clampToGrid 平移，边界限制优先）
   const size = defSize ?? { colSpan: 2, rowSpan: 2 };
   const desired = clampToGrid(
-    { col: cell.col, row: cell.row, colSpan: size.colSpan, rowSpan: size.rowSpan },
+    {
+      col: cell.col - Math.floor(size.colSpan / 2),
+      row: cell.row - Math.floor(size.rowSpan / 2),
+      colSpan: size.colSpan,
+      rowSpan: size.rowSpan,
+    },
     grid, undefined, { colSpan: grid.cols, rowSpan: grid.rows }, 1,
   );
   // 与已有组件重叠 → 避让（可能被 reflow 截断或 findFreeSlot 移开）
