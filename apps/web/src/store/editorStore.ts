@@ -93,6 +93,7 @@ interface EditorState {
 
   addWidget: (type: string, layout: WidgetLayout) => void;
   removeWidget: (id: string) => void;
+  clearWidgets: () => void;
   updateWidget: (id: string, patch: Partial<WidgetConfig>) => void;
   moveWidget: (id: string, layout: WidgetLayout) => void;
   swapWidgetLayouts: (idA: string, idB: string) => void;
@@ -386,6 +387,14 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       selectedWidgetId: s.selectedWidgetId === id ? null : s.selectedWidgetId,
     }));
   },
+
+  /** 清空画布所有组件实例（编辑模式「清空屏幕」，调用方负责二次确认） */
+  clearWidgets: () =>
+    set((s) => ({
+      config: { ...s.config, widgets: [] },
+      selectedWidgetId: null,
+      selectedHeaderSlotId: null,
+    })),
 
   updateWidget: (id: string, patch: Partial<WidgetConfig>) =>
     set((s) => ({

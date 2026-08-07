@@ -24,6 +24,7 @@ export function MainScreen() {
     hideEditor,
     loadConfig,
     setCurrentTemplateId,
+    clearWidgets,
     backgroundPattern,
     backgroundImage,
     backgroundVideo,
@@ -38,6 +39,7 @@ export function MainScreen() {
   const [viewportW, setViewportW] = useState(0);
   const [viewportH, setViewportH] = useState(0);
   const [showUnsaved, setShowUnsaved] = useState(false);
+  const [showClearScreen, setShowClearScreen] = useState(false);
   const lastSavedConfig = useEditorStore(s => s.lastSavedConfig);
 
   // 模板模式：从 API 加载配置；普通模式：localStorage
@@ -1034,12 +1036,19 @@ export function MainScreen() {
       )}
 
 
-      {/* 编辑态：底部提示 */}
+      {/* 编辑态：底部提示 + 清空屏幕按钮 */}
       {isEditorVisible && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-          <span className="text-[10px] text-textSecondary/25 tracking-wide">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4">
+          <span className="text-[10px] text-textSecondary/25 tracking-wide pointer-events-none">
             拖拽组件到左侧组件池以删除 · Delete 键删除选中
           </span>
+          <button
+            onClick={() => setShowClearScreen(true)}
+            className="pointer-events-auto text-[10px] px-2.5 py-1 rounded border border-negative/30 text-negative/70
+              hover:bg-negative/10 hover:text-negative transition-colors tracking-wide"
+          >
+            清空屏幕
+          </button>
         </div>
       )}
 
@@ -1052,6 +1061,18 @@ export function MainScreen() {
         cancelLabel="直接退出"
         onConfirm={handleSaveAndExit}
         onCancel={() => { setShowUnsaved(false); navigate('/templates'); }}
+      />
+
+      {/* 清空屏幕二次确认 */}
+      <ConfirmDialog
+        open={showClearScreen}
+        title="清空屏幕"
+        message={`确定要清除画布上全部 ${config.widgets.length} 个组件吗？此操作不可撤销。`}
+        confirmLabel="清空"
+        cancelLabel="取消"
+        danger
+        onConfirm={() => { clearWidgets(); setShowClearScreen(false); }}
+        onCancel={() => setShowClearScreen(false)}
       />
     </div>
   );
