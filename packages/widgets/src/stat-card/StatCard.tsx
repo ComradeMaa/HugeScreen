@@ -28,6 +28,8 @@ interface StatCardProps {
   valueColor?: string;
   /** 单位颜色 */
   suffixColor?: string;
+  /** 文本大小缩放（数据名/数值/单位/前缀统一调整，1 = 100%，0.5-2 范围） */
+  textScale?: number;
   /** 是否显示增长率/降低率 */
   showTrend?: boolean;
   /** 增长率模式：auto=根据 value 前后变化自动计算，manual=使用 trend 字段 */
@@ -63,6 +65,7 @@ export function StatCard({
   trendMode = 'auto',
   showIcon = false,
   customIconImage,
+  textScale = 1,
 }: StatCardProps) {
   const [animatedValue, setAnimatedValue] = useState(0);
   const animRef = useRef<number>();
@@ -118,22 +121,22 @@ export function StatCard({
       {title && (
         <div className="flex items-center gap-1 mb-0.5">
           <div className="rounded-full bg-accent-cool flex-shrink-0" style={{ width: 2, height: '0.85em' }} />
-          <span className="truncate" style={{ color: titleColor, fontSize: 'clamp(9px, 9cqh, 15px)' }}>{title}</span>
+          <span className="truncate" style={{ color: titleColor, fontSize: `clamp(${9 * textScale}px, ${9 * textScale}cqh, ${15 * textScale}px)` }}>{title}</span>
         </div>
       )}
 
       <div className="flex items-baseline gap-1 min-w-0">
         {prefix && (
-          <span className="text-textSecondary/60 font-mono flex-shrink-0" style={{ fontSize: 'clamp(9px, 11cqh, 18px)' }}>{prefix}</span>
+          <span className="text-textSecondary/60 font-mono flex-shrink-0" style={{ fontSize: `clamp(${9 * textScale}px, ${11 * textScale}cqh, ${18 * textScale}px)` }}>{prefix}</span>
         )}
         <span
           className="font-semibold font-mono tracking-tight tabular-nums leading-none"
-          style={{ fontSize: 'clamp(16px, min(24cqh, 13cqw), 48px)', color: valueColor }}
+          style={{ fontSize: `clamp(${16 * textScale}px, min(${24 * textScale}cqh, ${13 * textScale}cqw), ${48 * textScale}px)`, color: valueColor }}
         >
           {formattedValue}
         </span>
         {suffix && (
-          <span className="font-mono flex-shrink-0" style={{ fontSize: 'clamp(9px, 11cqh, 18px)', color: suffixColor }}>{suffix}</span>
+          <span className="font-mono flex-shrink-0" style={{ fontSize: `clamp(${9 * textScale}px, ${11 * textScale}cqh, ${18 * textScale}px)`, color: suffixColor }}>{suffix}</span>
         )}
       </div>
 

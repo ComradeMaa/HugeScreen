@@ -218,6 +218,12 @@ function SlotChartEditors({
               className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
               placeholder="指标名称" />
           </label>
+          <label className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-textSecondary/70">文本大小</span>
+            <input type="number" min={0.5} max={2} step={0.1} value={Number(opts.textScale ?? 1)}
+              onChange={(e) => onUpdate({ textScale: Number(e.target.value) })}
+              className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
+          </label>
           <ColorSwatchRow label="数据名颜色" value={(opts.titleColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => onUpdate({ titleColor: c })} />
           <label className="flex items-center justify-between mt-2">
             <span className="text-[11px] text-textSecondary/70">数值</span>
@@ -3355,6 +3361,12 @@ export function PropertyInspector() {
                 onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), title: e.target.value } })}
                 className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-2 py-1.5 text-xs text-text focus:outline-none focus:border-accent-cool/50 transition-colors"
                 placeholder="指标名称" />
+            </label>
+            <label className="flex items-center justify-between mt-2">
+              <span className="text-[11px] text-textSecondary/70">文本大小</span>
+              <input type="number" min={0.5} max={2} step={0.1} value={Number((widget.options as Record<string, unknown>).textScale ?? 1)}
+                onChange={(e) => updateWidget(widget.id, { options: { ...(widget.options as object), textScale: Number(e.target.value) } })}
+                className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1.5 py-1 w-20 text-xs text-text font-mono focus:outline-none focus:border-accent-cool/50 transition-colors text-right" />
             </label>
             <ColorSwatchRow label="数据名颜色" value={((widget.options as Record<string, unknown>).titleColor as string) ?? "#9E9EA8"} colors={PRESET_SUFFIX_COLORS} onChange={(c) => updateWidget(widget.id, { options: { ...(widget.options as object), titleColor: c } })} />
             <label className="flex items-center justify-between mt-2">
