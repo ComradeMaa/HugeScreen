@@ -413,8 +413,8 @@ function SlotChartEditors({
                 placeholder="输入图表名" />
             </label>
             <LabelSelectRow label="位置" value={String(opts.titlePosition ?? 'none')}
-              options={['none', 'topLeft', 'bottom']}
-              labels={['无', '左上角', '底部']}
+              options={['none', 'topLeft', 'topRight', 'bottom']}
+              labels={['无', '左上角', '右上角', '底部']}
               onChange={(v) => onUpdate({ titlePosition: v })} />
             <label className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-textSecondary/70">颜色图例</span>
@@ -2208,8 +2208,8 @@ export function PropertyInspector() {
                   placeholder="输入图表名" />
               </label>
               <LabelSelectRow label="位置" value={String((widget.options as any).titlePosition ?? 'none')}
-                options={['none', 'topLeft', 'bottom']}
-                labels={['无', '左上角', '底部']}
+                options={['none', 'topLeft', 'topRight', 'bottom']}
+                labels={['无', '左上角', '右上角', '底部']}
                 onChange={(v) => updateWidget(widget.id, {
                   options: { ...(widget.options as object), titlePosition: v },
                 })} />

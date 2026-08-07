@@ -17,8 +17,8 @@ interface PieChartWidgetProps {
   showColorLegend?: boolean;
   /** 图名 — 自定义显示文字 */
   titleText?: string;
-  /** 图名位置 — 左上角或图表下方 */
-  titlePosition?: 'topLeft' | 'bottom' | 'none';
+  /** 图名位置 — 左上角/右上角或图表下方 */
+  titlePosition?: 'topLeft' | 'topRight' | 'bottom' | 'none';
   /** 南丁格尔玫瑰图：扇区半径按数值比例（'radius' 按数值、'area' 按面积） */
   roseType?: 'none' | 'radius' | 'area';
 }
@@ -48,8 +48,8 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
       animationEasing: animated ? 'cubicOut' : undefined,
       title: (showTitle && titleText) ? {
         text: titleText,
-        left: isTopLeftTitle ? 'left' : 'center',
-        top: isTopLeftTitle ? 'top' : 'bottom',
+        left: isTopLeftTitle ? 'left' : isTopRightTitle ? 'right' : 'center',
+        top: (isTopLeftTitle || isTopRightTitle) ? 'top' : 'bottom',
         textStyle: { color: '#E8E8EC', fontSize: 11, fontWeight: 'bold' as const },
       } : undefined,
       tooltip: {
@@ -128,6 +128,7 @@ export function PieChartWidget({ data, categories, donut = true, showLegend = fa
 
   const showTitle = !!(titleText && titlePosition !== 'none');
   const isTopLeftTitle = titlePosition === 'topLeft';
+  const isTopRightTitle = titlePosition === 'topRight';
 
   return (
     <div className="relative w-full h-full overflow-hidden">
