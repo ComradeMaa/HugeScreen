@@ -474,10 +474,10 @@ export const useEditorStore = create<EditorState>()((set, get) => ({
       },
     })),
 
-  /** 顶栏行数（高度）：长度始终横跨全屏不可改，仅行数可调 */
+  /** 顶栏行数（高度）：长度始终横跨全屏不可改；0.5 行步进支持细微调节 */
   setHeaderRowSpan: (n: number) =>
     set((s) => ({
-      config: { ...s.config, header: { ...s.config.header!, rowSpan: Math.max(1, Math.min(4, Math.round(n))) } },
+      config: { ...s.config, header: { ...s.config.header!, rowSpan: Math.max(1, Math.min(10, Math.round(n * 2) / 2)) } },
     })),
 
   // ─── 顶栏槽位管理（支持多列组件合并/拆分） ───

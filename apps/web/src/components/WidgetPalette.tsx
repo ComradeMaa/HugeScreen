@@ -1017,17 +1017,19 @@ export function WidgetPalette({ onCreateComposite }: { onCreateComposite?: () =>
               <div className="flex items-center justify-between mb-2 px-1">
                 <span className="text-[10px] font-semibold text-accent-warm/50 uppercase tracking-wider">顶栏</span>
                 <div className="flex items-center gap-2">
-                  {/* ★ 顶栏行数（高度）可调；长度始终横跨全屏不可改 */}
+                  {/* ★ 顶栏行数（高度）可调（0.5 步进）；长度始终横跨全屏不可改；画布上选中顶栏可用手柄拖拽 */}
                   {headerVisible && (
                     <label className="flex items-center gap-1 text-[9px] text-textSecondary/50">
                       行数
-                      <select
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        step={0.5}
                         value={headerRowSpan}
                         onChange={(e) => setHeaderRowSpan(Number(e.target.value))}
-                        className="bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[9px] text-text font-mono focus:outline-none focus:border-accent-cool/50 appearance-none cursor-pointer"
-                      >
-                        {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-                      </select>
+                        className="w-12 bg-surface-base border border-[rgba(255,255,255,0.06)] rounded px-1 py-0.5 text-[9px] text-text font-mono focus:outline-none focus:border-accent-cool/50"
+                      />
                     </label>
                   )}
                   <button

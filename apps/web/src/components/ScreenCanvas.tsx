@@ -260,7 +260,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   // 稳定 action 引用（store 创建时固定，不会随渲染变化）
   const { addWidget, moveWidget, swapWidgetLayouts, removeWidget, resizeWidget,
     setHeaderSlot, removeHeaderElement, swapHeaderSlots,
-    setDraggingWidget, setDraggingHeaderEl, selectWidget, selectHeaderSlot,
+    setDraggingWidget, setDraggingHeaderEl, selectWidget, selectHeaderSlot, setHeaderRowSpan,
   } = useEditorStore.getState();
   const { canvas, grid, header, widgets, theme } = config;
 
@@ -292,6 +292,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   type Preview = { layout: WidgetLayout; swapping?: boolean };
   const [dropPreview, setDropPreview] = useState<Preview | null>(null);
 
+  // ★ 顶栏整体选中：显示底部 resize 手柄（像组件一样拖拽调节高度）
+  const [headerSelected, setHeaderSelected] = useState(false);
+
   // 拖拽交换预览：拖拽已有组件到另一个组件上时，目标组件被"挤"到原位置
   type DragSwap = { targetWidgetId: string; originSlot: BlockSlot };
   const [dragSwap, setDragSwap] = useState<DragSwap | null>(null);
@@ -301,8 +304,9 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
   const dynamicHRows = header?.visible !== false ? headerRowSpan : 0;
   const isNarrowHeader = activeGrid.cols <= 2;
 
-  // 顶栏隐藏时，有效行数减顶栏行数（行不再被顶栏占用），cellH 自动变大 → 组件拉伸
-  const effectiveRows = header?.visible !== false ? activeGrid.rows : activeGrid.rows - headerRowSpan;
+  // ★ 网格自适应：顶栏可见时总行数 = 顶栏行 + 组件区行（组件行数不被顶栏压缩）；
+  //   顶栏隐藏时行被释放，组件区变大（cellH 自动变大 → 组件拉伸）
+  const effectiveRows = header?.visible !== false ? activeGrid.rows + headerRowSpan : activeGrid.rows - headerRowSpan;
   const { cellW, cellH } = useMemo(
     () => cellMetrics(activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows),
     [activeCanvasW, activeCanvasH, activeGrid.gap, activeGrid.cols, effectiveRows],
@@ -1001,7 +1005,13 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
       <>
       <div
         className="absolute z-30"
-        style={{ left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height }}
+        style={{
+          left: headerPx.left, top: headerPx.top, width: headerPx.width, height: headerPx.height,
+          // 顶栏整体选中：琥珀橙外框（与组件选中一致）
+          outline: isEditing && headerSelected ? '2px solid #FF8C42' : 'none',
+          outlineOffset: 2,
+        }}
+        onClick={e => { if (isEditing) { e.stopPropagation(); selectHeaderSlot(null); setHeaderSelected(true); } }}
         onDragOver={isEditing ? handleHeaderDragOver : undefined}
         onDragLeave={() => {
           setHeaderDragIdx(null); setHeaderBlockedIdx(null); setWidgetOverHeader(false);
@@ -1093,7 +1103,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
                     ? 'inset 0 0 0 1px rgba(0,212,255,0.2)' : 'none',
                   transition: 'box-shadow 150ms',
                 }}
-                onClick={e => { if (isEditing) { e.stopPropagation(); selectHeaderSlot(slot.id); } }}
+                onClick={e => { if (isEditing) { e.stopPropagation(); selectHeaderSlot(slot.id); setHeaderSelected(true); } }}
                 onDragStart={e => { if (slot.elementType) handleHeaderElDragStart(e, slot.id); }}
                 onDragEnd={e => handleHeaderElDragEnd(e, slot.id)}
               >
@@ -1163,6 +1173,20 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
           })}
         </div>
       </div>
+
+      {/* ═══ 顶栏 resize 手柄（选中顶栏时南边拖拽调节高度，0.5 行步进） ═══ */}
+      {isEditing && headerSelected && (
+        <HeaderResizeHandle
+          headerPx={headerPx}
+          cellH={cellH}
+          gap={activeGrid.gap}
+          rowSpan={dynamicHRows}
+          canvasWidth={activeCanvasW}
+          canvasHeight={activeCanvasH}
+          canvasRef={canvasRef}
+          onCommit={setHeaderRowSpan}
+        />
+      )}
 
       {/* ═══ 顶栏元素拖入主区块 → 虚化红框 ═══ */}
       {showHeaderDragHint && (
@@ -1260,7 +1284,7 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
                 ? 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out, box-shadow 150ms'
                 : 'box-shadow 150ms',
             }}
-            onClick={e => { if (isEditing) { e.stopPropagation(); selectWidget(widget.id); } }}
+            onClick={e => { if (isEditing) { e.stopPropagation(); selectWidget(widget.id); setHeaderSelected(false); } }}
             onDragStart={e => handleWidgetDragStart(e, widget.id)}
             onDragEnd={e => handleWidgetDragEnd(e, widget.id)}
           >
@@ -1343,6 +1367,113 @@ export function ScreenCanvas({ isEditing = false, bpGrid, bpLayouts, hiddenWidge
         );
       })}
     </div>
+  );
+}
+
+// ─── 顶栏 resize 手柄（选中顶栏时南边拖拽调节高度，0.5 行步进细微调节） ───
+
+function HeaderResizeHandle({
+  headerPx, cellH, gap, rowSpan, canvasWidth, canvasHeight, canvasRef, onCommit,
+}: {
+  headerPx: { left: number; top: number; width: number; height: number };
+  cellH: number;
+  gap: number;
+  rowSpan: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  canvasRef: React.RefObject<HTMLDivElement>;
+  onCommit: (span: number) => void;
+}) {
+  const [preview, setPreview] = useState<number | null>(null);
+  const dragRef = useRef<{ startY: number; startSpan: number } | null>(null);
+
+  const designAt = (clientX: number, clientY: number) => {
+    const el = canvasRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (canvasWidth / rect.width),
+      y: (clientY - rect.top) * (canvasHeight / rect.height),
+    };
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const start = designAt(e.clientX, e.clientY);
+    dragRef.current = { startY: start.y, startSpan: rowSpan };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setPreview(rowSpan);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const d = designAt(e.clientX, e.clientY);
+    // 连续换算 + 四舍五入到 0.5 行 → 细微调节
+    const dyCells = (d.y - drag.startY) / (cellH + gap);
+    const span = Math.max(1, Math.min(10, Math.round((drag.startSpan + dyCells) * 2) / 2));
+    setPreview(span);
+  };
+
+  const endResize = (commit: boolean) => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    if (commit && preview !== null) onCommit(preview);
+    setPreview(null);
+  };
+
+  return (
+    <>
+      {/* 幽灵预览：目标高度的顶栏虚线框 + 行数提示 */}
+      {preview !== null && (
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            zIndex: 45,
+            left: headerPx.left,
+            top: headerPx.top,
+            width: headerPx.width,
+            height: preview * cellH + (preview - 1) * gap,
+            backgroundColor: 'rgba(255,140,66,0.08)',
+            border: '2px dashed rgba(255,140,66,0.75)',
+            boxShadow: '0 0 14px rgba(255,140,66,0.3)',
+            borderRadius: 4,
+          }}
+        >
+          <span
+            className="absolute top-1 right-2 text-[10px] font-mono"
+            style={{ color: 'rgba(255,140,66,0.95)' }}
+          >
+            {preview} 行
+          </span>
+        </div>
+      )}
+      {/* 手柄：顶栏底边中点，命中区 20×16 */}
+      <div
+        className="absolute flex items-center justify-center"
+        style={{
+          zIndex: 45,
+          left: headerPx.left + headerPx.width / 2 - 10,
+          top: headerPx.top + headerPx.height - 8,
+          width: 20,
+          height: 16,
+          cursor: 'ns-resize',
+          pointerEvents: 'auto',
+          touchAction: 'none',
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={() => endResize(true)}
+        onPointerCancel={() => endResize(false)}
+      >
+        <div
+          className="w-2 h-2 rounded-sm bg-[#FF8C42] border border-[#FF8C42]/50"
+          style={{ boxShadow: '0 0 6px rgba(255,140,66,0.6)' }}
+        />
+      </div>
+    </>
   );
 }
 
@@ -1489,8 +1620,9 @@ function ResizeHandles({
       {/* 幽灵预览：组件本体不动，仅提交时落库（顶栏隐藏时行向上平移与组件渲染一致） */}
       {preview && (
         <div
-          className="absolute pointer-events-none z-45"
+          className="absolute pointer-events-none"
           style={{
+            zIndex: 45,
             ...slotToPx(
               headerHidden
                 ? { ...preview, row: Math.max(0, preview.row - headerRowSpan) }
@@ -1506,8 +1638,8 @@ function ResizeHandles({
       )}
       {/* 手柄覆盖层（widget div 的兄弟，避开 overflow-hidden 裁剪） */}
       <div
-        className="absolute z-45"
-        style={{ left: px.left, top: px.top, width: px.width, height: px.height, pointerEvents: 'none' }}
+        className="absolute"
+        style={{ zIndex: 45, left: px.left, top: px.top, width: px.width, height: px.height, pointerEvents: 'none' }}
       >
         {HANDLE_POSITIONS.map(({ handle, style }) => (
           <div

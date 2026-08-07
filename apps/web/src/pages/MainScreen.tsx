@@ -85,9 +85,13 @@ export function MainScreen() {
     const { cols, rows, gap } = cfg.grid;
     const widgets = cfg.widgets || [];
     const customComps = (cfg as any).customComponents as any[] || [];
+    const header = cfg.header;
 
+    // 网格自适应：总行数含顶栏行（与 ScreenCanvas effectiveRows 一致），缩略图布局才与实际相符
+    const headerSpan = header?.visible === false ? 0 : (header?.rowSpan ?? (cols >= 8 ? 1 : cols >= 2 ? 4 : 7));
+    const totalRows = headerSpan + rows;
     const cellW = (width - gap * (cols + 1)) / cols;
-    const cellH = (height - gap * (rows + 1)) / rows;
+    const cellH = (height - gap * (totalRows + 1)) / totalRows;
     const tw = 400;
     const th = Math.round(tw * (height / width));
     const sc = tw / width;
