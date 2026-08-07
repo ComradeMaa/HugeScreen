@@ -12,7 +12,7 @@ export function registerBuiltinWidgets(): void {
       category: 'stat',
       defaultSize: { colSpan: 2, rowSpan: 2 },
       minSize: { colSpan: 1, rowSpan: 1 },
-      maxSize: { colSpan: 4, rowSpan: 3 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./stat-card/StatCard').then(m => ({ default: m.StatCard }))),
       configSchema: {
         type: 'object',
@@ -34,7 +34,7 @@ export function registerBuiltinWidgets(): void {
     //   category: 'stat',
     //   defaultSize: { colSpan: 2, rowSpan: 2 },
     //   minSize: { colSpan: 1, rowSpan: 1 },
-    //   maxSize: { colSpan: 3, rowSpan: 3 },
+    //   maxSize: { colSpan: 99, rowSpan: 99 },
     //   component: lazy(() => import('./stat-card/HudGauge').then(m => ({ default: m.HudGauge }))),
     //   configSchema: { type: 'object', properties: { percent: { type: 'number', title: '百分比' }, label: { type: 'string', title: '副标题' } } },
     //   defaultConfig: { percent: 98, label: 'CHONGDIANJINXIN' },
@@ -49,7 +49,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 6 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 6 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/LineChartWidget').then(m => ({ default: m.LineChartWidget }))),
       configSchema: {
         type: 'object',
@@ -79,7 +79,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 2, rowSpan: 2 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 4, rowSpan: 3 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/BarChartWidget').then(m => ({ default: m.BarChartWidget }))),
       configSchema: {
         type: 'object',
@@ -114,7 +114,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 6 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/BarLineChartWidget').then(m => ({ default: m.BarLineChartWidget }))),
       configSchema: {
         type: 'object',
@@ -151,7 +151,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 2, rowSpan: 2 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 3, rowSpan: 3 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/PieChartWidget').then(m => ({ default: m.PieChartWidget }))),
       configSchema: {
         type: 'object',
@@ -191,7 +191,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 3, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 6, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/FunnelWidget').then(m => ({ default: m.FunnelWidget }))),
       configSchema: {
         type: 'object',
@@ -231,7 +231,7 @@ export function registerBuiltinWidgets(): void {
       category: 'decorator',
       defaultSize: { colSpan: 2, rowSpan: 2 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 6, rowSpan: 6 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./decorators/ImageWidget').then(m => ({ default: m.ImageWidget }))),
       configSchema: {
         type: 'object',
@@ -257,7 +257,7 @@ export function registerBuiltinWidgets(): void {
       category: 'decorator',
       defaultSize: { colSpan: 2, rowSpan: 1 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 6, rowSpan: 3 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./decorators/TextWidget').then(m => ({ default: m.TextWidget }))),
       configSchema: {
         type: 'object',
@@ -289,7 +289,7 @@ export function registerBuiltinWidgets(): void {
       category: '3d',
       defaultSize: { colSpan: 6, rowSpan: 6 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 12, rowSpan: 12 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./geo/CyberMapWidget').then(m => ({ default: m.CyberMapWidget }))),
       configSchema: {
         type: 'object',
@@ -314,7 +314,7 @@ export function registerBuiltinWidgets(): void {
       category: '3d',
       defaultSize: { colSpan: 6, rowSpan: 6 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 12, rowSpan: 12 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./geo/AttackGlobeWidget').then(m => ({ default: m.AttackGlobeWidget }))),
       configSchema: {
         type: 'object',
@@ -358,7 +358,7 @@ export function registerBuiltinWidgets(): void {
       category: '3d',
       defaultSize: { colSpan: 8, rowSpan: 6 },   // 2:1 地图 → 宽扁默认尺寸
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 12, rowSpan: 12 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./geo/AttackMapWidget').then(m => ({ default: m.AttackMapWidget }))),
       configSchema: {
         type: 'object',
@@ -400,7 +400,7 @@ export function registerBuiltinWidgets(): void {
       category: 'map',
       defaultSize: { colSpan: 6, rowSpan: 6 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 12, rowSpan: 12 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./geo/BusMapWidget').then(m => ({ default: m.BusMapWidget }))),
       configSchema: {
         type: 'object',
@@ -442,7 +442,7 @@ export function registerBuiltinWidgets(): void {
       category: 'media',
       defaultSize: { colSpan: 3, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 6, rowSpan: 6 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./decorators/VideoWidget').then(m => ({ default: m.VideoWidget }))),
       configSchema: {
         type: 'object',
@@ -475,7 +475,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/BoxPlotWidget').then(m => ({ default: m.BoxPlotWidget }))),
       configSchema: {
         type: 'object',
@@ -507,7 +507,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/TreemapWidget').then(m => ({ default: m.TreemapWidget }))),
       configSchema: {
         type: 'object',
@@ -542,7 +542,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/SunburstWidget').then(m => ({ default: m.SunburstWidget }))),
       configSchema: {
         type: 'object',
@@ -583,7 +583,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/MultipleXAxisWidget').then(m => ({ default: m.MultipleXAxisWidget }))),
       configSchema: {
         type: 'object',
@@ -625,7 +625,7 @@ export function registerBuiltinWidgets(): void {
       category: 'table',
       defaultSize: { colSpan: 3, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./table/MarqueeTableWidget').then(m => ({ default: m.MarqueeTableWidget }))),
       configSchema: {
         type: 'object',
@@ -662,7 +662,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/TreeChartWidget').then(m => ({ default: m.TreeChartWidget }))),
       configSchema: {
         type: 'object',
@@ -700,7 +700,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/RelationChartWidget').then(m => ({ default: m.RelationChartWidget }))),
       configSchema: {
         type: 'object',
@@ -726,7 +726,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 4 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 8 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/SankeyWidget').then(m => ({ default: m.SankeyWidget }))),
       configSchema: {
         type: 'object',
@@ -774,7 +774,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/HeatmapWidget').then(m => ({ default: m.HeatmapWidget }))),
       configSchema: {
         type: 'object',
@@ -795,7 +795,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 3, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 6, rowSpan: 6 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/RadarChartWidget').then(m => ({ default: m.RadarChartWidget }))),
       configSchema: {
         type: 'object',
@@ -820,7 +820,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/IntradayChartWidget').then(m => ({ default: m.IntradayChartWidget }))),
       configSchema: {
         type: 'object',
@@ -843,7 +843,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/ScatterPlotWidget').then(m => ({ default: m.ScatterPlotWidget }))),
       configSchema: {
         type: 'object',
@@ -868,7 +868,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/StepLineWidget').then(m => ({ default: m.StepLineWidget }))),
       configSchema: {
         type: 'object',
@@ -893,7 +893,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/DynamicTimeWidget').then(m => ({ default: m.DynamicTimeWidget }))),
       configSchema: {
         type: 'object',
@@ -922,7 +922,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/LargeAreaChartWidget').then(m => ({ default: m.LargeAreaChartWidget }))),
       configSchema: {
         type: 'object',
@@ -949,7 +949,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/ConfidenceBandWidget').then(m => ({ default: m.ConfidenceBandWidget }))),
       configSchema: {
         type: 'object',
@@ -977,7 +977,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/VoronoiWidget').then(m => ({ default: m.VoronoiWidget }))),
       configSchema: {
         type: 'object',
@@ -1001,7 +1001,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/HistogramWidget').then(m => ({ default: m.HistogramWidget }))),
       configSchema: {
         type: 'object',
@@ -1026,7 +1026,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/GroupBarChartWidget').then(m => ({ default: m.GroupBarChartWidget }))),
       configSchema: {
         type: 'object',
@@ -1059,7 +1059,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 4, rowSpan: 3 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 8, rowSpan: 5 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/CandlestickWidget').then(m => ({ default: m.CandlestickWidget }))),
       configSchema: {
         type: 'object',
@@ -1090,7 +1090,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 2, rowSpan: 2 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 4, rowSpan: 4 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/WaterLevelPond').then(m => ({ default: m.WaterLevelPond }))),
       configSchema: {
         type: 'object',
@@ -1123,7 +1123,7 @@ export function registerBuiltinWidgets(): void {
       category: 'chart',
       defaultSize: { colSpan: 2, rowSpan: 2 },
       minSize: { colSpan: 2, rowSpan: 2 },
-      maxSize: { colSpan: 4, rowSpan: 4 },
+      maxSize: { colSpan: 99, rowSpan: 99 },
       component: lazy(() => import('./charts/GaugeWidget').then(m => ({ default: m.GaugeWidget }))),
       configSchema: {
         type: 'object',
