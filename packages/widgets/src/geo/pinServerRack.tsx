@@ -1,18 +1,18 @@
-import { SERVER_RACK_LOGO } from './serverRackLogo';
-
 /**
- * 服务器机柜 logo 地图钉：统计卡自定义图标 /presets/icons/server-rack.svg 的
- * 简化版（贝塞尔采样 + 抽稀，657 path 彩色插图原样保留），不可替换为其他图标。
+ * 服务器机柜 logo 地图钉：统计卡自定义图标 /presets/icons/server-rack.svg 原样渲染。
+ * ★ 用 <img> 直接渲染原 SVG 文件而非内联 657 path —— 浏览器栅格化一次，
+ *   拖拽只移动图片（内联 657 path 每帧重渲染会耗尽主线程 → 界面卡死）。
+ * ★ 原图为彩色 logo，color 参数仅作用于阴影（无法染色，保持原样忠实）。
  */
 export function ServerRackLogoPin({ size = 24, color }: { size?: number; color?: string }) {
   return (
-    <svg
+    <img
+      src="/presets/icons/server-rack.svg"
       width={size}
-      height={size * (236.2 / 739.3)}
-      viewBox="0 0 739.3 236.2"
+      height={size * (960 / 540)}
       style={{ display: 'block', filter: color ? `drop-shadow(0 0 4px ${color})` : undefined }}
-    >
-      {SERVER_RACK_LOGO.map((p, i) => <path key={i} d={p.d} fill={p.fill} />)}
-    </svg>
+      draggable={false}
+      alt=""
+    />
   );
 }
