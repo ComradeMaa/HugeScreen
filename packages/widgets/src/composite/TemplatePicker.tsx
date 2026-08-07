@@ -23,6 +23,9 @@ function TemplateThumbnail({ template }: { template: CompositeLayoutTemplate }) 
     // 两列 1/3 变体：3 列网格，a 1 列 + b 2 列（左 1/3）/ a 2 列 + b 1 列（右 1/3）
     '2colLeftThird': { cols: 3, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
     '2colRightThird': { cols: 3, cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
+    // 两行 1/3 变体：1 列，a 1fr + b 2fr（上 1/3）/ a 2fr + b 1fr（下 1/3）
+    '2rowTopThird': { cols: 1, rows: '1fr 2fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
+    '2rowBottomThird': { cols: 1, rows: '2fr 1fr', cells: [{ area: 'a', label: 'A' }, { area: 'b', label: 'B' }] },
   };
 
   const { cols, cells, rows } = areas[template];
